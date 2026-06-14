@@ -6,6 +6,25 @@
 
 > **現状: スキャフォールド段階。** リポジトリには開発基盤(Claude Code 用の rules/agents/skills/hooks)とアプリ骨格、要件定義([docs/design/requirements.md](docs/design/requirements.md))が入っている。下記の機能は MVP として計画しているもので、実装はロードマップの各マイルストーンで進める(未実装は「Roadmap」と明記)。
 
+## クイックスタート(Docker)
+
+開発は Docker(Docker Desktop)で行う。app + ローカル pgvector が立ち上がる。
+
+```bash
+git clone https://github.com/SAS-Sasao/decision-cockpit.git
+cd decision-cockpit
+cp .env.example .env        # 秘密値を設定(.env は gitignore 済み)
+docker compose up --build   # 起動 → http://localhost:3000
+```
+
+```bash
+docker compose up           # 2回目以降(ビルド不要なら)
+docker compose down         # 停止(DB データは volume に残る)
+docker compose down -v      # 停止 + DB データ破棄
+```
+
+> ローカルの `DATABASE_URL` は db コンテナを指す(compose が設定)。WSL から使う場合は Docker Desktop の **Settings → Resources → WSL Integration** で対象ディストロを有効化しておく。詳細は[セットアップ](#セットアップ)と [docs/setup/neon-vercel-setup.md](docs/setup/neon-vercel-setup.md)。
+
 ## 何ができるか(主な機能)
 
 いずれも MVP スコープ。現在はビュー骨格のみで、データ連携は Roadmap で実装する。
