@@ -1,0 +1,19 @@
+{
+  "_comment": "開発時用の MCP サーバ定義。実行時(本番アプリ)の SSoT 取り込みは MCP ではなく、アプリ内コード(GitHub API クライアント / Neon ドライバ)で行う。トークン・接続文字列は .env から ${ENV_VAR} で注入し、ここに実値を書かない。",
+  "mcpServers": {
+    "neon": {
+      "command": "npx",
+      "args": ["-y", "@neondatabase/mcp-server-neon", "start"],
+      "env": {
+        "NEON_API_KEY": "${NEON_API_KEY}"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
