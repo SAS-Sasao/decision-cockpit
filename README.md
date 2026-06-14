@@ -175,7 +175,7 @@ npm run dev            # ローカル起動(http://localhost:3000)
 - `GITHUB_TOKEN` — SSoT 読み取り用(読み取り専用 PAT)
 - `WARROOM_PAT` — ai-war-room への PR 書き戻し用(最小スコープ PAT)
 - `NEON_API_KEY` — Neon 管理 / MCP(開発時)
-- `ANTHROPIC_API_KEY` — Claude Action 用
+- (Claude Action はサブスク認証。GitHub Secret `CLAUDE_CODE_OAUTH_TOKEN` を使用 — ローカル `.env` には不要)
 
 ## ロードマップ
 
