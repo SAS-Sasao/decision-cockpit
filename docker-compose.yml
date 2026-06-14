@@ -1,0 +1,50 @@
+# ローカル開発用 Docker 構成。
+#   - app: Next.js(App Router)を dev モードで起動(ホットリロード)
+#   - db : Postgres + pgvector(ローカル完結。Neon は staging/本番・マイグレーション検証に使う)
+# 使い方:
+#   docker compose up        # 初回はイメージビルド + DB 初期化(pgvector 有効化)
+#   docker compose up --build
+#   docker compose down      # 停止(DB データは volume に残る)
+#   docker compose down -v   # DB データも破棄
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: cockpit
+      POSTGRES_PASSWORD: cockpit
+      POSTGRES_DB: cockpit
+    ports:
+      - "5432:5432"
+    volumes:
+      - cockpit-db-data:/var/lib/postgresql/data
+      # 初回起動時に pgvector 拡張を有効化する(Neon と同等の状態に揃える)
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cockpit -d cockpit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      # ローカル開発はコンテナ内 DB を指す(env_file より優先)。
+      # Neon に切り替えるときはこの行をコメントアウトし、.env の DATABASE_URL を使う。
+      DATABASE_URL: "postgres://cockpit:cockpit@db:5432/cockpit?sslmode=disable"
+    env_file:
+      # .env があれば読み込む(無くても起動できるよう required: false)。秘密値はここから注入。
+      - path: .env
+        required: false
+    volumes:
+      - .:/app
+      - /app/node_modules # ホストの node_modules で上書きしない
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  cockpit-db-data:

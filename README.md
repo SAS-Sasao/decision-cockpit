@@ -40,12 +40,31 @@ flowchart LR
 - **横断の結合キーは「時間軸 + タグ/トピック」**。取込時に slug 化し、シノニム辞書で正準語へ寄せる。
 - **生キャプチャと整理済み知識を分離**。UI が書くのは `capture_inbox` のみ。整理済み知識への還元は Claude Action の PR 経由でのみ行う。
 
+### 開発環境(Docker)
+
+開発は **Docker(Docker Desktop)** で行う。`docker compose` で次の2コンテナを起動する:
+
+- **app** — Next.js(App Router)を dev モードで起動(ホットリロード)
+- **db** — Postgres + **pgvector**(`pgvector/pgvector` イメージ)。**ローカル完結**で、初回起動時に `CREATE EXTENSION vector` を自動実行する
+
+ローカル開発では `DATABASE_URL` がこの **db コンテナ**を指す。**Neon(クラウド)は staging / 本番、およびマイグレーションのブランチ検証に使う**(`.env` の `DATABASE_URL` を Neon に向ければそのまま Neon 開発にも切替可)。本番(Vercel)では従来どおり Neon に接続する。
+
+```bash
+docker compose up --build        # 初回(イメージビルド + DB 初期化)
+# → http://localhost:3000 / DB は localhost:5432(コンテナ内は db:5432)
+docker compose down              # 停止(DB データは volume に残る)
+docker compose down -v           # DB データも破棄
+```
+
+定義ファイル: [`docker-compose.yml`](docker-compose.yml) / [`Dockerfile.dev`](Dockerfile.dev) / [`docker/initdb/01-pgvector.sql`](docker/initdb/01-pgvector.sql)。
+
 ## 技術スタック
 
 | 領域 | 採用 |
 |------|------|
 | フロント/サーバ | Next.js (App Router, TypeScript) on Vercel |
-| DB / 検索 | Neon (Postgres) + pgvector |
+| 開発環境 | Docker(`docker compose`): app + ローカル pgvector コンテナ |
+| DB / 検索 | Neon (Postgres) + pgvector(本番) / ローカルは pgvector コンテナ |
 | 認証 | Neon Auth (ID/パスワード)。認可は自前の `roles` / `user_roles` |
 | 埋め込み | 多言語対応モデルを env で **1 モデルに固定**(日本語品質を優先・要検証) |
 | 同期 | Vercel Cron + GitHub API (pull・読み取り専用) |
@@ -107,18 +126,24 @@ flowchart LR
 > アプリ機能は開発中(スキャフォールド段階)。現時点で動かせるのは Next.js の骨格と `npm run build` まで。
 
 ### 必要なツール
-- Node.js 18+(開発環境では Node 24 で確認)
-- npm
+- **Docker Desktop**(開発の標準。app + ローカル pgvector を起動)
 - gh CLI(GitHub 操作用)
 - Claude Code CLI(設計・実装ループ用)
-- Neon プロジェクト / Vercel アカウント(デプロイ・DB 用)
+- Neon プロジェクト / Vercel アカウント(staging・本番・デプロイ用)
+- (Docker を使わない場合のみ)Node.js 18+ / npm
 
-### 手順
+### 手順(Docker・推奨)
 ```bash
 git clone https://github.com/SAS-Sasao/decision-cockpit.git
 cd decision-cockpit
+cp .env.example .env       # 秘密値を設定(下記。DATABASE_URL はローカル既定で db コンテナを使う)
+docker compose up --build  # app + db(pgvector)を起動 → http://localhost:3000
+```
+
+### 手順(ローカル Node・Docker を使わない場合)
+```bash
 npm install
-cp .env.example .env   # 値を設定(下記)
+cp .env.example .env   # 値を設定(下記)。DATABASE_URL は別途用意した Postgres/Neon を指定
 npm run build          # 骨格のビルド確認
 npm run dev            # ローカル起動(http://localhost:3000)
 ```

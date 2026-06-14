@@ -10,3 +10,7 @@
 - 横断結合は**時間軸(日付)とタグ**をキーにする。
 - 重い処理(取得・解析・埋め込み)はサブエージェント/バッチに分離し、UI は索引済みデータを読む。
 - 拡張は **Hooks > Skills > MCP** の順で軽く積む。
+
+開発環境:
+- 開発は **Docker(`docker compose`)** で行う。app(Next.js dev)+ ローカル pgvector コンテナを起動し、ローカル完結で開発する。
+- ローカルの `DATABASE_URL` は db コンテナを指す。**Neon は staging/本番とマイグレーションのブランチ検証**に使う(env で切替可)。定義: `docker-compose.yml` / `Dockerfile.dev`。

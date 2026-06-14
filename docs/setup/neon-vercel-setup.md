@@ -131,13 +131,26 @@ Vercel ダッシュボード: **https://vercel.com/dashboard**
 
 ---
 
-## 4. ローカルでの動作確認
+## 4. ローカルでの動作確認(Docker・推奨)
+
+開発は **Docker(Docker Desktop)** で行う。app(Next.js dev)+ ローカル pgvector コンテナを起動し、**ローカル完結**で開発できる。Neon は staging/本番、およびマイグレーションのブランチ検証(§1.5)に使う。
 
 ```bash
-cp .env.example .env     # 取得した値を設定(.env は gitignore 済み)
+cp .env.example .env       # 秘密値を設定(.env は gitignore 済み)
+docker compose up --build  # app + db(pgvector)を起動
+# → アプリ: http://localhost:3000 / DB: localhost:5432(コンテナ内は db:5432)
+docker compose down        # 停止(DB データは volume に残る / -v で破棄)
+```
+
+- ローカルの `DATABASE_URL` は既定で db コンテナ(`postgres://cockpit:cockpit@db:5432/cockpit`)を指す(compose が設定)。
+- **Neon に向けて開発したい場合**は、compose の `app.environment.DATABASE_URL` をコメントアウトし、`.env` の `DATABASE_URL` に Neon の接続文字列(§1.3)を入れる。
+- 定義: リポジトリ直下の `docker-compose.yml` / `Dockerfile.dev` / `docker/initdb/01-pgvector.sql`。
+
+### Docker を使わない場合
+```bash
 npm install
 npm run build            # 骨格のビルド確認(exit 0)
-npm run dev              # http://localhost:3000
+npm run dev              # http://localhost:3000(DATABASE_URL は別途用意)
 ```
 
 ---
