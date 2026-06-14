@@ -1,0 +1,73 @@
+name: daily-organize
+
+# 朝/昼/夜/深夜の4スロットで capture_inbox を整理し、ai-war-room へ PR で書き戻す(雛形)。
+# 既定では実行しない。有効化はリポジトリ変数 ENABLE_DAILY_ORGANIZE=true を設定する。
+on:
+  schedule:
+    - cron: "0 22 * * *" # 07:00 JST (morning)
+    - cron: "0 3 * * *" # 12:00 JST (noon)
+    - cron: "0 10 * * *" # 19:00 JST (evening)
+    - cron: "0 15 * * *" # 24:00 JST (midnight)
+  workflow_dispatch:
+    inputs:
+      slot_override:
+        description: "手動実行時のスロット (morning/noon/evening/midnight)"
+        required: false
+        default: "manual"
+
+concurrency:
+  group: daily-organize
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  organize:
+    if: ${{ vars.ENABLE_DAILY_ORGANIZE == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine slot from current UTC hour
+        id: slot
+        run: |
+          h="$(date -u +%H)"
+          case "$h" in
+            22) slot=morning ;;
+            03) slot=noon ;;
+            10) slot=evening ;;
+            15) slot=midnight ;;
+            *)  slot="${{ github.event.inputs.slot_override || 'manual' }}" ;;
+          esac
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+          echo "Resolved slot: $slot (UTC hour=$h)"
+
+      - name: Checkout ai-war-room (書き戻し先 / 最小スコープ PAT)
+        uses: actions/checkout@v4
+        with:
+          repository: SAS-Sasao/ai-war-room
+          token: ${{ secrets.WARROOM_PAT }}
+          path: ai-war-room
+
+      - name: Organize capture_inbox and open PR
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            あなたは「${{ steps.slot.outputs.slot }}」スロットの整理担当です。
+            目的: capture_inbox の processed_at IS NULL の行を読み、ai-war-room の
+            docs/logs / docs/decisions に Markdown を生成して PR を作成する。完了した
+            capture 行の processed_at と curated_ref を更新する。
+
+            【禁止事項(厳守)】
+            - 許可パス(ai-war-room/docs/logs, ai-war-room/docs/decisions)以外への書き込み禁止。
+            - ファイル削除禁止。main への直接 push 禁止(必ず PR 経由)。
+            - profile.md / minefield.md など機微ファイルへのアクセス・参照禁止。
+            - 秘密情報(トークン / 接続文字列)を生成物に書かない。
+
+            【受け入れ条件(機械判定)】
+            - 変更ファイルはすべて許可パス配下のみ。
+            - 生成した各 MD に必須 frontmatter(date, slot, source, tags, kind)がある。
+            - 消費した capture 行数 = processed_at を更新した行数(冪等・取りこぼしなし)。
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          WARROOM_PAT: ${{ secrets.WARROOM_PAT }}
