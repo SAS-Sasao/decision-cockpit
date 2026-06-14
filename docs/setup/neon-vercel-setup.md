@@ -14,7 +14,7 @@
 | Neon アカウント | DB(Postgres + pgvector)・認証(Neon Auth) | https://neon.tech |
 | Vercel アカウント | アプリのホスティング・Cron | https://vercel.com |
 | 埋め込み API キー | ベクトル検索(多言語1モデルに固定) | 選定後に各社コンソール(research-spike で検証) |
-| Anthropic API キー | 自動整理(Claude Action) | https://console.anthropic.com |
+| Claude サブスク OAuth トークン | 自動整理(Claude Action) | ローカルで `claude setup-token`(要 Claude Pro/Max) |
 | GitHub PAT × 2 | SSoT 読み取り用 / ai-war-room PR 書き戻し用 | GitHub Settings → Developer settings |
 | ローカルツール | 開発 | Node.js 18+ / npm / gh CLI |
 
@@ -92,7 +92,6 @@ Vercel ダッシュボード: **https://vercel.com/dashboard**
 | `GITHUB_TOKEN` | SSoT 読み取り用 PAT(読み取り専用) |
 | `WARROOM_PAT` | ai-war-room への PR 書き戻し用 PAT(最小スコープ) |
 | `NEON_API_KEY` | Neon API キー(§1.7) |
-| `ANTHROPIC_API_KEY` | Anthropic コンソール |
 | (Neon Auth のキー) | Neon Auth 画面(§1.6)で表示された名称のまま |
 
 > 一覧と説明は [`.env.example`](../../.env.example) と同じ。**実値は Vercel の画面に入力するだけで、リポジトリには書かない。**
@@ -122,7 +121,7 @@ Vercel ダッシュボード: **https://vercel.com/dashboard**
 1. GitHub の対象リポジトリ → **Settings** → **Secrets and variables** → **Actions**。
 2. **New repository secret** で登録:
    - `WARROOM_PAT`（ai-war-room へ PR を作る最小スコープの PAT）
-   - `ANTHROPIC_API_KEY`
+   - `CLAUDE_CODE_OAUTH_TOKEN`（サブスク認証トークン。ローカルで `claude setup-token` を実行して生成）
    - `DATABASE_URL`
 
 ### 3.2 有効化フラグ(Variables)

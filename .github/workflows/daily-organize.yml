@@ -51,7 +51,8 @@ jobs:
       - name: Organize capture_inbox and open PR
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # サブスク(Claude Pro/Max)認証。API キーは使わない。
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             あなたは「${{ steps.slot.outputs.slot }}」スロットの整理担当です。
             目的: capture_inbox の processed_at IS NULL の行を読み、ai-war-room の
