@@ -16,8 +16,11 @@ const tabs = [
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // suppressHydrationWarning: NeonAuthUIProvider のテーマ処理がクライアントで
+  // <html> に className("light" 等)を付与するため、初回ハイドレーション時の
+  // 属性差分警告を抑止する(この要素の属性のみ・子には波及しない)
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
       <body style={{ fontFamily: "system-ui, sans-serif", margin: 0 }}>
         <nav
           style={{
