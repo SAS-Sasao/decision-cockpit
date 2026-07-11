@@ -106,3 +106,10 @@
 2. 条件8の「SSoT repo 名ゼロ」ゲートは M0 スコープ限定。M1 の ingestion 実装では repo 名が lib/ に正当に出現するため、M1 設計でゲートを再定義すること。
 3. matcher の `_next/static` 等は境界なし前方一致(Next.js 標準 idiom・二層防御で被覆)。
 4. M0-A の「主セッション(スクリプト・ルール更新)」実施は黄金ルール4 に対する意図的な例外(軽微な成果物のため)。判定役の分離(acceptance-judge 独立検証)は維持する。
+
+### 詳細設計への PASS 後修正(2026-07-11・M0-B 実装時)
+`@neondatabase/auth`(0.4.2-beta)の peer 依存が **Next >= 16** であることがインストール時に判明(設計時のドキュメント調査では不可視)。ユーザー承認の上で以下を修正:
+- Next.js を 14.2 → **16.x** にアップグレード(React 18.3 は peer 範囲内で据え置き)。
+- Next 16 の改名に伴い **middleware.ts → proxy.ts**(§2.1 / §3 / §4-5 / §5 成果物)。
+- クライアント UI の import を実装時確認で確定: `AuthView` / `NeonAuthUIProvider` = `@neondatabase/auth/react`、CSS = `@neondatabase/auth/ui/css`(§0 に追記)。
+機械判定の等価性: 条件5のファイルリストの名称変更のみで判定構造は不変。設計レビューの PASS 判定を覆す性質の変更ではない(認証契約・二層防御・スキャン契約は不変)。
