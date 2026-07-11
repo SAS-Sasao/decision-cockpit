@@ -12,8 +12,10 @@
 
 | 項目 | 確定値 |
 |---|---|
-| SDK パッケージ | `@neondatabase/auth` |
+| SDK パッケージ | `@neondatabase/auth`(0.4.2-beta。**peer 依存 = Next >= 16**) |
+| Next.js バージョン | **16.x へアップグレード**(2026-07-11 実装時修正・ユーザー承認済み: SDK の peer 依存が Next >=16 のため 14.2 から更新。React 18.3 は peer 範囲内でそのまま)。**Next 16 では middleware.ts が `proxy.ts` に改名**されており、本書の該当箇所も proxy.ts に更新済み |
 | サーバ初期化 | `createNeonAuth({ baseUrl, cookies: { secret } })`(import 元 = `@neondatabase/auth/next/server`。`lib/auth/server.ts` に配置) |
+| クライアント UI import(実装時確認・確定) | `AuthView` / `NeonAuthUIProvider` = `@neondatabase/auth/react`。スタイル = `@neondatabase/auth/ui/css`(インストール済みパッケージの exports で確認) |
 | env 変数(2種) | `NEON_AUTH_BASE_URL`(コンソール表示の Auth サーバ URL)/ `NEON_AUTH_COOKIE_SECRET`(32文字以上・HMAC-SHA256 用) |
 | 認証ハンドラルート | `app/api/auth/[...path]/route.ts` — `export const { GET, POST } = auth.handler()` |
 | セッション取得 | `auth.getSession()` → `{ data: Session \| null, error: Error \| null }`。利用する Server Component は `dynamic = 'force-dynamic'` 必須(注: getSession は cookie 依存のため実行時も動的レンダリングに落ちるが、明示指定を規約とする) |
@@ -146,7 +148,7 @@ DROP EXTENSION IF EXISTS vector;   -- M0 時点では vector 列が存在しな�
 | `lib/auth/user.ts` | `getUser(): Promise<AuthUser \| null>` | `auth.getSession()` を呼び `data?.user` を `AuthUser { id: string; email: string \| null; name: string \| null }` に正規化。**`error` 非 null 時は console.error して `null` を返す(fail-closed = 未認証扱い)** |
 | `lib/auth/user.ts` | `requireUser(): Promise<AuthUser>` | `getUser()` が null なら `redirect('/login')`(next/navigation)。非 null ならそのまま返す |
 | `app/api/auth/[...path]/route.ts` | `GET, POST` | `auth.handler()` の再エクスポートのみ(ロジックを書かない) |
-| `middleware.ts` | default / `config` | `auth.middleware({ loginUrl: '/login' })`。matcher = `"/((?!api/auth(?:/|$)|login(?:/|$)|_next/static|_next/image|favicon\\.ico).*)"` — **除外はパス境界付き**(`/api/authx` や `/loginx` は保護対象のまま)。`/login` を明示除外し SDK 内部実装に依存しない |
+| `proxy.ts`(Next 16。旧 middleware.ts) | default / `config` | `auth.middleware({ loginUrl: '/login' })`。matcher = `"/((?!api/auth(?:/|$)|login(?:/|$)|_next/static|_next/image|favicon\\.ico).*)"` — **除外はパス境界付き**(`/api/authx` や `/loginx` は保護対象のまま)。`/login` を明示除外し SDK 内部実装に依存しない |
 | `app/login/page.tsx` | ページ | SDK 付属 AuthView(sign-in)。成功後 `/` へ |
 | `app/logout/actions.ts` | `signOutAction()` | `await auth.signOut()` → `redirect('/login')`(配置確定 — §0) |
 
@@ -185,7 +187,7 @@ NEON_AUTH_COOKIE_SECRET=__set_me_32chars_min__
 | テストファイル | 観点 | ケース |
 |---|---|---|
 | `tests/auth-user.test.ts` | ユニット(getUser/requireUser) | (a) セッションなし → getUser=null / requireUser が redirect('/login') を throw、(b) セッションあり → AuthUser 正規化(id/email/name)、(c) getSession が error を返す → null(fail-closed) |
-| `tests/middleware.test.ts` | 契約(matcher) | config.matcher の正規表現に対し **保護**: `/` `/search` `/review` `/api/authx` `/loginx`、**素通し**: `/api/auth/session` `/login` `/_next/static/x` `/favicon.ico`。loginUrl オプションの指定値(`/login`)も assert |
+| `tests/proxy.test.ts` | 契約(matcher) | proxy.ts の config.matcher の正規表現に対し **保護**: `/` `/search` `/review` `/api/authx` `/loginx`、**素通し**: `/api/auth/session` `/login` `/_next/static/x` `/favicon.ico`。loginUrl オプションの指定値(`/login`)も assert |
 | `tests/check-no-secrets.test.ts` | 契約(スクリプト) | **OS の一時ディレクトリ(リポジトリ外)**に `git init` した匿名 fixture で: (a) クリーン → exit 0、(b) 実値形式(接頭辞+英数字を**テスト内で文字列連結して生成**し、リテラルを残さない)を仕込む → exit 1、(c) `.env.example` 相当ファイルに仕込んでも検知 → exit 1、(d) gitignore 済みファイルに仕込んだ場合は非検知 → exit 0 |
 | `tests/capture-contract.test.ts`(任意) | 契約(DDL 静的) | up.sql に kind 4語彙の CHECK・partial index・seed の ON CONFLICT が含まれることを文字列検査(DB 不要) |
 
@@ -215,14 +217,14 @@ NEON_AUTH_COOKIE_SECRET=__set_me_32chars_min__
 5. **認証統合の実装物**(exit 0):
    ```bash
    set -e
-   for p in app/login/page.tsx "app/api/auth/[...path]/route.ts" app/logout/actions.ts middleware.ts lib/auth/server.ts lib/auth/user.ts; do
+   for p in app/login/page.tsx "app/api/auth/[...path]/route.ts" app/logout/actions.ts proxy.ts lib/auth/server.ts lib/auth/user.ts; do
      test -e "$p"; done
    NEON_AUTH_BASE_URL=http://localhost:9 \
    NEON_AUTH_COOKIE_SECRET=00000000000000000000000000000000 \
    npm run build
    ```
    (ビルドはダミー env で通ること = 実値・実通信なしでビルド可能な実装であること)
-6. **テスト緑**: `npm test` が exit 0。§3 の必須ケース(auth-user / middleware / check-no-secrets)のテストファイルが存在する(`test -f` で判定)。
+6. **テスト緑**: `npm test` が exit 0。§3 の必須ケース(auth-user / proxy / check-no-secrets)のテストファイルが存在する(`test -f` で判定)。
 7. **秘密実値ゼロ**: `bash scripts/check-no-secrets.sh` が exit 0(契約は §2.3)。
 8. **禁止事項**(集計型 — `set -e`+`! grep` 連鎖は bash 仕様で偽 PASS するため使わない):
    ```bash
@@ -256,7 +258,7 @@ NEON_AUTH_COOKIE_SECRET=__set_me_32chars_min__
 ### /goal M0-B「Neon Auth 統合」(M0-A 後)
 - **対象設計**: docs/design/detail/auth-foundation.md(本書。/goal 発行時にこの行を転記する)。
 - **達成状態**: 受け入れ条件 **5, 6, 10** がすべて exit 0(+ 7 を再実行して緑)。
-- **成果物**: `@neondatabase/auth` 導入 / `lib/auth/{server,user}.ts` / `middleware.ts` / `app/api/auth/[...path]/route.ts` / `app/login/page.tsx` / `app/logout/actions.ts` / `.env.example` 追記 / vitest 導入 + §3 のテスト。
+- **成果物**: Next 16 アップグレード(package.json)/ `@neondatabase/auth` 導入 / `lib/auth/{server,user}.ts` / `proxy.ts` / `app/api/auth/[...path]/route.ts` / `app/login/page.tsx` / `app/logout/actions.ts` / `.env.example` 追記 / vitest 導入 + §3 のテスト。
 - **executor**: backend-engineer(認証モジュール)+ frontend-engineer(/login・サインアウト UI)。
 - **ターン上限**: 30。超過時は停止して報告。
 - **節目 commit**: (a) SDK 導入 + ビルド緑(条件5)、(b) テスト整備 + 全緑(条件6)。

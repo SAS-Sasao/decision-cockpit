@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+// Neon Auth SDK 付属 UI(AuthView 等)のスタイル。app/login で使用するためグローバル import する。
+// 対象設計: docs/design/detail/auth-foundation.md §2.1
+import "@neondatabase/auth/ui/css";
 
 export const metadata = {
   title: "Decision Cockpit",
