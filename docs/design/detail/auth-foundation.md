@@ -150,6 +150,7 @@ DROP EXTENSION IF EXISTS vector;   -- M0 時点では vector 列が存在しな�
 | `app/api/auth/[...path]/route.ts` | `GET, POST` | `auth.handler()` の再エクスポートのみ(ロジックを書かない) |
 | `proxy.ts`(Next 16。旧 middleware.ts) | default / `config` | `auth.middleware({ loginUrl: '/login' })`。matcher = `"/((?!api/auth(?:/|$)|login(?:/|$)|_next/static|_next/image|favicon\\.ico).*)"` — **除外はパス境界付き**(`/api/authx` や `/loginx` は保護対象のまま)。`/login` を明示除外し SDK 内部実装に依存しない |
 | `app/login/page.tsx` | ページ | SDK 付属 AuthView(sign-in)。成功後 `/` へ |
+| `app/auth/[pathname]/page.tsx` | ページ(実装時追加) | AuthView(sign-in)内のリンクが指す SDK 標準ビュー(`/auth/sign-up`・`/auth/forgot-password` 等)の受け口。SDK middleware は `/auth` 配下を内部で素通しする |
 | `app/logout/actions.ts` | `signOutAction()` | `await auth.signOut()` → `redirect('/login')`(配置確定 — §0) |
 
 - **二層防御(基本設計 §3.2 の契約の実装形)**: 保護が必要な Server Component / Server Action / Route Handler は middleware の有無に関わらず冒頭で `requireUser()`(または `getUser()` + 明示分岐)を呼ぶ。`auth.getSession()` を使うページは `export const dynamic = 'force-dynamic'` を明示する。
