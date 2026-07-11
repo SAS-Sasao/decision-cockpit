@@ -1,6 +1,6 @@
 # design-review: auth-foundation(M0 認証・ユーザー管理土台)
 
-対象: docs/design/basic/auth-foundation.md
+対象: docs/design/basic/auth-foundation.md(基本設計 Round 1–2)/ docs/design/detail/auth-foundation.md(詳細設計 Round 1–2)
 
 ---
 
@@ -73,3 +73,36 @@
 5. **[data Note] 自己マッチ回避の運用規約** — ドキュメントに秘密の実値形式ダミー(例: npg_ + 英数字)を書かない。書けば検知される(望ましい挙動)。
 6. **[arch Low] capture.md 追随更新(スコープ項目6)の機械判定がない** — `.claude/rules/capture.md` の `user_id` 出現 grep を /goal の受け入れ条件に追加するか、/goal 対象外として別管理かを detailed-design で確定。
 7. **[sec Low] 手動設定パスワード(非 `npg_`)の Neon URL は非捕捉** — 運用上発生させない前提(パスワードは Neon 発行のみ使用)。記録として残す。
+
+---
+
+# 詳細設計(docs/design/detail/auth-foundation.md)
+
+## Round 1 — 2026-07-11
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | 受け入れ条件8が `set -e` + `! grep` の bash 仕様(errexit は `!` 反転コマンドの失敗を無視)により**違反があっても偽 PASS** し得る構造。他 Med 1(matcher の /login 除外なし・SDK 内部仕様依存)・Low 5 |
+| data | **FAIL** | 同じく条件8の偽 PASS を独立に特定(申し送り#3 の exit 2 マスクは解消したが別経路のマスクを導入)。DDL 本体は実照合で全パターン一致を確認し健全。他 Low 4 |
+| sec | **PASS** | git ls-files 方式の実効性を実測確認(.env.example 走査対象・.env/.next 除外・自己マッチなし)。Med 1(一般則1が既存クラスの形式後日確定を捕捉しない)・Low 4 |
+
+**総合: FAIL** → rev.2 で反映。主な設計更新: 条件8を**集計型**(grep の exit code を明示採取、1=正常 / 0 と ≥2 を fail)に再定義 / matcher を境界付き(`api/auth(?:/|$)`・`login(?:/|$)`)にし /login を明示除外 / 一般則1を「既存クラスの実値形式の確定」まで拡張 / 規約2の適用範囲を接頭辞型に限定・形式なしクラスのダミー許容を明文化 / サインアウト配置を app/logout/actions.ts に確定・条件5に追加 / 条件3を test 包みで exit code 化 / 条件1に語境界 \b / [-f] フィルタ / テスト一時ディレクトリはリポジトリ外を明示 / 両 /goal に対象設計行を追加。
+
+## Round 2 — 2026-07-11(rev.2 を再レビュー)
+
+| レンズ | 判定 | 要点 |
+|---|---|---|
+| arch | **PASS** | High(条件8)は全分岐トレースで偽 PASS 排除を確認。Med/Low 5 件すべて解消。基本設計の8条件は詳細側で同等以上に強化(弱体化なし)。goals.md テンプレ適合 |
+| data | **PASS** | 条件8を現リポジトリで実測(クリーン → exit 0)+ 全分岐検証(違反=exit 1 / grep エラー=fail)。DDL 退行なし。条件1の \b 有効性確認 |
+| sec | **PASS** | 一般則1の拡張・matcher 境界・[-f] フィルタ・一時ディレクトリ明示すべて解消。集計型のゲート性質(違反ヒットで必ず非ゼロ exit)回復を確認。機微データ・SSoT 非接触の退行なし |
+
+**総合: PASS(全レンズ)— /goal M0-A から実装へ進んでよい。**
+
+### Round 2 で決着した文言矛盾(data Low)
+基本設計 §1-6 の「M5 の processed_at IS NULL 消費契約が user_id スコープ前提」という括弧書きと、詳細設計の「全ユーザー一括消費(created_at 順)」決着の間の矛盾 → **詳細設計 §0 問い#6 で明確化**: 「user_id スコープ」= 行の所有(帰属)であり消費単位ではない。capture.md 更新文言も同項で確定(基本設計の当該表現を詳細設計が明確化・上書き)。
+
+### 実装への非ブロッキング申し送り(Info)
+1. §4-8 スニペットは `set -e` 継承環境では偽 FAIL 方向に壊れる(安全側)。各条件は個別 exit code で判定する前提を維持すること。
+2. 条件8の「SSoT repo 名ゼロ」ゲートは M0 スコープ限定。M1 の ingestion 実装では repo 名が lib/ に正当に出現するため、M1 設計でゲートを再定義すること。
+3. matcher の `_next/static` 等は境界なし前方一致(Next.js 標準 idiom・二層防御で被覆)。
+4. M0-A の「主セッション(スクリプト・ルール更新)」実施は黄金ルール4 に対する意図的な例外(軽微な成果物のため)。判定役の分離(acceptance-judge 独立検証)は維持する。
