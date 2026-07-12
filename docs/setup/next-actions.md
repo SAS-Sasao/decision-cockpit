@@ -28,7 +28,8 @@
 画面イメージ(7画面 + 壁打ちオーバーレイ)を整理済み: **[docs/design/ui/screen-design.md](../design/ui/screen-design.md)**
 (出典 = claude.ai/design「Decision cockpit デザイン MoC」。ギャップ分析 §7 まで記載済み)。
 
-- [ ] **次の設計トピック**: `/basic-design ui-shell`(推奨・意匠の一括引き上げ)または M2(検索)。ui-shell: — サイドバー + トップバー + ダークテーマ(デザイントークン)+ SC-02 概観ダッシュボード + ルート再編(/knowledge・/retro・/today)を独立トピックとして設計 → review → /goal(M1-C は最小のまま先に完了させ、意匠の引き上げを一括で行う)
+- [ ] **次の設計トピック**: `/basic-design ui-shell`(推奨・意匠の一括引き上げ)または M2(検索)の設計へ。
+  - ui-shell の内容: サイドバー + トップバー + ダークテーマ(デザイントークン)+ SC-02 概観ダッシュボード + ルート再編(/knowledge・/retro・/today)。設計 → review → /goal の正道で(機能は M1 完了済みなので意匠を一括で引き上げる)
 - [ ] SC-07 ユーザー管理 UI は M4 前後で(M0 未解決の問い#1 の決着候補)
 - ⚠️ 実装時の読み替え(screen-design.md §7.2): 4シグナルのラベルは**実データ準拠**(MoC の「効率・Git規律」ではなく 完了率/成果物あり率/過剰編集率/リトライ率)/ judge スケールは 0-1 / M1-C のルートは PASS 済み設計どおり /review
 
