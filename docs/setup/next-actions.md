@@ -1,13 +1,12 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-12 終了時点**。
-> **M0 完了**(認証・ユーザー管理土台。本番マイグレーション 0001 適用済み・実機確認済み)。
-> **M1(取り込み基盤 + 振り返り)は設計完了**: 基本設計・詳細設計とも design-review 全レンズ PASS
-> (記録: docs/design/reviews/ingestion-foundation.md)。**実装は未着手 — /goal M1-A から**。
+> 状態スナップショット: **2026-07-12 M1 実装完了時点**。
+> **M0 完了** / **M1 完了**(M1-A/B/C とも acceptance-judge 独立検証 PASS・main へマージ済み。テスト98件緑)。
+> ローカルは fixture 同期で /review の実スコア表示まで動作確認済み。**実データの初回同期と 0002 本番適用が未**。
 > **秘密情報(接続文字列・トークン・パスワード)は本ファイルに実値を書かない。**
 >
-> **▶ 次セッションの再開手順(一本道)**: `/goal M1-A` → `/goal M1-B` → `/goal M1-C`(機能)
-> → `/basic-design ui-shell`(意匠 — 画面 MoC 準拠のシェル/概観/ルート再編)。
+> **▶ 次セッションの再開手順**: ①下記「M1 仕上げの手動アクション」→ ② `/basic-design ui-shell`(意匠)
+> または M2(検索)の設計へ。
 
 ---
 
@@ -17,30 +16,19 @@
   - Neon コンソール → 対象プロジェクト → **Connect** → **Reset password** → `.env` の `DATABASE_URL` を差し替え(Vercel / GitHub Secrets 登録済みならそちらも)。
 - [ ] **M0 手動確認の残り1点**(30秒): ブラウザ F12 → Application → Cookies → `localhost:3000` を全削除 → リロード → `/login` に戻れば M0 の手動確認オールクリア。
 
-## 🟢 M1 実装(次のセッションの本線)
+## 🟢 M1 仕上げの手動アクション(実装は完了済み)
 
-設計は PASS 済みなのですぐ着手可能。**`/goal M1-A` と入力するだけ**(対象設計 = docs/design/detail/ingestion-foundation.md §5)。
-
-| 順序 | /goal | 内容 | 達成状態(受け入れ条件) | ターン上限 |
-|---|---|---|---|---|
-| 1 | **M1-A**「スキーマ + パーサ」 | 0002 マイグレーション / パーサ5本 + normalize / fixtures(匿名)/ ルール・要件追随 | 条件 1, 2, 3(パーサ/normalize/tag-vocab 分), 7, 9-A, 11 | 30 |
-| 2 | **M1-B**「同期 API + 認証境界統合」 | SourceAdapter / run-sync(進行カーソル)/ /api/sync / proxy 拡張 / sync-local.ts | 条件 4, 5, 8, 9-B + 条件3(run-sync/api-sync/proxy 分) | 30 |
-| 3 | **M1-C**「振り返りビュー」 | lib/data/review.ts / app/review 差し替え | 条件 6, 10 + 条件3(review-data 分) | 25 |
-
-各 /goal 完了 = acceptance-judge の独立検証 PASS → main マージ(M0 と同じ流れ)。
-
-### M1 実装後の手動アクション(設計 §5 記載)
-
-- [ ] `CRON_SECRET` を生成(`openssl rand -base64 32`)し `.env` / Vercel に設定
-- [ ] 初回フル同期をローカルで実行: `npx tsx scripts/sync-local.ts`(既定 SYNC_MAX_FILES=0)→ `/review` で実データ表示を確認
-- [ ] **0002 の Neon 本番適用を承認**(ブランチ検証 → 承認 → 適用。0001 と同じ流れで Claude が実施可能)
+- [ ] `CRON_SECRET` を生成(`openssl rand -base64 32`)し `.env` に追記(Vercel 展開時はそちらにも)
+- [ ] **初回フル同期(実データ)**: `DATABASE_URL=<ローカルdb or Neon> npx tsx scripts/sync-local.ts`(SYNC_SOURCE 未指定=GitHub・既定 SYNC_MAX_FILES=0)→ http://localhost:3000/review で実スコア表示を確認
+  - github-source の実疎通はここが初(fixture 同期は検証済み)。エラーが出たら Claude に共有
+- [ ] **0002 の Neon 本番適用を承認**(0001 と同じ流れ: ブランチ検証 → 承認 → 適用。Claude が実施可能)
 
 ## 🎨 UI(画面デザイン MoC)対応 — M1 実装完了後
 
 画面イメージ(7画面 + 壁打ちオーバーレイ)を整理済み: **[docs/design/ui/screen-design.md](../design/ui/screen-design.md)**
 (出典 = claude.ai/design「Decision cockpit デザイン MoC」。ギャップ分析 §7 まで記載済み)。
 
-- [ ] **`/basic-design ui-shell`** — サイドバー + トップバー + ダークテーマ(デザイントークン)+ SC-02 概観ダッシュボード + ルート再編(/knowledge・/retro・/today)を独立トピックとして設計 → review → /goal(M1-C は最小のまま先に完了させ、意匠の引き上げを一括で行う)
+- [ ] **次の設計トピック**: `/basic-design ui-shell`(推奨・意匠の一括引き上げ)または M2(検索)。ui-shell: — サイドバー + トップバー + ダークテーマ(デザイントークン)+ SC-02 概観ダッシュボード + ルート再編(/knowledge・/retro・/today)を独立トピックとして設計 → review → /goal(M1-C は最小のまま先に完了させ、意匠の引き上げを一括で行う)
 - [ ] SC-07 ユーザー管理 UI は M4 前後で(M0 未解決の問い#1 の決着候補)
 - ⚠️ 実装時の読み替え(screen-design.md §7.2): 4シグナルのラベルは**実データ準拠**(MoC の「効率・Git規律」ではなく 完了率/成果物あり率/過剰編集率/リトライ率)/ judge スケールは 0-1 / M1-C のルートは PASS 済み設計どおり /review
 
@@ -67,7 +55,8 @@
 - **M0 完了**: 設計2段階(全レンズ PASS)→ /goal M0-A・M0-B(acceptance-judge PASS)→ Neon Auth 実機ログイン確認・admin 付与(2ユーザー)・0001 本番適用
 - `GITHUB_TOKEN` 設定・検証済み(認証 5,000回/h・両 SSoT 読み取り OK。スコープはユーザー許容済み)
 - SSoT 実スキーマ調査(docs/research/m1-ssot-schema.md — `.companies/<org>/` 構造・frontmatter 不在・複数レコードファイル等を確定)
-- **M1 設計完了**: 基本設計(3ラウンド)・詳細設計(3ラウンド)とも全レンズ PASS。レビューが livelock・削除ファイルでのカーソル停止・サニタイズ迂回等を実装前に捕捉(記録: docs/design/reviews/ingestion-foundation.md)
+- **M1 設計完了**: 基本/詳細とも全レンズ PASS(livelock・削除カーソル停止・サニタイズ迂回を実装前に捕捉)
+- **M1 実装完了**(2026-07-12): /goal M1-A(0002+パーサ5本+fixtures)・M1-B(SourceAdapter+run-sync+/api/sync+proxy 統合。冪等/認可は実地再現済み)・M1-C(/review 実スコア集計)— いずれも judge PASS。テスト98件・ビルド緑
 
 ## 関連ドキュメント
 
