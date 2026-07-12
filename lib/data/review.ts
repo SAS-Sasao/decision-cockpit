@@ -111,8 +111,12 @@ function truncateToUtcDate(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-/** 直近8週(月曜起点・古→新)のバケット境界を作る。境界は [start, end) の半開区間。 */
-function weekBucketBoundaries(now: Date): { start: Date; end: Date }[] {
+/**
+ * 直近 `weeks` 週(月曜起点・古→新)のバケット境界を作る。境界は [start, end) の半開区間。
+ * 末尾バケットは now を含む進行中の部分週(週の途中でも end は次週月曜 00:00Z に固定)。
+ * ui-shell(overview.ts)と review.ts の双方から共有するため export + パラメータ化。
+ */
+export function weekBucketBoundaries(now: Date, weeks: number): { start: Date; end: Date }[] {
   const today = truncateToUtcDate(now);
   const dayOfWeek = today.getUTCDay(); // 0=Sun .. 6=Sat
   const diffToMonday = (dayOfWeek + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
@@ -120,7 +124,7 @@ function weekBucketBoundaries(now: Date): { start: Date; end: Date }[] {
   startOfThisWeek.setUTCDate(startOfThisWeek.getUTCDate() - diffToMonday);
 
   const boundaries: { start: Date; end: Date }[] = [];
-  for (let i = 7; i >= 0; i--) {
+  for (let i = weeks - 1; i >= 0; i--) {
     const start = new Date(startOfThisWeek);
     start.setUTCDate(start.getUTCDate() - i * 7);
     const end = new Date(start);
@@ -204,7 +208,7 @@ function buildBucket(rows: ReviewRow[], start: Date, end: Date): Bucket {
  */
 export function aggregateReview(rows: ReviewRow[], granularity: Granularity, now: Date): ReviewData {
   const okRows = rows.filter((r) => r.status === "ok");
-  const boundaries = granularity === "week" ? weekBucketBoundaries(now) : monthBucketBoundaries(now);
+  const boundaries = granularity === "week" ? weekBucketBoundaries(now, 8) : monthBucketBoundaries(now);
 
   const buckets = boundaries.map(({ start, end }) => {
     const bucketRows = okRows.filter((r) => r.occurred_at >= start && r.occurred_at < end);
