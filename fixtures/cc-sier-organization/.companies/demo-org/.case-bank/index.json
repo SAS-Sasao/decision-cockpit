@@ -1,0 +1,71 @@
+{
+  "org_slug": "demo-org",
+  "updated_at": "2026-06-01T00:00:00+09:00",
+  "case_count": 3,
+  "cases": [
+    {
+      "id": "20260601-090000-demo-case-ok",
+      "state": {
+        "request_keywords": ["デモ", "キーワード"],
+        "request_head": "デモ用のリクエスト要約テキスト",
+        "org_slug": "demo-org"
+      },
+      "action": {
+        "subagent": "demo-agent",
+        "mode": "subagent",
+        "artifact_count": 1
+      },
+      "reward": 0.85,
+      "judge": {
+        "completeness": 0.8,
+        "accuracy": 0.9,
+        "clarity": 1.0,
+        "total": 0.9,
+        "failure_reason": "",
+        "judge_comment": ""
+      },
+      "outcome": {
+        "files_written": [".companies/demo-org/docs/example-output.md"],
+        "started": "2026-06-01T09:00:00"
+      }
+    },
+    {
+      "id": "20260602-100000-demo-case-sparse",
+      "state": {
+        "request_keywords": [],
+        "request_head": "スパースなケースのテスト",
+        "org_slug": "demo-org"
+      },
+      "action": {
+        "subagent": "",
+        "mode": "direct",
+        "artifact_count": 0
+      },
+      "reward": null,
+      "judge": null,
+      "outcome": {
+        "files_written": [],
+        "started": "2026-06-02T10:00:00"
+      }
+    },
+    {
+      "id": "demo-case-no-date",
+      "state": {
+        "request_keywords": ["日付なし"],
+        "request_head": "started と id の両方に日時が無いケース",
+        "org_slug": "demo-org"
+      },
+      "action": {
+        "subagent": "demo-agent",
+        "mode": "direct",
+        "artifact_count": 0
+      },
+      "reward": null,
+      "judge": null,
+      "outcome": {
+        "files_written": [],
+        "started": ""
+      }
+    }
+  ]
+}

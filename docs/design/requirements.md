@@ -67,14 +67,14 @@
 
 ### 5.1 データソースの実体(2026-06-14 反映)
 
-cc-sier(定量): `.task-log/`(YAML・報酬スコア4シグナル/Git), `.case-bank/`(JSON・スコア推移/LLM-as-Judge 3軸 ※2026-06-14公開), `.quality-gate-log/`(合否 ※公開), `.session-summaries/`(統計 ※公開), `.conversation-log/`(MD・マスク済 ※公開), `board.md`, WBS, `masters/`(すべてGit)。対象外: `.interaction-log/`・`.active`・`agent-memory/`。
+cc-sier(定量): **データは `.companies/<org>/` 配下に組織単位で配置**(2026-07-12 実構造反映 — docs/research/m1-ssot-schema.md)。各 org 配下に `.task-log/`(MD+YAML frontmatter・報酬スコア4シグナル/Git), `.case-bank/`(JSON・`index.json` 1ファイルに cases 配列/LLM-as-Judge 3軸), `.quality-gate-log/`(JSONL・合否), `.session-summaries/`(統計), `.conversation-log/`(MD・マスク済), `docs/`(board.md, WBS), `masters/`(すべてGit)。対象外: `.interaction-log/`・`.active`・`agent-memory/`・機微候補(`*profile*`/`*personality*` 等)。
 
 ai-war-room(定性): `docs/decisions/`・`docs/logs/`・`docs/templates/`(Git)。対象外: `profile.md`・`minefield.md`(gitignore)。
 
 ### 5.2 データモデル
 
 共有データ(全ユーザー共通・user_id を持たない):
-- `timeline_records`: id / source / type(task/quality/score/session/conversation/decision/daily_log) / occurred_at / org / topic / tags[] / title / body / raw_ref / スコア列(reward_score, completeness, accuracy, clarity, quality_gate_result) / embedding(検索対象のみ)
+- `timeline_records`: id / source / type(task/quality/score/session/conversation/decision/daily_log) / occurred_at / org / topic / tags[] / title / body / raw_ref / スコア列(reward_score, signals(報酬4シグナル bool×4・task-log 由来のみ), completeness, accuracy, clarity, quality_gate_result) / embedding(検索対象のみ・M2 で追加)
 - `metric_aggregates`: period / metric / org / value
 - `sync_state`: repo / last_commit / last_synced_at
 - `tag_synonyms`: 正規化シノニム
