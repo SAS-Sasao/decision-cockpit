@@ -5,6 +5,9 @@
 > **M1(取り込み基盤 + 振り返り)は設計完了**: 基本設計・詳細設計とも design-review 全レンズ PASS
 > (記録: docs/design/reviews/ingestion-foundation.md)。**実装は未着手 — /goal M1-A から**。
 > **秘密情報(接続文字列・トークン・パスワード)は本ファイルに実値を書かない。**
+>
+> **▶ 次セッションの再開手順(一本道)**: `/goal M1-A` → `/goal M1-B` → `/goal M1-C`(機能)
+> → `/basic-design ui-shell`(意匠 — 画面 MoC 準拠のシェル/概観/ルート再編)。
 
 ---
 
