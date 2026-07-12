@@ -32,6 +32,15 @@
 - [ ] 初回フル同期をローカルで実行: `npx tsx scripts/sync-local.ts`(既定 SYNC_MAX_FILES=0)→ `/review` で実データ表示を確認
 - [ ] **0002 の Neon 本番適用を承認**(ブランチ検証 → 承認 → 適用。0001 と同じ流れで Claude が実施可能)
 
+## 🎨 UI(画面デザイン MoC)対応 — M1 実装完了後
+
+画面イメージ(7画面 + 壁打ちオーバーレイ)を整理済み: **[docs/design/ui/screen-design.md](../design/ui/screen-design.md)**
+(出典 = claude.ai/design「Decision cockpit デザイン MoC」。ギャップ分析 §7 まで記載済み)。
+
+- [ ] **`/basic-design ui-shell`** — サイドバー + トップバー + ダークテーマ(デザイントークン)+ SC-02 概観ダッシュボード + ルート再編(/knowledge・/retro・/today)を独立トピックとして設計 → review → /goal(M1-C は最小のまま先に完了させ、意匠の引き上げを一括で行う)
+- [ ] SC-07 ユーザー管理 UI は M4 前後で(M0 未解決の問い#1 の決着候補)
+- ⚠️ 実装時の読み替え(screen-design.md §7.2): 4シグナルのラベルは**実データ準拠**(MoC の「効率・Git規律」ではなく 完了率/成果物あり率/過剰編集率/リトライ率)/ judge スケールは 0-1 / M1-C のルートは PASS 済み設計どおり /review
+
 ## ⏳ 後続マイルストーンが来たら(今は不要)
 
 | いつ | やること |
@@ -60,6 +69,7 @@
 ## 関連ドキュメント
 
 - M1 設計: [`../design/basic/ingestion-foundation.md`](../design/basic/ingestion-foundation.md) / [`../design/detail/ingestion-foundation.md`](../design/detail/ingestion-foundation.md)
+- 画面設計(UI MoC): [`../design/ui/screen-design.md`](../design/ui/screen-design.md)
 - レビュー記録: [`../design/reviews/ingestion-foundation.md`](../design/reviews/ingestion-foundation.md)
 - 調査資料: [`../research/m1-ssot-schema.md`](../research/m1-ssot-schema.md)
 - セットアップ手順: [`neon-vercel-setup.md`](./neon-vercel-setup.md) / 要件定義: [`../design/requirements.md`](../design/requirements.md)
