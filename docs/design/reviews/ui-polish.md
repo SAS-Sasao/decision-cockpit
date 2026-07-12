@@ -43,3 +43,40 @@ inbox ピンを全文一致(`WHERE user_id = $1 AND processed_at IS NULL`)に強
 4. **[sec] package-lock 増分判定の実コマンド**は偽 PASS 側がないことを確認して確定(@fontsource を含まない integrity 行が増分に混ざる — 素朴な式は偽 FAIL 側で安全)。
 5. **[sec] 色 props のトークン限定**の型/テストでの担保方式。lib/db.ts の凍結追加(コスト極小)の要否。
 
+---
+
+# 詳細設計(docs/design/detail/ui-polish.md)
+
+## Round 1 — 2026-07-12
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | High 2: **条件5 の high-bad 出現数=2 ピンが基本設計の型注釈 IF と自己矛盾**(忠実な実装ほど偽 FAIL・判定が B 初出で A 成果物を縛る)/ **POLISH-A に build ゲートがなく、A 成果物(layout import・components)が npm test をすり抜けて main が壊れる窓**(ui-shell redirects 事案と同型)。Med 2(条件2 の A 部分の実行形未定義 / layout import 判定の行数計上+部分一致)。Low 4 |
+| data | **PASS(条件付き)** | qgBreakdown 数理・granularity 連動(月バケット同構造)・SQL ピン出現数・FROZEN 被覆・tags 影響ゼロを実地照合で確認。Med 1(high-bad ピンの制約が実装者に未伝達 — arch High-1 と同根)。Low 3(gauge total の導出経路 / FROZEN の間接参照 / layout import 判定) |
+| sec | **FAIL** | Med 2: **`as TokenColor` キャストの抜け道が禁止にも判定にもない**(申し送り#5 の明示要求が未決着)/ **exact pin が否定判定(^/~ のみ)で URL・tag 指定が素通り + lock の resolved 行未検査 → 供給源差し替えの偽 PASS 経路**。Low 3(第3 @fontsource / tsconfig・check-no-secrets.sh の凍結外 / 条件8 の参照ズレ) |
+
+**総合: FAIL(arch/sec)** → rev.2 で決着:
+
+1. **条件5 をキー別固定表記の grep に変更**(satisfies 表記を §2.3 で実装指示 — 型注釈の出現数に非依存)。score.ts 部分は POLISH-A の達成状態に編入。
+2. **POLISH-A に条件8 の build 部分を追加**(main 壊れ窓の封鎖 — ui-shell 教訓の明示適用)+ A 用の条件2/5 部分コマンドを実行形で明記 + buildSegments 移設は B と明記(A では page.tsx 不可侵)。
+3. **`as TokenColor` を禁止事項 + 集計型 grep に追加**(条件2)。
+4. **exact pin を肯定判定に**(数値 semver の出現数 = 2)+ **lock の resolved 行検査**(registry.npmjs.org/@fontsource のみ)+ @fontsource 行数 = 2 の等値ピン(第3パッケージ排除)。
+5. layout import 判定を「行頭 import のみ・厳密等値」に / retro の部品 grep を import パス終端まで固定(部分一致排除)/ 条件1 の OR 除去 / FROZEN_TESTS を本書で展開 / gauge total = recordsByType 由来を明記 / SignalKey は score.ts 自前定義 / tsconfig・scripts/check-no-secrets.sh を凍結に追加 / overview.ts 新規クエリは宣言+レビュー担保(意図的)と明記 / 条件8 の参照を build=§4条件5相当・実機=§4-2 に分離。
+
+## Round 2 — 2026-07-12(rev.2 を再レビュー)
+
+| レンズ | 判定 | 要点 |
+|---|---|---|
+| arch | **PASS(条件付き)** | High 2 / Med 2 / Low 4 全解消(build ゲート編入で main 壊れ窓閉鎖・キー別 grep と satisfies の逐語一致・判定コマンド全分岐トレースで偽 PASS なし・/goal 割付の和集合が全10条件を被覆)。新規 Med 2 は**いずれも偽 FAIL 側**(§2.1 コメントの禁止リテラル転記トラップ / 「1 / 49」と §3 の表記不一致)+ Low 2(template.tsx 判定なし / splitSegments 分担の二義性) |
+| data | **PASS** | Med/Low 全解消を文字単位照合(grep 4本 = satisfies 表記に厳密一致・gauge total の分母恒等・FROZEN 17テスト全被覆・SQL ピン現物一致)。新規 Low 1(反例表記の不一致 — arch と同根)+ Info 2 |
+| sec | **PASS** | Med 2 解消 — as TokenColor grep が `as unknown as` 変形も捕捉・供給源差し替えの3経路(URL/tag 指定・resolved 改変・第3パッケージ)を経路別トレースで閉鎖確認。新規 Low 2(resolved 判定のアンカー / POLISH-A に条件7 なし)+ Info 2 |
+
+**総合: PASS(全レンズ)** — R2 の新規指摘は rev.3 で全て反映:
+コメントから禁止リテラル除去(転記トラップ解消)/ 反例表記を `1 / 49` に一本化 / template.tsx の test -f を条件3 に追加 / splitSegments の A/B 分担を明記(A=chart.ts 新規実装・B=page.tsx 置換+旧削除)/ resolved 判定を行頭形式に固定 / **POLISH-A に条件7 を編入**(ui-shell UI-A の前例どおり)/ 条件1 の test -f 個別化。
+
+### /goal への申し送り(Info・非ブロッキング)
+
+1. `as TokenColor` の空白/括弧変形・`as any` は grep 外(tsc + build + sink 側防御で実害経路は閉 — 能動的偽装のみ)。
+2. lockfile 直書きの第3 @fontsource は機械判定外(信頼境界は @fontsource スコープ内で不変・宣言 + 人間レビュー担保)。
+3. SignalKey は parsers 型と二重定義(凍結で本作業中は一致保証。将来のパーサ語彙変更時の突合は将来設計の課題)。
+
