@@ -71,6 +71,8 @@ Neon コンソール: **https://console.neon.tech**
 
 ## 2. Vercel のセットアップ
 
+> ⚠️ **本節は M0 以前の記述。最新のデプロイ手順は [`vercel-deploy.md`](./vercel-deploy.md) を参照**(M1 完了時点の環境変数一覧・Cron・初回同期の注意を反映済み)。
+
 Vercel ダッシュボード: **https://vercel.com/dashboard**
 
 ### 2.1 サインイン
