@@ -224,6 +224,7 @@ export async function getReviewData(granularity: 'week' | 'month'): Promise<Revi
 ```
 
 - `app/review/page.tsx`: `requireUser()` → 週/月トグル → 集計テーブル(ラベルは §0-1)+ 並置リスト(GitHub 出典リンク)。チャートなし。
+  **注記(ui-shell 拡張)**: 本ページは ui-shell で `app/(shell)/retro/page.tsx`(URL `/retro`)へ移設(ロジック・ラベル・契約は不変。旧 `/review` は 308 redirect — docs/design/detail/ui-shell.md 参照)。
 
 ### 2.6 環境変数(.env.example 追記)
 
