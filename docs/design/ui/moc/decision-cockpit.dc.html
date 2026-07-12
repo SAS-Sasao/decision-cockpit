@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: oklch(0.15 0.012 255);
+    color: oklch(0.93 0.006 255);
+    font-family: "IBM Plex Sans JP", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: oklch(0.78 0.11 195); text-decoration: none; }
+  a:hover { color: oklch(0.85 0.11 195); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: oklch(0.32 0.014 255); border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::selection { background: oklch(0.78 0.11 195 / 0.3); }
+  @keyframes ckfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes ckblink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  @keyframes ckspin { to { transform: rotate(360deg); } }
+  @keyframes cktype { 0% { opacity: 0.3; } 20% { opacity: 1; } 100% { opacity: 0.3; } }
+</style>
+</helmet>
+
+<sc-if value="{{ showLogin }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh; display:grid; grid-template-columns:1.05fr 0.95fr; font-family:'IBM Plex Sans JP',sans-serif;">
+    <div style="display:flex; flex-direction:column; justify-content:center; padding:0 8vw; background:oklch(0.15 0.012 255); position:relative;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:48px;">
+        <div style="width:34px; height:34px; border-radius:9px; background:oklch(0.78 0.11 195); display:flex; align-items:center; justify-content:center; color:oklch(0.16 0.02 255); font-weight:700; font-family:'IBM Plex Mono',monospace; font-size:18px;">◆</div>
+        <div style="font-weight:600; font-size:15px; letter-spacing:0.02em;">decision-cockpit</div>
+      </div>
+      <div style="font-size:34px; font-weight:600; line-height:1.25; letter-spacing:-0.01em; margin-bottom:14px;">統合意思決定<br>コックピット</div>
+      <div style="color:oklch(0.66 0.012 255); font-size:15px; line-height:1.7; max-width:420px; margin-bottom:40px;">組織運用の定量データと個人の判断ログを統合し、データドリブンに意思決定する。</div>
+      <div style="max-width:360px; width:100%;">
+        <label style="display:block; font-size:12px; color:oklch(0.66 0.012 255); margin-bottom:7px; font-family:'IBM Plex Mono',monospace;">USER ID</label>
+        <input value="{{ loginId }}" onInput="{{ onLoginId }}" placeholder="sasao" style="width:100%; background:oklch(0.19 0.013 255); border:1px solid oklch(0.30 0.014 255); color:oklch(0.93 0.006 255); border-radius:9px; padding:12px 14px; font-size:14px; margin-bottom:16px; outline:none; font-family:inherit;">
+        <label style="display:block; font-size:12px; color:oklch(0.66 0.012 255); margin-bottom:7px; font-family:'IBM Plex Mono',monospace;">PASSWORD</label>
+        <input type="password" value="{{ loginPw }}" onInput="{{ onLoginPw }}" placeholder="••••••••" style="width:100%; background:oklch(0.19 0.013 255); border:1px solid oklch(0.30 0.014 255); color:oklch(0.93 0.006 255); border-radius:9px; padding:12px 14px; font-size:14px; margin-bottom:22px; outline:none; font-family:inherit;">
+        <button onClick="{{ doLogin }}" style="width:100%; background:oklch(0.78 0.11 195); color:oklch(0.16 0.02 255); border:none; border-radius:9px; padding:13px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="background:oklch(0.83 0.11 195);">ログイン</button>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:20px; color:oklch(0.52 0.012 255); font-size:12px; font-family:'IBM Plex Mono',monospace;">
+          <span style="width:6px; height:6px; border-radius:50%; background:oklch(0.75 0.14 150);"></span>
+          Neon Auth · ID/パスワード認証
+        </div>
+      </div>
+    </div>
+    <div style="background:oklch(0.13 0.012 255); border-left:1px solid oklch(0.24 0.014 255); display:flex; flex-direction:column; justify-content:center; padding:0 6vw; gap:14px;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255); letter-spacing:0.08em; margin-bottom:6px;">SYSTEM STATUS</div>
+      <sc-for list="{{ loginStatus }}" as="s" hint-placeholder-count="4">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:oklch(0.16 0.012 255); border:1px solid oklch(0.24 0.014 255); border-radius:10px;">
+          <div style="display:flex; align-items:center; gap:11px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:{{ s.color }};"></span>
+            <span style="font-size:13px; color:oklch(0.82 0.01 255);">{{ s.label }}</span>
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:oklch(0.62 0.012 255);">{{ s.value }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showApp }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid; grid-template-columns:230px 1fr; height:100vh; overflow:hidden; font-family:'IBM Plex Sans JP',sans-serif;">
+
+  <!-- SIDEBAR -->
+  <aside style="background:oklch(0.13 0.012 255); border-right:1px solid oklch(0.24 0.014 255); display:flex; flex-direction:column; padding:18px 14px;">
+    <div style="display:flex; align-items:center; gap:11px; padding:4px 8px 22px;">
+      <div style="width:30px; height:30px; border-radius:8px; background:oklch(0.78 0.11 195); display:flex; align-items:center; justify-content:center; color:oklch(0.16 0.02 255); font-weight:700; font-family:'IBM Plex Mono',monospace; font-size:16px;">◆</div>
+      <div style="font-weight:600; font-size:13.5px; letter-spacing:0.01em;">cockpit</div>
+    </div>
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.48 0.012 255); letter-spacing:0.1em; padding:6px 10px 8px;">VIEWS</div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="6">
+      <div onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="background:oklch(0.20 0.013 255);">
+        <span style="width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; background:{{ n.chipBg }}; color:{{ n.chipFg }};">{{ n.chip }}</span>
+        <span style="flex:1; font-size:13.5px;">{{ n.label }}</span>
+        <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.55 0.012 255);">{{ n.badge }}</span></sc-if>
+      </div>
+    </sc-for>
+    <div style="flex:1;"></div>
+    <div style="border-top:1px solid oklch(0.24 0.014 255); padding-top:12px; margin-top:12px;">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:9px; cursor:pointer;" style-hover="background:oklch(0.20 0.013 255);" onClick="{{ logout }}">
+        <div style="width:28px; height:28px; border-radius:50%; background:oklch(0.72 0.11 290); display:flex; align-items:center; justify-content:center; color:oklch(0.16 0.02 255); font-weight:600; font-size:12px; font-family:'IBM Plex Mono',monospace;">SS</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12.5px; font-weight:500;">sasao</div>
+          <div style="font-size:10.5px; color:oklch(0.52 0.012 255); font-family:'IBM Plex Mono',monospace;">admin</div>
+        </div>
+        <span style="color:oklch(0.5 0.012 255); font-size:14px;">⏻</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div style="display:flex; flex-direction:column; min-width:0; background:oklch(0.15 0.012 255);">
+    <!-- TOPBAR -->
+    <header style="height:56px; flex-shrink:0; border-bottom:1px solid oklch(0.24 0.014 255); display:flex; align-items:center; padding:0 24px; gap:18px;">
+      <div style="font-size:15px; font-weight:600;">{{ viewTitle }}</div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.52 0.012 255);">{{ viewSub }}</div>
+      <div style="flex:1;"></div>
+      <div style="display:flex; align-items:center; gap:8px; padding:6px 12px; background:oklch(0.17 0.012 255); border:1px solid oklch(0.24 0.014 255); border-radius:8px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:oklch(0.75 0.14 150); animation:ckblink 2.4s infinite;"></span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.66 0.012 255);">同期 {{ lastSynced }}</span>
+      </div>
+      <button onClick="{{ toggleSpar }}" style="display:flex; align-items:center; gap:8px; background:oklch(0.72 0.11 290 / 0.14); border:1px solid oklch(0.72 0.11 290 / 0.4); color:oklch(0.8 0.09 290); border-radius:8px; padding:7px 13px; font-size:12.5px; font-weight:500; cursor:pointer; font-family:inherit; white-space:nowrap; flex-shrink:0;" style-hover="background:oklch(0.72 0.11 290 / 0.22);">
+        <span style="font-size:14px;">✦</span> 壁打ち
+      </button>
+    </header>
+
+    <!-- CONTENT -->
+    <main style="flex:1; overflow-y:auto; padding:24px 28px 60px;">
+
+      <!-- ===== OVERVIEW ===== -->
+      <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:ckfade 0.3s ease;">
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px;">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+              <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:16px 17px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                  <span style="font-size:12px; color:oklch(0.66 0.012 255);">{{ k.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 7px; border-radius:20px; background:{{ k.deltaBg }}; color:{{ k.deltaColor }};">{{ k.delta }}</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; margin-bottom:10px;">
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:28px; font-weight:600; color:{{ k.color }}; line-height:1;">{{ k.value }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:oklch(0.52 0.012 255);">{{ k.unit }}</span>
+                </div>
+                <div style="height:34px;">{{ k.spark }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:16px;">
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <div style="font-size:13.5px; font-weight:600;">横断タイムライン</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255);">時間軸 + タグで結合</div>
+              </div>
+              <div style="font-size:11.5px; color:oklch(0.6 0.012 255); margin-bottom:16px;">組織スコア(定量)と判断ログ(定性)を同一時間軸に並置</div>
+              <div>{{ timelineChart }}</div>
+              <div style="display:flex; gap:18px; margin-top:14px; flex-wrap:wrap;">
+                <sc-for list="{{ timelineLegend }}" as="l" hint-placeholder-count="3">
+                  <div style="display:flex; align-items:center; gap:7px;"><span style="width:10px; height:10px; border-radius:3px; background:{{ l.color }};"></span><span style="font-size:11.5px; color:oklch(0.66 0.012 255);">{{ l.label }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="font-size:13.5px; font-weight:600; margin-bottom:16px;">品質ゲート合格率</div>
+              <div style="display:flex; align-items:center; gap:22px;">
+                <div style="flex-shrink:0;">{{ gateGauge }}</div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:12px;">
+                  <sc-for list="{{ gateBreakdown }}" as="g" hint-placeholder-count="3">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="font-size:11.5px; color:oklch(0.66 0.012 255);">{{ g.label }}</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.82 0.01 255);">{{ g.value }}</span></div>
+                      <div style="height:6px; border-radius:4px; background:oklch(0.24 0.014 255); overflow:hidden;"><div style="height:100%; width:{{ g.pct }}; background:{{ g.color }}; border-radius:4px;"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <div style="font-size:13.5px; font-weight:600;">最近の判断ログ</div>
+                <a href="#" onClick="{{ goKnowledge }}" style="font-size:11.5px;">ナレッジで探す →</a>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <sc-for list="{{ recentDecisions }}" as="d" hint-placeholder-count="4">
+                  <div onClick="{{ d.onClick }}" style="display:flex; gap:12px; padding:11px 12px; border-radius:9px; background:oklch(0.165 0.012 255); border:1px solid oklch(0.24 0.014 255); cursor:pointer;" style-hover="border-color:oklch(0.4 0.05 195);">
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.52 0.012 255); padding-top:1px; white-space:nowrap;">{{ d.date }}</span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:12.5px; font-weight:500; margin-bottom:4px;">{{ d.title }}</div>
+                      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <sc-for list="{{ d.tags }}" as="t" hint-placeholder-count="2"><span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.66 0.09 195); background:oklch(0.78 0.11 195 / 0.1); padding:1px 6px; border-radius:4px;">{{ t }}</span></sc-for>
+                      </div>
+                    </div>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:{{ d.scoreColor }}; white-space:nowrap;">{{ d.score }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <div style="font-size:13.5px; font-weight:600;">今日の着手候補</div>
+                <a href="#" onClick="{{ goToday }}" style="font-size:11.5px;">今日ビュー →</a>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <sc-for list="{{ overviewTasks }}" as="t" hint-placeholder-count="4">
+                  <div onClick="{{ t.onClick }}" style="display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:9px; background:oklch(0.165 0.012 255); border:1px solid oklch(0.24 0.014 255); cursor:pointer;" style-hover="border-color:oklch(0.4 0.05 195);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:{{ t.pColor }}; flex-shrink:0;"></span>
+                    <span style="flex:1; font-size:12.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.title }}</span>
+                    <sc-if value="{{ t.reworks }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.8 0.13 75); background:oklch(0.8 0.13 75 / 0.12); padding:1px 6px; border-radius:4px;">↺{{ t.reworks }}</span></sc-if>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:{{ t.scoreColor }};">{{ t.score }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== TODAY ===== -->
+      <sc-if value="{{ isToday }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:ckfade 0.3s ease;">
+          <div style="display:flex; gap:10px; margin-bottom:18px;">
+            <sc-for list="{{ todayStats }}" as="s" hint-placeholder-count="4">
+              <div style="flex:1; background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:10px; padding:12px 15px;">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:{{ s.color }};">{{ s.value }}</div>
+                <div style="font-size:11.5px; color:oklch(0.62 0.012 255); margin-top:2px;">{{ s.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; align-items:start;">
+            <sc-for list="{{ kanban }}" as="col" hint-placeholder-count="4">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:0 2px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:{{ col.color }};"></span>
+                  <span style="font-size:12.5px; font-weight:600;">{{ col.title }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.5 0.012 255);">{{ col.count }}</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <sc-for list="{{ col.tasks }}" as="t" hint-placeholder-count="2">
+                    <div onClick="{{ t.onClick }}" style="{{ t.cardStyle }}" style-hover="border-color:oklch(0.45 0.06 195);">
+                      <div style="display:flex; align-items:start; justify-content:space-between; gap:8px; margin-bottom:9px;">
+                        <span style="font-size:12.5px; font-weight:500; line-height:1.4;">{{ t.title }}</span>
+                      </div>
+                      <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:11px;">
+                        <sc-for list="{{ t.tags }}" as="tag" hint-placeholder-count="2"><span style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:oklch(0.66 0.09 195); background:oklch(0.78 0.11 195 / 0.1); padding:1px 6px; border-radius:4px;">{{ tag }}</span></sc-for>
+                      </div>
+                      <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                          <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.5 0.012 255);">{{ t.org }}</span>
+                          <sc-if value="{{ t.reworks }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:oklch(0.8 0.13 75); background:oklch(0.8 0.13 75 / 0.12); padding:1px 5px; border-radius:4px;">↺{{ t.reworks }}</span></sc-if>
+                        </div>
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; color:{{ t.scoreColor }};">{{ t.score }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== KNOWLEDGE ===== -->
+      <sc-if value="{{ isKnowledge }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:ckfade 0.3s ease; max-width:1180px;">
+          <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:16px 18px; margin-bottom:18px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="color:oklch(0.6 0.012 255); font-size:15px;">⌕</span>
+              <input value="{{ searchQuery }}" onInput="{{ onSearch }}" placeholder="テーマ・キーワードで過去の判断を検索(pgvector類似検索)…" style="flex:1; background:transparent; border:none; color:oklch(0.93 0.006 255); font-size:14px; outline:none; font-family:inherit;">
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.5 0.012 255); border:1px solid oklch(0.3 0.014 255); border-radius:5px; padding:2px 7px;">pgvector</span>
+            </div>
+            <div style="display:flex; gap:7px; margin-top:13px; flex-wrap:wrap;">
+              <sc-for list="{{ searchChips }}" as="c" hint-placeholder-count="5">
+                <span onClick="{{ c.onClick }}" style="{{ c.style }}" style-hover="border-color:oklch(0.5 0.07 195);">{{ c.label }}</span>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255); letter-spacing:0.06em; margin-bottom:12px;">類似する過去の判断 · {{ searchCount }}件</div>
+              <div style="display:flex; flex-direction:column; gap:11px;">
+                <sc-for list="{{ searchResults }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.onClick }}" style="{{ r.cardStyle }}" style-hover="border-color:oklch(0.5 0.07 195);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;">
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.52 0.012 255);">{{ r.date }} · {{ r.org }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 7px; border-radius:20px; background:oklch(0.78 0.11 195 / 0.14); color:oklch(0.72 0.09 195);">類似 {{ r.similarity }}</span>
+                    </div>
+                    <div style="font-size:13.5px; font-weight:600; margin-bottom:6px; line-height:1.4;">{{ r.title }}</div>
+                    <div style="font-size:12px; color:oklch(0.62 0.012 255); line-height:1.6; margin-bottom:10px;">{{ r.summary }}</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                      <sc-for list="{{ r.tags }}" as="t" hint-placeholder-count="2"><span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.66 0.09 195); background:oklch(0.78 0.11 195 / 0.1); padding:1px 6px; border-radius:4px;">{{ t }}</span></sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255); letter-spacing:0.06em; margin-bottom:12px;">判断後の組織実績(時間軸で紐づけ)</div>
+              <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+                <div style="font-size:14px; font-weight:600; margin-bottom:3px;">{{ selectedDecision.title }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255); margin-bottom:16px;">{{ selectedDecision.date }} · {{ selectedDecision.org }}</div>
+                <div style="font-size:12.5px; color:oklch(0.7 0.012 255); line-height:1.7; margin-bottom:18px;">{{ selectedDecision.body }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.52 0.012 255); letter-spacing:0.06em; margin-bottom:8px;">判断後6週の報酬スコア推移</div>
+                <div>{{ decisionOutcomeChart }}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:16px;">
+                  <sc-for list="{{ selectedDecision.stats }}" as="s" hint-placeholder-count="3">
+                    <div style="background:oklch(0.165 0.012 255); border:1px solid oklch(0.24 0.014 255); border-radius:9px; padding:11px 12px;">
+                      <div style="font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:600; color:{{ s.color }};">{{ s.value }}</div>
+                      <div style="font-size:10.5px; color:oklch(0.6 0.012 255); margin-top:2px;">{{ s.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== RETRO ===== -->
+      <sc-if value="{{ isRetro }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:ckfade 0.3s ease;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+            <sc-for list="{{ retroPeriods }}" as="p" hint-placeholder-count="2">
+              <span onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</span>
+            </sc-for>
+            <div style="flex:1;"></div>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255);">直近6期間 · W22〜W27</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px; margin-bottom:16px;">
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <div style="font-size:13.5px; font-weight:600;">LLM-as-Judge 3軸トレンド</div>
+                <div style="display:flex; gap:14px;">
+                  <sc-for list="{{ judgeLegend }}" as="l" hint-placeholder-count="3"><div style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:{{ l.color }};"></span><span style="font-size:11px; color:oklch(0.66 0.012 255);">{{ l.label }}</span></div></sc-for>
+                </div>
+              </div>
+              <div>{{ judgeChart }}</div>
+            </div>
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="font-size:13.5px; font-weight:600; margin-bottom:6px;">報酬スコア 4シグナル</div>
+              <div style="font-size:11px; color:oklch(0.6 0.012 255); margin-bottom:18px;">最新週(W27)の構成要素</div>
+              <div style="display:flex; flex-direction:column; gap:15px;">
+                <sc-for list="{{ rewardSignals }}" as="s" hint-placeholder-count="4">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span style="font-size:12px; color:oklch(0.72 0.012 255);">{{ s.label }}</span><span style="font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; color:{{ s.color }};">{{ s.value }}</span></div>
+                    <div style="height:7px; border-radius:4px; background:oklch(0.24 0.014 255); overflow:hidden;"><div style="height:100%; width:{{ s.pct }}; background:{{ s.color }}; border-radius:4px;"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px;">
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <div style="font-size:13.5px; font-weight:600;">報酬スコア & 品質ゲート合格率</div>
+                <div style="display:flex; gap:14px;">
+                  <div style="display:flex; align-items:center; gap:6px;"><span style="width:12px; height:3px; border-radius:2px; background:oklch(0.75 0.14 150);"></span><span style="font-size:11px; color:oklch(0.66 0.012 255);">報酬スコア</span></div>
+                  <div style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:oklch(0.78 0.11 195 / 0.5);"></span><span style="font-size:11px; color:oklch(0.66 0.012 255);">品質ゲート合格率</span></div>
+                </div>
+              </div>
+              <div>{{ rewardGateChart }}</div>
+            </div>
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+              <div style="font-size:13.5px; font-weight:600; margin-bottom:14px;">同期間の判断ログ</div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ retroDecisions }}" as="d" hint-placeholder-count="4">
+                  <div style="display:flex; gap:11px; padding:9px 0; border-bottom:1px solid oklch(0.22 0.013 255);">
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.52 0.012 255); white-space:nowrap; padding-top:1px;">{{ d.week }}</span>
+                    <span style="flex:1; font-size:12px; color:oklch(0.78 0.012 255); line-height:1.5;">{{ d.title }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== CAPTURE ===== -->
+      <sc-if value="{{ isCapture }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:ckfade 0.3s ease; max-width:960px;">
+          <div style="display:grid; grid-template-columns:0.9fr 1.1fr; gap:20px;">
+            <div>
+              <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+                <div style="font-size:13.5px; font-weight:600; margin-bottom:4px;">キャプチャ</div>
+                <div style="font-size:11.5px; color:oklch(0.6 0.012 255); margin-bottom:16px;">メモ・課題・次の一手を capture_inbox へ(user_id 所有・個人別)</div>
+                <div style="display:flex; gap:7px; margin-bottom:13px;">
+                  <sc-for list="{{ captureKinds }}" as="k" hint-placeholder-count="3">
+                    <span onClick="{{ k.onClick }}" style="{{ k.style }}">{{ k.label }}</span>
+                  </sc-for>
+                </div>
+                <input value="{{ captureTopic }}" onInput="{{ onCaptureTopic }}" placeholder="トピック(例: pgvector検索精度)" style="width:100%; background:oklch(0.165 0.012 255); border:1px solid oklch(0.3 0.014 255); color:oklch(0.93 0.006 255); border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:10px; outline:none; font-family:inherit;">
+                <textarea value="{{ captureBody }}" onInput="{{ onCaptureBody }}" placeholder="いま考えていること・詰まっている点・次にやること…" style="width:100%; height:120px; background:oklch(0.165 0.012 255); border:1px solid oklch(0.3 0.014 255); color:oklch(0.93 0.006 255); border-radius:8px; padding:11px 12px; font-size:13px; line-height:1.6; resize:vertical; outline:none; font-family:inherit; margin-bottom:12px;"></textarea>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <button onClick="{{ addCapture }}" style="background:oklch(0.78 0.11 195); color:oklch(0.16 0.02 255); border:none; border-radius:8px; padding:10px 18px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="background:oklch(0.83 0.11 195);">保存</button>
+                  <span style="font-size:11px; color:oklch(0.52 0.012 255);">整理ループが朝昼夜深夜に自動処理 → ai-war-room へ PR</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; margin:20px 0 12px;">
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255); letter-spacing:0.06em;">INBOX</span>
+                <span style="flex:1; height:1px; background:oklch(0.24 0.014 255);"></span>
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.52 0.012 255);">{{ inboxPendingCount }} 未処理</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ inbox }}" as="c" hint-placeholder-count="5">
+                  <div style="{{ c.cardStyle }}">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:7px;">
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; padding:1px 7px; border-radius:20px; background:{{ c.kindBg }}; color:{{ c.kindColor }};">{{ c.kind }}</span>
+                      <span style="font-size:11.5px; color:oklch(0.72 0.012 255);">{{ c.topic }}</span>
+                      <div style="flex:1;"></div>
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:{{ c.statusColor }};">{{ c.status }}</span>
+                    </div>
+                    <div style="font-size:12px; color:oklch(0.66 0.012 255); line-height:1.55;">{{ c.body }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:oklch(0.15 0.012 255); border:1px solid oklch(0.72 0.11 290 / 0.3); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; height:calc(100vh - 150px); position:sticky; top:0;">
+              <div style="padding:15px 18px; border-bottom:1px solid oklch(0.24 0.014 255); display:flex; align-items:center; gap:10px;">
+                <span style="width:26px; height:26px; border-radius:7px; background:oklch(0.72 0.11 290 / 0.16); display:flex; align-items:center; justify-content:center; color:oklch(0.8 0.09 290); font-size:14px;">✦</span>
+                <div><div style="font-size:13px; font-weight:600;">壁打ちパネル</div><div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.52 0.012 255);">pgvector 文脈注入 · 機微データ除外</div></div>
+              </div>
+              <div style="flex:1; overflow-y:auto; padding:16px 18px; display:flex; flex-direction:column; gap:14px;">
+                <sc-for list="{{ sparMessages }}" as="m" hint-placeholder-count="2">
+                  <div style="{{ m.wrapStyle }}">
+                    <sc-if value="{{ m.showCtx }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:oklch(0.6 0.09 290); margin-bottom:6px; display:flex; align-items:center; gap:6px;"><span>◈</span> {{ m.ctx }}</div>
+                    </sc-if>
+                    <div style="{{ m.bubbleStyle }}">{{ m.text }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ sparTyping }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; gap:4px; padding:4px 2px;"><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.09 290);animation:cktype 1.2s infinite;"></span><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.09 290);animation:cktype 1.2s infinite 0.2s;"></span><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.09 290);animation:cktype 1.2s infinite 0.4s;"></span></div>
+                </sc-if>
+              </div>
+              <div style="padding:14px 16px; border-top:1px solid oklch(0.24 0.014 255); display:flex; gap:9px;">
+                <input value="{{ sparInput }}" onInput="{{ onSparInput }}" onKeyDown="{{ onSparKey }}" placeholder="壁打ちを始める…" style="flex:1; background:oklch(0.185 0.013 255); border:1px solid oklch(0.3 0.014 255); color:oklch(0.93 0.006 255); border-radius:8px; padding:10px 12px; font-size:13px; outline:none; font-family:inherit;">
+                <button onClick="{{ sendSpar }}" style="background:oklch(0.72 0.11 290); color:oklch(0.16 0.02 255); border:none; border-radius:8px; padding:0 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;">送信</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== ADMIN ===== -->
+      <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:ckfade 0.3s ease; max-width:1120px;">
+          <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px;">
+            <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; overflow:hidden;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid oklch(0.24 0.014 255);">
+                <div style="font-size:13.5px; font-weight:600;">ユーザー一覧</div>
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.52 0.012 255);">{{ userCount }} users · Neon Auth</span>
+              </div>
+              <div style="display:grid; grid-template-columns:1.6fr 1fr 0.8fr 0.9fr; padding:10px 18px; border-bottom:1px solid oklch(0.24 0.014 255); font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.5 0.012 255); letter-spacing:0.05em;">
+                <span>USER</span><span>ROLE</span><span>CAPTURES</span><span style="text-align:right;">LAST ACTIVE</span>
+              </div>
+              <sc-for list="{{ users }}" as="u" hint-placeholder-count="4">
+                <div style="display:grid; grid-template-columns:1.6fr 1fr 0.8fr 0.9fr; align-items:center; padding:13px 18px; border-bottom:1px solid oklch(0.2 0.013 255);">
+                  <div style="display:flex; align-items:center; gap:11px;">
+                    <div style="width:30px; height:30px; border-radius:50%; background:{{ u.avatarBg }}; display:flex; align-items:center; justify-content:center; color:oklch(0.16 0.02 255); font-weight:600; font-size:11px; font-family:'IBM Plex Mono',monospace;">{{ u.initials }}</div>
+                    <div><div style="font-size:12.5px; font-weight:500;">{{ u.name }}</div><div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.52 0.012 255);">{{ u.email }}</div></div>
+                  </div>
+                  <div><span style="{{ u.roleStyle }}">{{ u.role }}</span></div>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:oklch(0.72 0.012 255);">{{ u.captures }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.56 0.012 255); text-align:right;">{{ u.lastActive }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+                <div style="font-size:13.5px; font-weight:600; margin-bottom:4px;">ロール & 権限</div>
+                <div style="font-size:11px; color:oklch(0.6 0.012 255); margin-bottom:16px;">roles / user_roles(将来用に permissions も先行作成)</div>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                  <sc-for list="{{ roles }}" as="r" hint-placeholder-count="2">
+                    <div style="border:1px solid oklch(0.26 0.014 255); border-radius:10px; padding:13px 14px; background:oklch(0.165 0.012 255);">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <span style="{{ r.roleStyle }}">{{ r.name }}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.52 0.012 255);">{{ r.users }} users</span>
+                      </div>
+                      <div style="font-size:11.5px; color:oklch(0.64 0.012 255); line-height:1.6;">{{ r.desc }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="background:oklch(0.185 0.013 255); border:1px solid oklch(0.26 0.014 255); border-radius:12px; padding:18px 20px;">
+                <div style="font-size:13.5px; font-weight:600; margin-bottom:14px;">アクセス制御(当面)</div>
+                <div style="display:flex; flex-direction:column; gap:11px;">
+                  <sc-for list="{{ aclRules }}" as="a" hint-placeholder-count="3">
+                    <div style="display:flex; gap:10px; align-items:start;">
+                      <span style="width:6px; height:6px; border-radius:50%; background:{{ a.color }}; margin-top:6px; flex-shrink:0;"></span>
+                      <div><span style="font-size:12px; color:oklch(0.82 0.01 255); font-weight:500;">{{ a.scope }}</span><div style="font-size:11px; color:oklch(0.6 0.012 255); line-height:1.55; margin-top:2px;">{{ a.rule }}</div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </main>
+  </div>
+
+  <!-- SPAR SLIDE-OVER (global) -->
+  <sc-if value="{{ sparOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ toggleSpar }}" style="position:fixed; inset:0; background:oklch(0.1 0.01 255 / 0.55); z-index:40;"></div>
+    <div style="position:fixed; top:0; right:0; bottom:0; width:420px; z-index:41; background:oklch(0.155 0.012 255); border-left:1px solid oklch(0.72 0.11 290 / 0.35); display:flex; flex-direction:column; animation:ckfade 0.25s ease;">
+      <div style="padding:16px 18px; border-bottom:1px solid oklch(0.24 0.014 255); display:flex; align-items:center; gap:10px;">
+        <span style="width:26px; height:26px; border-radius:7px; background:oklch(0.72 0.11 290 / 0.16); display:flex; align-items:center; justify-content:center; color:oklch(0.8 0.09 290); font-size:14px;">✦</span>
+        <div style="flex:1;"><div style="font-size:13px; font-weight:600;">壁打ちパネル</div><div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:oklch(0.52 0.012 255);">pgvector 文脈注入 · 個人別</div></div>
+        <span onClick="{{ toggleSpar }}" style="color:oklch(0.6 0.012 255); font-size:18px; cursor:pointer; padding:4px;">✕</span>
+      </div>
+      <div style="flex:1; overflow-y:auto; padding:16px 18px; display:flex; flex-direction:column; gap:14px;">
+        <sc-for list="{{ sparMessages }}" as="m" hint-placeholder-count="2">
+          <div style="{{ m.wrapStyle }}">
+            <sc-if value="{{ m.showCtx }}" hint-placeholder-val="{{ false }}">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:oklch(0.6 0.09 290); margin-bottom:6px; display:flex; align-items:center; gap:6px;"><span>◈</span> {{ m.ctx }}</div>
+            </sc-if>
+            <div style="{{ m.bubbleStyle }}">{{ m.text }}</div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ sparTyping }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; gap:4px; padding:4px 2px;"><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.09 290);animation:cktype 1.2s infinite;"></span><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.09 290);animation:cktype 1.2s infinite 0.2s;"></span><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.09 290);animation:cktype 1.2s infinite 0.4s;"></span></div>
+        </sc-if>
+      </div>
+      <div style="padding:14px 16px; border-top:1px solid oklch(0.24 0.014 255); display:flex; gap:9px;">
+        <input value="{{ sparInput }}" onInput="{{ onSparInput }}" onKeyDown="{{ onSparKey }}" placeholder="壁打ちを始める…" style="flex:1; background:oklch(0.185 0.013 255); border:1px solid oklch(0.3 0.014 255); color:oklch(0.93 0.006 255); border-radius:8px; padding:10px 12px; font-size:13px; outline:none; font-family:inherit;">
+        <button onClick="{{ sendSpar }}" style="background:oklch(0.72 0.11 290); color:oklch(0.16 0.02 255); border:none; border-radius:8px; padding:0 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;">送信</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = {
+    loggedIn: true,
+    loginId: "sasao",
+    loginPw: "demo1234",
+    view: "overview",
+    sparOpen: false,
+    sparInput: "",
+    sparMessages: [
+      { role: "assistant", text: "壁打ちを始めましょう。いま検討していることを入力してください。関連する過去の判断ログと組織スコアを pgvector で文脈注入します。" }
+    ],
+    sparTyping: false,
+    captureKind: "issue",
+    captureTopic: "",
+    captureBody: "",
+    captures: [
+      { id: 1, kind: "issue", topic: "pgvector検索精度", body: "日本語の類似検索で近接テーマが拾えないケースがある。埋め込みモデルの再検証が必要かも。", processed: false },
+      { id: 2, kind: "next_move", topic: "M1振り返りビュー", body: "報酬スコアのトレンド表示を先に固める。fixtureのスキーマ契約を確定させる。", processed: false },
+      { id: 3, kind: "status", topic: "取り込み基盤", body: "cc-sier の task-log パーサが期待行を生成。冪等キー source+file_path+commit で重複なし。", processed: true },
+      { id: 4, kind: "spar_conclusion", topic: "埋め込みモデル選定", body: "多言語1モデルを env 固定で開始し、research-spike の結果を見て差し替える方針で決着。", processed: true },
+    ],
+    searchQuery: "pgvector 検索精度",
+    selectedDecisionId: 1,
+    retroPeriod: "weekly",
+  };
+
+  // ---------- palette ----------
+  C = {
+    green: "oklch(0.75 0.14 150)", amber: "oklch(0.80 0.13 75)", red: "oklch(0.68 0.16 25)",
+    teal: "oklch(0.78 0.11 195)", violet: "oklch(0.72 0.11 290)", blue: "oklch(0.72 0.12 250)",
+    muted: "oklch(0.62 0.012 255)", grid: "oklch(0.28 0.013 255)",
+  };
+  scoreColor(v){ return v >= 0.8 ? this.C.green : v >= 0.65 ? this.C.amber : this.C.red; }
+
+  // ---------- data ----------
+  DATA = {
+    weeks: ["W22","W23","W24","W25","W26","W27"],
+    reward: [0.61,0.66,0.63,0.71,0.75,0.78],
+    gate: [0.72,0.78,0.74,0.83,0.88,0.91],
+    judge: { completeness:[3.9,4.0,4.1,4.3,4.4,4.5], accuracy:[4.1,4.0,4.2,4.2,4.5,4.6], clarity:[3.5,3.8,3.9,4.0,4.1,4.3] },
+    signals: [
+      { label:"完了度", value:0.82 }, { label:"品質ゲート", value:0.91 },
+      { label:"効率(速度)", value:0.71 }, { label:"Git規律", value:0.86 },
+    ],
+    decisions: [
+      { id:1, date:"2026-05-12", org:"cc-sier", title:"pgvector を主軸に類似検索へ切替", similarity:"0.91", summary:"全文検索では日本語の近接テーマが拾えず、埋め込み+メタフィルタへ再設計。", body:"従来のキーワード全文検索では表記ゆれと近接テーマの取りこぼしが多く、判断の再利用性が低かった。多言語埋め込みを env で1モデルに固定し、pgvector + タグ/期間のメタフィルタに再設計。tag_synonyms で正準語に寄せる方針を併設した。", tags:["search","pgvector","embedding"], outcome:[0.63,0.67,0.72,0.75,0.79,0.83], stats:[{label:"完了件数",value:"14",c:"teal"},{label:"平均スコア",value:"0.79",c:"green"},{label:"手戻り",value:"-38%",c:"green"}] },
+      { id:2, date:"2026-04-28", org:"ai-war-room", title:"整理ループを朝昼夜深夜の4本に分割", similarity:"0.84", summary:"1日1回の整理では inbox が滞留。処理粒度を上げて滞留を解消。", body:"capture_inbox の未処理が夜間に集中し、翌朝の判断に間に合わなかった。Claude Actions を朝07/昼12/夜19/深夜24の4スロットに分割し、concurrency で二重実行を防止。処理粒度が上がり滞留が解消した。", tags:["actions","inbox","ci"], outcome:[0.58,0.6,0.66,0.7,0.73,0.77], stats:[{label:"平均滞留",value:"3.2h",c:"teal"},{label:"処理率",value:"98%",c:"green"},{label:"PR失敗",value:"2件",c:"amber"}] },
+      { id:3, date:"2026-04-10", org:"cc-sier", title:"品質ゲートの合格基準を3軸で再定義", similarity:"0.79", summary:"合否のブレをLLM-as-Judge 3軸(完全性/正確性/明瞭性)で明確化。", body:"品質ゲートの合否が主観的でブレていた。LLM-as-Judge の3軸(completeness/accuracy/clarity)を導入し、各軸の閾値を fixture で契約固定。合格率のトレンドが安定して上昇した。", tags:["quality-gate","judge","metrics"], outcome:[0.66,0.7,0.72,0.78,0.82,0.86], stats:[{label:"合格率",value:"91%",c:"green"},{label:"判定ブレ",value:"-52%",c:"green"},{label:"再判定",value:"5件",c:"amber"}] },
+      { id:4, date:"2026-03-22", org:"ai-war-room", title:"生キャプチャを個人別(user_id)に分離", similarity:"0.73", summary:"複数ユーザー対応の土台。inbox と壁打ちを所有者スコープに。", body:"将来の複数ユーザー利用を見据え、capture_inbox と壁打ち結論に user_id を付与。整理済みの共有知識(timeline_records)は user_id を持たない設計を維持。アプリ層で所有者スコープを強制した。", tags:["auth","privacy","multi-user"], outcome:[0.6,0.62,0.65,0.68,0.72,0.75], stats:[{label:"分離漏れ",value:"0件",c:"green"},{label:"移行行数",value:"1.2k",c:"teal"},{label:"レビュー",value:"3周",c:"amber"}] },
+    ],
+    tasks: [
+      { id:1, title:"pgvector 検索の再ランキング実装", org:"cc-sier", status:"doing", score:0.74, reworks:1, tags:["search","M2"] },
+      { id:2, title:"振り返りビューのトレンド集計API", org:"cc-sier", status:"doing", score:0.81, reworks:0, tags:["retro","M1"] },
+      { id:3, title:"埋め込みモデルの多言語検証(spike)", org:"cc-sier", status:"review", score:0.68, reworks:2, tags:["embedding","research"] },
+      { id:4, title:"capture_inbox の user_id スコープ強制", org:"ai-war-room", status:"done", score:0.88, reworks:0, tags:["auth","M4"] },
+      { id:5, title:"daily-organize の dry-run ハーネス", org:"ai-war-room", status:"backlog", score:0.62, reworks:0, tags:["actions","M5"] },
+      { id:6, title:"今日ビューの WBS 結合表示", org:"cc-sier", status:"backlog", score:0.70, reworks:0, tags:["today","M3"] },
+      { id:7, title:"tag_synonyms 初期語彙の生成", org:"cc-sier", status:"review", score:0.77, reworks:1, tags:["tags","ingestion"] },
+      { id:8, title:"Neon Auth ログイン画面の結線", org:"ai-war-room", status:"done", score:0.85, reworks:0, tags:["auth","M0"] },
+    ],
+    users: [
+      { name:"sasao", email:"sasao@cockpit.dev", role:"admin", captures:42, lastActive:"2分前" },
+      { name:"kenji.t", email:"kenji@cockpit.dev", role:"member", captures:18, lastActive:"1時間前" },
+      { name:"mika.n", email:"mika@cockpit.dev", role:"member", captures:7, lastActive:"昨日" },
+      { name:"reviewer", email:"review@cockpit.dev", role:"member", captures:0, lastActive:"3日前" },
+    ],
+  };
+
+  // ---------- chart helpers ----------
+  _h(){ return React.createElement; }
+  lineChart(seriesList, { w=520, h=180, min=0, max=1, fmt=(v)=>v.toFixed(2), yticks=4, labels=[] }){
+    const h_ = this._h(); const pl=34, pr=8, pt=8, pb=22;
+    const X = i => pl + (w-pl-pr) * (i/(this._n-1));
+    const Y = v => pt + (h-pt-pb) * (1-(v-min)/(max-min));
+    const grid=[]; for(let i=0;i<=yticks;i++){ const v=min+(max-min)*i/yticks; const y=Y(v);
+      grid.push(h_("line",{key:"g"+i,x1:pl,x2:w-pr,y1:y,y2:y,stroke:this.C.grid,strokeWidth:1}));
+      grid.push(h_("text",{key:"t"+i,x:pl-6,y:y+3,textAnchor:"end",fontSize:9,fill:this.C.muted,fontFamily:"IBM Plex Mono"},fmt(v)));
+    }
+    const xlabels = labels.map((lb,i)=>h_("text",{key:"x"+i,x:X(i),y:h-6,textAnchor:"middle",fontSize:9,fill:this.C.muted,fontFamily:"IBM Plex Mono"},lb));
+    const paths=[]; seriesList.forEach((s,si)=>{
+      const d=s.data.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+      if(s.area){ const a=d+` L ${X(this._n-1).toFixed(1)} ${Y(min).toFixed(1)} L ${X(0).toFixed(1)} ${Y(min).toFixed(1)} Z`;
+        paths.push(h_("path",{key:"a"+si,d:a,fill:s.color,opacity:0.13})); }
+      paths.push(h_("path",{key:"p"+si,d,fill:"none",stroke:s.color,strokeWidth:2,strokeLinejoin:"round",strokeLinecap:"round"}));
+      s.data.forEach((v,i)=>paths.push(h_("circle",{key:"c"+si+"-"+i,cx:X(i),cy:Y(v),r:2.6,fill:"oklch(0.15 0.012 255)",stroke:s.color,strokeWidth:1.6})));
+    });
+    return h_("svg",{width:"100%",height:h,viewBox:`0 0 ${w} ${h}`,style:{display:"block"}},...grid,...paths,...xlabels);
+  }
+  get _n(){ return this.DATA.weeks.length; }
+  sparkline(data,color){
+    const h_=this._h(); const w=140,h=34,min=Math.min(...data),max=Math.max(...data);
+    const X=i=>2+(w-4)*(i/(data.length-1)); const Y=v=>2+(h-4)*(1-((v-min)/((max-min)||1)));
+    const d=data.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+    const a=d+` L ${X(data.length-1).toFixed(1)} ${h} L ${X(0).toFixed(1)} ${h} Z`;
+    return h_("svg",{width:"100%",height:h,viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:"none",style:{display:"block"}},
+      h_("path",{d:a,fill:color,opacity:0.14}),
+      h_("path",{d,fill:"none",stroke:color,strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}));
+  }
+  gauge(pct,color){
+    const h_=this._h(); const s=118,r=48,cx=s/2,cy=s/2,C=2*Math.PI*r;
+    return h_("svg",{width:s,height:s,viewBox:`0 0 ${s} ${s}`},
+      h_("circle",{cx,cy,r,fill:"none",stroke:this.C.grid,strokeWidth:9}),
+      h_("circle",{cx,cy,r,fill:"none",stroke:color,strokeWidth:9,strokeLinecap:"round",strokeDasharray:`${C*pct} ${C}`,transform:`rotate(-90 ${cx} ${cy})`}),
+      h_("text",{x:cx,y:cy-2,textAnchor:"middle",fontSize:26,fontWeight:600,fill:"oklch(0.93 0.006 255)",fontFamily:"IBM Plex Mono"},Math.round(pct*100)+"%"),
+      h_("text",{x:cx,y:cy+16,textAnchor:"middle",fontSize:9,fill:this.C.muted,fontFamily:"IBM Plex Mono"},"W27 合格率"));
+  }
+  barLineChart(){
+    const h_=this._h(); const w=520,h=190,pl=30,pr=8,pt=10,pb=22,d=this.DATA;
+    const X=i=>pl+(w-pl-pr)*((i+0.5)/this._n); const bw=(w-pl-pr)/this._n*0.42;
+    const Y=v=>pt+(h-pt-pb)*(1-v);
+    const grid=[]; for(let i=0;i<=4;i++){ const y=pt+(h-pt-pb)*i/4; grid.push(h_("line",{key:"g"+i,x1:pl,x2:w-pr,y1:y,y2:y,stroke:this.C.grid,strokeWidth:1})); }
+    const bars=d.gate.map((v,i)=>h_("rect",{key:"b"+i,x:X(i)-bw/2,y:Y(v),width:bw,height:(h-pb)-Y(v),rx:3,fill:"oklch(0.78 0.11 195 / 0.45)"}));
+    const line=d.reward.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+    const dots=d.reward.map((v,i)=>h_("circle",{key:"c"+i,cx:X(i),cy:Y(v),r:3,fill:"oklch(0.15 0.012 255)",stroke:this.C.green,strokeWidth:1.8}));
+    const xl=d.weeks.map((lb,i)=>h_("text",{key:"x"+i,x:X(i),y:h-6,textAnchor:"middle",fontSize:9,fill:this.C.muted,fontFamily:"IBM Plex Mono"},lb));
+    return h_("svg",{width:"100%",height:h,viewBox:`0 0 ${w} ${h}`,style:{display:"block"}},...grid,...bars,
+      h_("path",{d:line,fill:"none",stroke:this.C.green,strokeWidth:2.2,strokeLinejoin:"round"}),...dots,...xl);
+  }
+
+  // ---------- handlers ----------
+  set(k,v){ this.setState({[k]:v}); }
+  onInput(k){ return e => this.setState({[k]: e.target.value}); }
+  doLogin = () => this.setState({ loggedIn:true, view:"overview" });
+  logout = () => this.setState({ loggedIn:false });
+  toggleSpar = () => this.setState(s=>({ sparOpen:!s.sparOpen }));
+  goView(v){ return () => this.setState({ view:v }); }
+
+  sendSpar = () => {
+    const t = this.state.sparInput.trim(); if(!t) return;
+    const msgs = this.state.sparMessages.concat([{ role:"user", text:t }]);
+    this.setState({ sparMessages: msgs, sparInput:"", sparTyping:true });
+    clearTimeout(this._sparTimer);
+    this._sparTimer = setTimeout(()=>{
+      const reply = {
+        role:"assistant",
+        ctx:"参照: 判断#1「pgvector を主軸に類似検索へ切替」(2026-05-12 / 類似0.91) · 組織スコア +0.20",
+        text:"過去に近い判断があります。全文検索から埋め込み+メタフィルタへ切替えた際、判断後6週で報酬スコアが 0.63→0.83 に改善し手戻りが38%減りました。今回も (1) env固定の多言語1モデルで開始 (2) tag_synonyms で表記ゆれを吸収 (3) research-spike で日本語品質を検証、の順が有効そうです。機微データ(profile/minefield)は文脈に含めていません。",
+      };
+      this.setState(s=>({ sparMessages: s.sparMessages.concat([reply]), sparTyping:false }));
+    }, 1300);
+  };
+  onSparKey = (e) => { if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); this.sendSpar(); } };
+
+  addCapture = () => {
+    const { captureBody, captureTopic, captureKind } = this.state;
+    if(!captureBody.trim()) return;
+    const c = { id:Date.now(), kind:captureKind, topic:captureTopic||"(トピックなし)", body:captureBody, processed:false };
+    this.setState(s=>({ captures:[c].concat(s.captures), captureBody:"", captureTopic:"" }));
+  };
+
+  // ---------- render ----------
+  renderVals(){
+    const s=this.state, D=this.DATA, C=this.C;
+    const kindMeta = {
+      status:{ label:"status", bg:"oklch(0.72 0.12 250 / 0.15)", color:"oklch(0.72 0.1 250)" },
+      issue:{ label:"issue", bg:"oklch(0.80 0.13 75 / 0.15)", color:"oklch(0.82 0.11 75)" },
+      next_move:{ label:"next_move", bg:"oklch(0.75 0.14 150 / 0.15)", color:"oklch(0.75 0.12 150)" },
+      spar_conclusion:{ label:"spar", bg:"oklch(0.72 0.11 290 / 0.15)", color:"oklch(0.78 0.09 290)" },
+    };
+    const viewMeta = {
+      overview:{ t:"概観", sub:"一望性ダッシュボード", chip:"概" },
+      today:{ t:"今日", sub:"着手判断 · WBS / kanban", chip:"今" },
+      knowledge:{ t:"ナレッジ再利用", sub:"過去判断 × 組織スコア", chip:"ナ" },
+      retro:{ t:"振り返り", sub:"報酬スコア · Judge3軸 · 品質ゲート", chip:"振" },
+      capture:{ t:"キャプチャ + 壁打ち", sub:"capture_inbox · 個人別", chip:"記" },
+      admin:{ t:"ユーザー管理", sub:"Neon Auth · roles / user_roles", chip:"者" },
+    };
+    const navDef = [
+      ["overview","概観",""],["today","今日",""],["knowledge","ナレッジ",""],
+      ["retro","振り返り",""],["capture","キャプチャ", String(s.captures.filter(c=>!c.processed).length)],["admin","ユーザー管理",""],
+    ];
+    const navChip = { overview:C.teal, today:C.blue, knowledge:C.teal, retro:C.green, capture:C.violet, admin:"oklch(0.7 0.1 40)" };
+    const navItems = navDef.map(([key,label,badge])=>{
+      const active = s.view===key;
+      return {
+        key, label, badge: badge||"", onClick: this.goView(key),
+        chip: viewMeta[key].chip,
+        chipBg: active ? navChip[key] : "oklch(0.24 0.014 255)",
+        chipFg: active ? "oklch(0.15 0.02 255)" : "oklch(0.7 0.012 255)",
+        style: `display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:9px; cursor:pointer; margin-bottom:2px; color:${active?"oklch(0.95 0.006 255)":"oklch(0.7 0.012 255)"}; background:${active?"oklch(0.21 0.014 255)":"transparent"}; font-weight:${active?600:400};`,
+      };
+    });
+
+    // KPIs
+    const kpis = [
+      { label:"報酬スコア(W27)", value:"0.78", unit:"/1.0", color:this.scoreColor(0.78), delta:"+0.03", up:true, data:D.reward },
+      { label:"品質ゲート合格率", value:"91", unit:"%", color:C.green, delta:"+3pt", up:true, data:D.gate },
+      { label:"オープンタスク", value:"6", unit:"件", color:C.teal, delta:"2 着手中", up:true, data:[8,7,7,6,6,6] },
+      { label:"未処理 inbox", value:String(s.captures.filter(c=>!c.processed).length), unit:"件", color:C.amber, delta:"整理待ち", up:false, data:[4,3,5,2,3,2] },
+    ].map(k=>({ ...k, spark:this.sparkline(k.data,k.color),
+      deltaBg: k.up?"oklch(0.75 0.14 150 / 0.14)":"oklch(0.62 0.012 255 / 0.12)",
+      deltaColor: k.up?C.green:C.muted }));
+
+    // overview timeline chart (reward area + gate line)
+    const timelineChart = this.lineChart([
+      { data:D.reward, color:C.green, area:true },
+      { data:D.gate, color:C.teal },
+    ], { min:0.5, max:1, labels:D.weeks, fmt:v=>v.toFixed(2), w:640, h:200 });
+    const timelineLegend=[{label:"報酬スコア(定量)",color:C.green},{label:"品質ゲート合格率(定量)",color:C.teal},{label:"判断ログ(定性)",color:C.violet}];
+
+    const gateGauge = this.gauge(0.91, C.green);
+    const gateBreakdown=[
+      { label:"lint / typecheck", value:"96%", pct:"96%", color:C.green },
+      { label:"テスト合格", value:"92%", pct:"92%", color:C.green },
+      { label:"受け入れ条件", value:"85%", pct:"85%", color:C.amber },
+    ];
+
+    const recentDecisions = D.decisions.slice(0,4).map(d=>({
+      date:d.date.slice(5), title:d.title, tags:d.tags.slice(0,2),
+      score:"+"+((d.outcome[5]-d.outcome[0]).toFixed(2)), scoreColor:C.green,
+      onClick:()=>this.setState({view:"knowledge", selectedDecisionId:d.id}),
+    }));
+    const overviewTasks = D.tasks.filter(t=>t.status==="doing"||t.status==="backlog").slice(0,5).map(t=>({
+      title:t.title, reworks:t.reworks||0, score:t.score.toFixed(2), scoreColor:this.scoreColor(t.score),
+      pColor: t.status==="doing"?C.teal:C.muted, onClick:this.goView("today"),
+    }));
+
+    // TODAY
+    const statusMeta={ backlog:{t:"バックログ",c:C.muted}, doing:{t:"着手中",c:C.teal}, review:{t:"レビュー",c:C.amber}, done:{t:"完了",c:C.green} };
+    const kanban = ["backlog","doing","review","done"].map(st=>{
+      const tasks=D.tasks.filter(t=>t.status===st).map(t=>({
+        title:t.title, org:t.org, tags:t.tags, reworks:t.reworks||0,
+        score:t.score.toFixed(2), scoreColor:this.scoreColor(t.score), onClick:this.goView("today"),
+        cardStyle:`background:oklch(0.185 0.013 255); border:1px solid ${t.reworks?"oklch(0.5 0.09 75 / 0.5)":"oklch(0.26 0.014 255)"}; border-radius:10px; padding:13px 14px; cursor:pointer;`,
+      }));
+      return { title:statusMeta[st].t, color:statusMeta[st].c, count:tasks.length, tasks };
+    });
+    const todayStats=[
+      { label:"オープン", value:"6", color:C.teal },
+      { label:"着手中", value:"2", color:C.blue },
+      { label:"手戻りあり", value:"4", color:C.amber },
+      { label:"平均スコア", value:"0.74", color:this.scoreColor(0.74) },
+    ];
+
+    // KNOWLEDGE
+    const searchChips = ["pgvector","embedding","quality-gate","actions","auth","ingestion"].map(t=>{
+      const on = s.searchQuery.includes(t);
+      return { label:t, onClick:()=>this.setState({searchQuery:t}),
+        style:`font-family:'IBM Plex Mono',monospace; font-size:11px; cursor:pointer; padding:4px 10px; border-radius:6px; border:1px solid ${on?"oklch(0.5 0.08 195)":"oklch(0.28 0.014 255)"}; color:${on?"oklch(0.78 0.09 195)":"oklch(0.62 0.012 255)"}; background:${on?"oklch(0.78 0.11 195 / 0.1)":"transparent"};` };
+    });
+    const sel = D.decisions.find(d=>d.id===s.selectedDecisionId) || D.decisions[0];
+    const searchResults = D.decisions.map(d=>({
+      date:d.date, org:d.org, similarity:d.similarity, title:d.title, summary:d.summary, tags:d.tags,
+      onClick:()=>this.setState({selectedDecisionId:d.id}),
+      cardStyle:`background:oklch(0.185 0.013 255); border:1px solid ${d.id===s.selectedDecisionId?"oklch(0.55 0.08 195)":"oklch(0.26 0.014 255)"}; border-radius:12px; padding:15px 16px; cursor:pointer;`,
+    }));
+    const selCol={teal:C.teal,green:C.green,amber:C.amber};
+    const selectedDecision = { title:sel.title, date:sel.date, org:sel.org, body:sel.body,
+      stats: sel.stats.map(x=>({ label:x.label, value:x.value, color:selCol[x.c]||C.teal })) };
+    const decisionOutcomeChart = this.lineChart([{ data:sel.outcome, color:C.green, area:true }],
+      { min:0.5, max:1, labels:["判断","+1w","+2w","+3w","+4w","+6w"], fmt:v=>v.toFixed(2), w:520, h:150 });
+
+    // RETRO
+    const retroPeriods=["weekly","monthly"].map(p=>({ label:p==="weekly"?"週次":"月次", onClick:()=>this.setState({retroPeriod:p}),
+      style:`font-family:'IBM Plex Mono',monospace; font-size:12px; cursor:pointer; padding:6px 14px; border-radius:8px; border:1px solid ${s.retroPeriod===p?"oklch(0.5 0.08 195)":"oklch(0.28 0.014 255)"}; color:${s.retroPeriod===p?"oklch(0.85 0.09 195)":"oklch(0.62 0.012 255)"}; background:${s.retroPeriod===p?"oklch(0.78 0.11 195 / 0.12)":"transparent"};` }));
+    const judgeChart = this.lineChart([
+      { data:D.judge.completeness, color:C.teal }, { data:D.judge.accuracy, color:C.green }, { data:D.judge.clarity, color:C.violet },
+    ], { min:3, max:5, labels:D.weeks, fmt:v=>v.toFixed(1), w:640, h:210 });
+    const judgeLegend=[{label:"完全性",color:C.teal},{label:"正確性",color:C.green},{label:"明瞭性",color:C.violet}];
+    const rewardSignals = D.signals.map(sig=>({ label:sig.label, value:sig.value.toFixed(2), pct:Math.round(sig.value*100)+"%", color:this.scoreColor(sig.value) }));
+    const rewardGateChart = this.barLineChart();
+    const retroDecisions=[
+      { week:"W27", title:"pgvector 再ランキングを本採用、上位K件の精度が安定" },
+      { week:"W26", title:"品質ゲート閾値を微調整、受け入れ条件の合格率が改善" },
+      { week:"W25", title:"埋め込みモデルの多言語検証を research-spike に委譲" },
+      { week:"W24", title:"整理ループの深夜スロットで滞留inboxを解消" },
+      { week:"W23", title:"tag_synonyms の初期語彙を masters から生成" },
+    ];
+
+    // CAPTURE
+    const captureKinds=["status","issue","next_move"].map(k=>({ label:kindMeta[k].label, onClick:()=>this.setState({captureKind:k}),
+      style:`font-family:'IBM Plex Mono',monospace; font-size:11px; cursor:pointer; padding:5px 11px; border-radius:7px; border:1px solid ${s.captureKind===k?kindMeta[k].color:"oklch(0.28 0.014 255)"}; color:${s.captureKind===k?kindMeta[k].color:"oklch(0.6 0.012 255)"}; background:${s.captureKind===k?kindMeta[k].bg:"transparent"};` }));
+    const inbox = s.captures.map(c=>({ kind:kindMeta[c.kind].label, kindBg:kindMeta[c.kind].bg, kindColor:kindMeta[c.kind].color,
+      topic:c.topic, body:c.body, status:c.processed?"✓ 整理済":"● 未処理", statusColor:c.processed?C.green:C.amber,
+      cardStyle:`background:oklch(0.185 0.013 255); border:1px solid ${c.processed?"oklch(0.24 0.014 255)":"oklch(0.5 0.09 75 / 0.4)"}; border-radius:10px; padding:12px 14px;` }));
+    const inboxPendingCount = s.captures.filter(c=>!c.processed).length;
+
+    // SPAR messages
+    const sparMessages = s.sparMessages.map(m=>({
+      text:m.text, showCtx:!!m.ctx, ctx:m.ctx||"",
+      wrapStyle:`display:flex; flex-direction:column; align-items:${m.role==="user"?"flex-end":"flex-start"};`,
+      bubbleStyle: m.role==="user"
+        ? `max-width:86%; background:oklch(0.72 0.11 290 / 0.18); border:1px solid oklch(0.72 0.11 290 / 0.35); color:oklch(0.9 0.01 290); border-radius:12px 12px 3px 12px; padding:10px 13px; font-size:13px; line-height:1.6;`
+        : `max-width:92%; background:oklch(0.19 0.013 255); border:1px solid oklch(0.28 0.014 255); color:oklch(0.86 0.008 255); border-radius:12px 12px 12px 3px; padding:11px 14px; font-size:13px; line-height:1.65;`,
+    }));
+
+    // ADMIN
+    const roleStyle = (r)=>`font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 9px; border-radius:20px; ${r==="admin"?"background:oklch(0.7 0.1 40 / 0.16); color:oklch(0.78 0.1 40);":"background:oklch(0.72 0.12 250 / 0.14); color:oklch(0.72 0.1 250);"}`;
+    const avatarBgs=["oklch(0.72 0.11 290)","oklch(0.78 0.11 195)","oklch(0.75 0.14 150)","oklch(0.62 0.012 255)"];
+    const users = D.users.map((u,i)=>({ name:u.name, email:u.email, role:u.role, captures:u.captures, lastActive:u.lastActive,
+      initials:u.name.slice(0,2).toUpperCase(), avatarBg:avatarBgs[i%avatarBgs.length], roleStyle:roleStyle(u.role) }));
+    const roles=[
+      { name:"admin", users:1, desc:"ユーザー/ロール管理。全共有データ参照。個人データは所有者本人のみ。", roleStyle:roleStyle("admin") },
+      { name:"member", users:3, desc:"共有データ(索引・整理済み知識)を参照。自分の生キャプチャ・壁打ちのみ参照可。", roleStyle:roleStyle("member") },
+    ];
+    const aclRules=[
+      { scope:"生キャプチャ・壁打ち", rule:"所有者(user_id)本人のみ参照可。アプリ層でスコープ強制。", color:C.violet },
+      { scope:"共有データ(索引・整理済み)", rule:"認証済みユーザーが参照可。timeline_records は user_id を持たない。", color:C.teal },
+      { scope:"ユーザー/ロール管理", rule:"admin のみ。将来 permissions / role_permissions で細粒度化。", color:"oklch(0.7 0.1 40)" },
+    ];
+
+    return {
+      showLogin: !s.loggedIn, showApp: s.loggedIn,
+      loginId:s.loginId, loginPw:s.loginPw, onLoginId:this.onInput("loginId"), onLoginPw:this.onInput("loginPw"), doLogin:this.doLogin,
+      loginStatus:[
+        { label:"GitHub 同期 (cc-sier-organization)", value:"OK · 毎時", color:C.green },
+        { label:"GitHub 同期 (ai-war-room)", value:"OK · 毎時", color:C.green },
+        { label:"Neon (Postgres + pgvector)", value:"CONNECTED", color:C.green },
+        { label:"整理ループ (Claude Actions ×4)", value:"次回 19:00", color:C.teal },
+      ],
+      navItems, logout:this.logout,
+      viewTitle:viewMeta[s.view].t, viewSub:viewMeta[s.view].sub, lastSynced:"12:00",
+      toggleSpar:this.toggleSpar, sparOpen:s.sparOpen,
+      isOverview:s.view==="overview", isToday:s.view==="today", isKnowledge:s.view==="knowledge",
+      isRetro:s.view==="retro", isCapture:s.view==="capture", isAdmin:s.view==="admin",
+      kpis, timelineChart, timelineLegend, gateGauge, gateBreakdown, recentDecisions, overviewTasks,
+      goKnowledge:this.goView("knowledge"), goToday:this.goView("today"),
+      kanban, todayStats,
+      searchQuery:s.searchQuery, onSearch:this.onInput("searchQuery"), searchChips, searchResults, searchCount:searchResults.length,
+      selectedDecision, decisionOutcomeChart,
+      retroPeriods, judgeChart, judgeLegend, rewardSignals, rewardGateChart, retroDecisions,
+      captureKinds, captureTopic:s.captureTopic, onCaptureTopic:this.onInput("captureTopic"),
+      captureBody:s.captureBody, onCaptureBody:this.onInput("captureBody"), addCapture:this.addCapture,
+      inbox, inboxPendingCount,
+      sparMessages, sparTyping:s.sparTyping, sparInput:s.sparInput, onSparInput:this.onInput("sparInput"), onSparKey:this.onSparKey, sendSpar:this.sendSpar,
+      users, userCount:D.users.length, roles, aclRules,
+    };
+  }
+}
+</script>
+</body>
+</html>
