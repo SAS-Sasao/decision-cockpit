@@ -1,12 +1,15 @@
 // 「振り返り」画面: 週次/月次の実スコア集計 + 同期間の判断ログ/日報一覧。
 // 対象設計: docs/design/detail/ingestion-foundation.md §0-1(表示ラベル決着)/ §2.5(振り返り)
 //          docs/design/basic/ingestion-foundation.md §3.4(振り返りの集計契約)
+//          docs/design/detail/ui-shell.md §2.5(app/(shell)/retro/page.tsx — 旧 /review の移設。
+//          集計契約・ラベル・requireUser・dynamic は不変。スコア数値に scoreLevel の色付けのみ追加)
 //
 // データは lib/data/review.ts の索引済み集計(timeline_records, WHERE status='ok')を読むのみ。
 // 重い処理(集計・埋め込み等)はこの画面では行わない。チャートライブラリは使わず素の table で表示する。
 import Link from "next/link";
-import { requireUser } from "../../lib/auth/user";
-import { getReviewData, type Bucket, type Entry, type Granularity } from "../../lib/data/review";
+import { requireUser } from "../../../lib/auth/user";
+import { getReviewData, type Bucket, type Entry, type Granularity } from "../../../lib/data/review";
+import { scoreLevel, scoreColorVar } from "../../../lib/ui/score";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +29,11 @@ function formatPercent(value: number | null): string {
 function formatScore(value: number | null): string {
   if (value === null) return "—";
   return value.toFixed(2);
+}
+
+/** scoreLevel に応じた文字色(reward 平均・judge 3軸・QG 率のみに適用)。 */
+function scoreColorStyle(value: number | null): { color: string } {
+  return { color: scoreColorVar(scoreLevel(value)) };
 }
 
 /** 週バケット: 開始日 "MM/DD〜"。月バケット: "YYYY-MM"。 */
@@ -81,7 +89,7 @@ const td = {
 
 const tdLeft = { ...td, textAlign: "left" as const };
 
-export default async function ReviewPage({
+export default async function RetroPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -103,13 +111,13 @@ export default async function ReviewPage({
 
       <nav style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         <Link
-          href="/review?g=week"
+          href="/retro?g=week"
           style={{ fontWeight: granularity === "week" ? "bold" : "normal" }}
         >
           週
         </Link>
         <Link
-          href="/review?g=month"
+          href="/retro?g=month"
           style={{ fontWeight: granularity === "month" ? "bold" : "normal" }}
         >
           月
@@ -155,15 +163,25 @@ export default async function ReviewPage({
                       {bucket.counts[t]}
                     </td>
                   ))}
-                  <td style={td}>{formatScore(bucket.rewardAvg)}</td>
+                  <td style={{ ...td, ...scoreColorStyle(bucket.rewardAvg) }}>
+                    {formatScore(bucket.rewardAvg)}
+                  </td>
                   <td style={td}>{formatPercent(bucket.signalRates.completed)}</td>
                   <td style={td}>{formatPercent(bucket.signalRates.artifacts_exist)}</td>
                   <td style={td}>{formatPercent(bucket.signalRates.excessive_edits)}</td>
                   <td style={td}>{formatPercent(bucket.signalRates.retry_detected)}</td>
-                  <td style={td}>{formatScore(bucket.judgeAvg.completeness)}</td>
-                  <td style={td}>{formatScore(bucket.judgeAvg.accuracy)}</td>
-                  <td style={td}>{formatScore(bucket.judgeAvg.clarity)}</td>
-                  <td style={td}>{formatPercent(bucket.qualityGatePassRate)}</td>
+                  <td style={{ ...td, ...scoreColorStyle(bucket.judgeAvg.completeness) }}>
+                    {formatScore(bucket.judgeAvg.completeness)}
+                  </td>
+                  <td style={{ ...td, ...scoreColorStyle(bucket.judgeAvg.accuracy) }}>
+                    {formatScore(bucket.judgeAvg.accuracy)}
+                  </td>
+                  <td style={{ ...td, ...scoreColorStyle(bucket.judgeAvg.clarity) }}>
+                    {formatScore(bucket.judgeAvg.clarity)}
+                  </td>
+                  <td style={{ ...td, ...scoreColorStyle(bucket.qualityGatePassRate) }}>
+                    {formatPercent(bucket.qualityGatePassRate)}
+                  </td>
                 </tr>
               ))}
             </tbody>
