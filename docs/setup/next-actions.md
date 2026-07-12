@@ -6,8 +6,9 @@
 > **ui-polish(概観・振り返りの MoC 忠実化 + 共通チャート部品)は基本設計 PASS — 次は詳細設計から**。
 > **秘密情報(接続文字列・トークン・パスワード)は本ファイルに実値を書かない。**
 >
-> **▶ 次セッションの再開手順**: `/detailed-design ui-polish` → `/design-review ui-polish` → `/goal`(部品先行 → 画面適用の2分割)。
-> その後 M2(検索)の設計へ(**M2 以降は MoC 準拠 + components/charts 再利用が恒久規範** — ui-polish 基本設計 §1-7)。
+> **▶ 次セッションの再開手順**: **`/goal POLISH-A`**(チャート部品・基盤)→ **`/goal POLISH-B`**(画面適用+注記)。
+> ui-polish は基本・詳細とも設計 PASS 済み(対象設計 = docs/design/detail/ui-polish.md §5)。
+> その後 M2(検索)の設計へ(**M2 以降は MoC 準拠 + components/charts 再利用が恒久規範**)。
 
 ---
 
@@ -27,7 +28,7 @@
 ## 🎨 UI(画面デザイン MoC)対応 — 進行中
 
 - [x] **ui-shell 完了**(2026-07-12): 共通シェル(サイドバー/トップバー/ダークテーマ)+ SC-02 概観(最小版)+ ルート再編(/today /knowledge /retro /capture /admin/users・旧 URL 308)+ ログアウト接続。UI-A/UI-B とも judge PASS
-- [ ] **ui-polish(次の実装)**: 基本設計 PASS 済み(docs/design/basic/ui-polish.md)。内容 = 共通チャート部品(スパークライン/面グラフ/円形ゲージ/横バー/複合)+ SC-02・SC-05 の MoC 忠実化 + @fontsource セルフホスト(IBM Plex)。**再開 = `/detailed-design ui-polish`**
+- [ ] **ui-polish(次の実装 — 設計は完了)**: 基本・詳細とも design-review 全レンズ PASS(2026-07-12)。内容 = 共通チャート部品(スパークライン/面グラフ/円形ゲージ/横バー/複合)+ SC-02・SC-05 の MoC 忠実化 + @fontsource セルフホスト(IBM Plex・exact pin)。**再開 = `/goal POLISH-A` → `/goal POLISH-B`**
   - 完了後の手動確認: MoC スクリーンショット(sc02/sc05)との目視比較5点(設計 §5 末尾のチェックリスト。実画面のスクリーンショットは repo/PR に保存しない)
 - [ ] SC-07 ユーザー管理 UI は M4 前後で(M0 未解決の問い#1 の決着候補)
 - 恒久規範(ui-polish 基本設計 §1-7): **M2 以降の新画面は MoC 該当ブロックを意匠規範とし components/charts を再利用** / 前 goal の新設テストは次 goal の凍結列挙に編入
