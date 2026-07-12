@@ -18,7 +18,7 @@
 
 ## 🟢 M1 仕上げの手動アクション(実装は完了済み)
 
-- [ ] `CRON_SECRET` を生成(`openssl rand -base64 32`)し `.env` に追記(Vercel 展開時はそちらにも)
+- [x] `CRON_SECRET` を生成し `.env` に追記済み(2026-07-12・Claude が対応)。**Vercel 展開時に同値を Vercel 環境変数へ登録するのはあなたの操作**
 - [ ] **初回フル同期(実データ)**: `DATABASE_URL=<ローカルdb or Neon> npx tsx scripts/sync-local.ts`(SYNC_SOURCE 未指定=GitHub・既定 SYNC_MAX_FILES=0)→ http://localhost:3000/review で実スコア表示を確認
   - github-source の実疎通はここが初(fixture 同期は検証済み)。エラーが出たら Claude に共有
 - [ ] **0002 の Neon 本番適用を承認**(0001 と同じ流れ: ブランチ検証 → 承認 → 適用。Claude が実施可能)
