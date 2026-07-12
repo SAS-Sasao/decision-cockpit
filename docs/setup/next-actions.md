@@ -39,7 +39,7 @@
 |---|---|
 | **M2**(検索) | 埋め込みモデル選定(research-spike)→ `EMBEDDING_MODEL` / `EMBEDDING_DIM` / `EMBEDDING_API_KEY` 確定 + check-no-secrets.sh へパターン追随(同一コミット)。conversation-log 取り込みは**マスク検証方針の先行設計が前提**(設計の問い#2) |
 | **M5**(自動整理) | `claude setup-token` → GitHub Secrets(`CLAUDE_CODE_OAUTH_TOKEN` / `WARROOM_PAT` / `DATABASE_URL`)+ Variables `ENABLE_DAILY_ORGANIZE=true` |
-| Vercel 展開時 | 環境変数登録(`DATABASE_URL` / `NEON_AUTH_*` / `CRON_SECRET` / `GITHUB_TOKEN` ほか)。vercel.json の毎時 Cron は M1-B で定義済みになる |
+| Vercel 展開時 | **手順書あり: [`vercel-deploy.md`](./vercel-deploy.md)**(事前条件・環境変数・Cron・初回同期・トラブルシュートまで記載。現時点でデプロイ不要) |
 
 ## 🧹 細かい積み残し(任意)
 
