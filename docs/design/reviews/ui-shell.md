@@ -48,3 +48,41 @@
 3. **[data] 分母極小時の差分の乱高下**は「今週(進行中)」注記で許容(na 抑制閾値なしを明示決定済み)。
 4. バッジ件数関数(専用軽量 or getOverviewData 共用)の確定。
 
+---
+
+# 詳細設計(docs/design/detail/ui-shell.md)
+
+## Round 1 — 2026-07-12
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **PASS(条件付き)** | /goal 割付の全数確認で M1 型の矛盾なし・weeks=6 窓の十分性を机上検証・条件4 の diff 列挙が既存14テストを全カバーすることを確認。Med 2: 申し送り#2 後半(期待値表)未決着 / **tests/helpers・vitest.config.ts が diff ゲート外**。Low 5(条件1部分の非明示・条件5 の /admin/users 脱落・getLastSync シグネチャ・eslint 判定器・weekBucketBoundaries 直接テスト) |
+| data | **FAIL** | Med 3: **aggregateOverview の戻り型が「inbox 除く」と自己矛盾**(Pick に unprocessedInbox 含む)/ **条件3 の grep -c は行数計上で §2.4 の CSS 例と自己矛盾**(6行 < 9)/ **recordsByType の順序が 7 type 中5つのみ**(session/conversation の扱い未定義)。6週窓・参照列・export 互換・REPOS 突合は実地照合で PASS |
+| sec | **PASS(条件付き)** | バッジ関数条項化・ログアウト POST・実機手順の秘密非依存を照合済み。Med 1: **lib/auth・app/logout が diff ゲート外**(認可の土台の改変を機械検知できない)。Low 3(依存固定の機械判定なし / tests/helpers 漏れ / 順序の grep 限界)。Info 2(retro 行の requireUser 非明記 / 条件2 の「fixture DB」表現と実態) |
+
+**総合: FAIL(data)** → rev.2 で反映:
+
+1. `OverviewAggregates = { kpis: Omit<..., 'unprocessedInbox'>, weeklyTrend }` に型修正(自己矛盾解消)。
+2. 条件3を**出現数ベース**(`grep -o | wc -l`)に変更(整形非依存)。
+3. recordsByType を **7 type 全列挙順**で確定(recordsThisWeek は全 type 合計)。
+4. **diff ゲート拡張**: 条件4に tests/helpers・vitest.config.ts / 条件7に lib/auth・app/logout・app/api・package.json・package-lock.json(依存固定の機械判定)。
+5. 期待値の正 = テストコード(テスト内コメントで手計算根拠)と明示的決定(§0-2)。
+6. buildLastSync を純関数に切り出しテスト対象化 / getLastSync シグネチャ確定 / weekBucketBoundaries の weeks=6/8 直接 assert / 週境界の両側テスト / 条件5に /admin/users / 条件1に eslint キー非存在 grep / UI-A の条件1部分を1行転記 / retro 行に requireUser 維持明記 / 条件2 の DB 表現を実態(ローカル dev db・ステータスコードのみ判定)に修正。
+
+## Round 2 — 2026-07-12(rev.2 を再レビュー)
+
+| レンズ | 判定 | 要点 |
+|---|---|---|
+| arch | **PASS** | Med 2 / Low 5 全解消(diff 列挙が既存14テスト + helpers + vitest.config を全カバー・app/api ゲートが両 /goal で成立・eslint 判定器の実在まで現物照合)。新規 Low 1(条件1の正典二重定義)+ Info 2 |
+| data | **PASS** | Med 3 全解消を実照合(OverviewAggregates の Omit / oklch 出現数 = 10 ≥ 9 / 7 type 列挙が ALL_RECORD_TYPES・CHECK 制約と完全一致)。Low 4 解消・退行なし。Info 2(基本設計の5 type 列挙残存 / buildLastSync 行在ケース) |
+| sec | **PASS** | Med 1(lib/auth・app/logout・app/api の凍結)/ Low(依存固定・helpers)解消。diff ゲート拡張と成果物の衝突なし(凍結モジュールへの依存は import のみで成立)を突合確認。新規 Low 1(app/login・app/auth の凍結非対称)+ Info 2(fixture DB 残滓 / auth CSS import) |
+
+**総合: PASS(全レンズ)** — R2 の Low/Info は rev.3 で反映済み:
+条件1の正典一意化(eslint grep = UI-A 固有)/ 条件7に app/login・app/auth 追加 / §5 の fixture DB 残滓修正 / app/layout.tsx の auth CSS import 維持を明記 / recordsByType の詳細化注記 / buildLastSync の行在ケース追加 / 条件5 のベア `/` 対象外の明記。
+
+### /goal への申し送り(Info・非ブロッキング)
+
+1. diff ゲートは「節目 commit 済み」前提(未追跡の新規ファイルは git diff main に現れない — M0/M1 と同クラスの許容)。
+2. admin ページの isAdmin→notFound の**順序**は grep 判定外(条項明記 + acceptance-judge の independent 検証で担保)。
+3. 期待値の正 = テストコード(テスト内コメントに手計算根拠 — §0-2 の明示的決定)。
+
