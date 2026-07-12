@@ -1,3 +1,11 @@
+// @fontsource セルフホスト(ui-polish)。対象設計: docs/design/detail/ui-polish.md §2.3(app/layout.tsx)
+import "@fontsource/ibm-plex-sans-jp/400.css";
+import "@fontsource/ibm-plex-sans-jp/500.css";
+import "@fontsource/ibm-plex-sans-jp/600.css";
+import "@fontsource/ibm-plex-sans-jp/700.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/600.css";
 import type { ReactNode } from "react";
 // Neon Auth SDK 付属 UI(AuthView 等)のスタイル。app/login で使用するためグローバル import する。
 // 対象設計: docs/design/detail/auth-foundation.md §2.1

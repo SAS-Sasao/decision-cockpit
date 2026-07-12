@@ -126,7 +126,7 @@ vitest。実 DB・実ネットワークなし。**新テストは新ファイル
    `git diff --exit-code main -- proxy.ts lib/ingestion db/migrations lib/auth lib/db.ts app/logout app/api app/login app/auth next.config.mjs lib/data/review.ts tsconfig.json scripts/check-no-secrets.sh` exit 0 /
    `git diff --exit-code main -- <FROZEN_TESTS>` exit 0 /
    `test "$(grep -o "WHERE status = 'ok'" lib/data/overview.ts | wc -l)" = "2"` /
-   `grep -q "WHERE user_id = \$1 AND processed_at IS NULL" lib/data/overview.ts`(全文ピン)。
+   `grep -Fq 'WHERE user_id = $1 AND processed_at IS NULL' lib/data/overview.ts`(全文ピン — 固定文字列判定。旧表記 `grep -q "…\$1…"` は grep が `$` を途中アンカー解釈し全文一致でも偽 FAIL するため、/goal POLISH-A 判定時に -F へ修正 — 実装側は当初から一致・偽 FAIL 側の表記修正のみ)。
    ※ overview.ts への**新規クエリ追加の禁止は宣言 + FROZEN_TESTS + 人間レビューで担保**(機械判定しない — 意図的判断。可変範囲は tags 追加のみ)。
 7. **境界・二層防御・シェル契約**: check-no-secrets / M1 条件8 / server-only 各 exit 0 + **ui-shell 条件6(基本 §5-6)再実行** + layout 存在ピン: `grep -q "getUnprocessedInboxCount" "app/(shell)/layout.tsx"` && `grep -q "getLastSync" "app/(shell)/layout.tsx"`(表示のみの意匠差は手動チェック許容)。
 8. **ビルド・実機**: **build 手順 = ui-shell 詳細 §4 条件5 相当**(app 停止 → .next 掃除(root 所有時は docker で削除)→ ダミー env build → docker compose start app で復帰)で exit 0。**実機手順 = ui-shell 詳細 §4-2**(port 3300・SYNC_SOURCE=fixture・ダミー env)で未認証 `/` `/retro` → 307。

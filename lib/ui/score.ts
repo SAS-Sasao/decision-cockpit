@@ -30,3 +30,10 @@ export function scoreColorVar(level: ScoreLevel): string {
       return "var(--text-sub)";
   }
 }
+
+// 対象設計: docs/design/detail/ui-polish.md §2.3(lib/ui/score.ts への追加)
+// 4シグナル(completed / artifacts_exist / excessive_edits / retry_detected)の方向読み替え。
+// SignalKey は score.ts に自前定義する(parsers 側の型はサーバ専用のため import しない)。
+type SignalKey = "completed" | "artifacts_exist" | "excessive_edits" | "retry_detected";
+
+export const SIGNAL_DIRECTION = { completed: "high-good", artifacts_exist: "high-good", excessive_edits: "high-bad", retry_detected: "high-bad" } as const satisfies Record<SignalKey, "high-good" | "high-bad">;

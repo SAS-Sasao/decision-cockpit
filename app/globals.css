@@ -1,5 +1,7 @@
 /* 対象設計: docs/design/detail/ui-shell.md §2.4(デザイントークン — 画面設計書 §4.2 の転記)
-   layout.tsx への import は UI-B の領分(本ファイルはトークン定義のみ)。 */
+   layout.tsx への import は UI-B の領分(本ファイルはトークン定義のみ)。
+   追加分: docs/design/detail/ui-polish.md §2.3(app/globals.css)— 未トークン化色・.panel・
+   ckfade/ckblink・scrollbar/selection(根拠: docs/research/ui-polish-moc-spec.md)。 */
 :root {
   --bg: oklch(0.15 0.012 255);      --panel: oklch(0.185 0.013 255);
   --line: oklch(0.26 0.014 255);    --text: oklch(0.93 0.006 255);
@@ -7,6 +9,33 @@
   --accent-spar: oklch(0.72 0.11 290);
   --good: oklch(0.75 0.14 150);     --warn: oklch(0.80 0.13 75);
   --bad: oklch(0.68 0.16 25);
+  --grid: oklch(0.28 0.013 255);
+  --panel-row: oklch(0.165 0.012 255);
+  --line-row: oklch(0.24 0.014 255);
+  --line-faint: oklch(0.22 0.013 255);
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 body { background: var(--bg); color: var(--text);
-  font-family: "IBM Plex Sans JP", system-ui, sans-serif; }  /* Web フォント配信なし(基本設計 §1) */
+  font-family: "IBM Plex Sans JP", system-ui, sans-serif; }  /* @fontsource セルフホスト(ui-polish) */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+@keyframes ckfade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ckblink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: oklch(0.32 0.014 255); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::selection { background: oklch(0.78 0.11 195 / 0.3); }
