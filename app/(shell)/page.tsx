@@ -1,15 +1,35 @@
 // SC-02 概観(横断ダッシュボード)。
 // 対象設計: docs/design/detail/ui-shell.md §2.5(app/(shell)/page.tsx)
 //          docs/design/basic/ui-shell.md §1-4(SC-02 概観)
+//          docs/design/detail/ui-polish.md §2.3(app/(shell)/page.tsx — SC-02 リッチ化)
 //
 // データは lib/data/overview.ts の索引済み集計(timeline_records / sync_state / capture_inbox)を
-// 読むのみ。重い処理(集計・埋め込み等)はこの画面では行わない。チャートライブラリは使わず
-// インライン SVG の簡易折れ線で表示する。
+// 読むのみ。重い処理(集計・埋め込み等)はこの画面では行わない。チャートは components/charts の
+// 共通部品(sparkline / line-chart / gauge)を用いる。
 import { requireUser } from "../../lib/auth/user";
 import { getOverviewData, type OverviewData } from "../../lib/data/overview";
-import { scoreLevel, scoreColorVar } from "../../lib/ui/score";
+import { scoreLevel, type ScoreLevel } from "../../lib/ui/score";
+import { qgBreakdown } from "../../lib/ui/chart";
+import type { TokenColor } from "../../lib/ui/chart";
+import { Sparkline } from "../../components/charts/sparkline";
+import { LineChart } from "../../components/charts/line-chart";
+import { Gauge } from "../../components/charts/gauge";
 
 export const dynamic = "force-dynamic";
+
+/** レベル → チャート部品向けの TokenColor(色 props は var(--…) のみ)。 */
+function levelToTokenColor(level: ScoreLevel): TokenColor {
+  switch (level) {
+    case "good":
+      return "var(--good)";
+    case "warn":
+      return "var(--warn)";
+    case "bad":
+      return "var(--bad)";
+    case "na":
+      return "var(--text-sub)";
+  }
+}
 
 /** reward / QG の 0-1 スコアを小数2桁で表示する。null は "—"。 */
 function formatScore(value: number | null): string {
@@ -46,6 +66,14 @@ function formatEntryDate(iso: string): string {
   return `${y}-${m}-${day}`;
 }
 
+/** 横断タイムラインの x 軸ラベル("MM/DD")。 */
+function formatWeekLabel(iso: string): string {
+  const d = new Date(iso);
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${m}/${day}`;
+}
+
 function sourceHref(source: string, filePath: string): string {
   return `https://github.com/SAS-Sasao/${source}/blob/main/${filePath}`;
 }
@@ -53,121 +81,51 @@ function sourceHref(source: string, filePath: string): string {
 const cardStyle = {
   background: "var(--panel)",
   border: "1px solid var(--line)",
-  borderRadius: 8,
-  padding: 16,
+  borderRadius: 12,
+  padding: "16px 17px",
   minWidth: 0,
 };
 
-const cardLabel = { fontSize: 12, color: "var(--text-sub)", marginBottom: 6 };
-const cardValue = { fontSize: 26, fontWeight: 700, lineHeight: 1.2 };
-const cardSub = { fontSize: 12, color: "var(--text-sub)", marginTop: 6 };
+const cardTopRow = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
+const cardLabel = { fontSize: 12, color: "var(--text-sub)" };
+const cardValueRow = { display: "flex", alignItems: "baseline", gap: 6, marginBottom: 10 };
+const cardValue = { fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, lineHeight: 1.2 };
+const cardUnit = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-sub)" };
 
-/** 週次トレンド(0-1 の値)を y 座標へスケールする(reward/QG 共通の変換)。 */
-function valueToY(value: number, plotTop: number, plotHeight: number): number {
-  return plotTop + (1 - value) * plotHeight;
+/** delta の正負に応じた pill スタイル(色 14% アルファ — 正のみ good・それ以外は muted)。 */
+function pillStyle(positive: boolean) {
+  const base = positive ? "var(--good)" : "var(--text-sub)";
+  return {
+    fontFamily: "var(--font-mono)",
+    fontSize: 10.5,
+    padding: "2px 7px",
+    borderRadius: 20,
+    background: `color-mix(in oklch, ${base} 14%, transparent)`,
+    color: base,
+  };
 }
 
-type TrendPoint = { x: number; y: number };
-
-/** null 点で分割した連続セグメントの配列にする(polyline を分割して描画するため)。 */
-function buildSegments(
-  values: (number | null)[],
-  xs: number[],
-  plotTop: number,
-  plotHeight: number
-): TrendPoint[][] {
-  const segments: TrendPoint[][] = [];
-  let current: TrendPoint[] = [];
-  values.forEach((v, i) => {
-    if (v === null) {
-      if (current.length > 0) {
-        segments.push(current);
-        current = [];
-      }
-      return;
-    }
-    current.push({ x: xs[i]!, y: valueToY(v, plotTop, plotHeight) });
-  });
-  if (current.length > 0) segments.push(current);
-  return segments;
-}
-
-function toPointsAttr(points: TrendPoint[]): string {
-  return points.map((p) => `${p.x},${p.y}`).join(" ");
-}
-
-function WeeklyTrendChart({ trend }: { trend: OverviewData["weeklyTrend"] }) {
-  const width = 600;
-  const height = 120;
-  const paddingX = 20;
-  const plotTop = 10;
-  const plotHeight = 90;
-  const plotWidth = width - paddingX * 2;
-  const n = trend.length;
-  const xs = trend.map((_, i) => paddingX + (n > 1 ? (i * plotWidth) / (n - 1) : plotWidth / 2));
-
-  const rewardSegments = buildSegments(
-    trend.map((w) => w.rewardAvg),
-    xs,
-    plotTop,
-    plotHeight
-  );
-  const qgSegments = buildSegments(
-    trend.map((w) => w.qgPassRate),
-    xs,
-    plotTop,
-    plotHeight
-  );
-
+/** 品質ゲート内訳(pass/非pass)の1行(ラベル + 件数 + 小バー)。 */
+function BreakdownRow({
+  label,
+  value,
+  total,
+  color,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  color: TokenColor;
+}) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
   return (
     <div>
-      <svg viewBox="0 0 600 120" width="100%" height={160} role="img" aria-label="週次トレンド(reward平均・品質ゲート合格率)">
-        {rewardSegments.map((seg, i) => (
-          <polyline
-            key={`reward-${i}`}
-            points={toPointsAttr(seg)}
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth={2}
-          />
-        ))}
-        {qgSegments.map((seg, i) => (
-          <polyline
-            key={`qg-${i}`}
-            points={toPointsAttr(seg)}
-            fill="none"
-            stroke="var(--accent-spar)"
-            strokeWidth={2}
-          />
-        ))}
-      </svg>
-      <div style={{ display: "flex", gap: 20, fontSize: 12, color: "var(--text-sub)" }}>
-        <span>
-          <span
-            style={{
-              display: "inline-block",
-              width: 10,
-              height: 10,
-              background: "var(--accent)",
-              marginRight: 6,
-              borderRadius: 2,
-            }}
-          />
-          reward平均(直近6週)
-        </span>
-        <span>
-          <span
-            style={{
-              display: "inline-block",
-              width: 10,
-              height: 10,
-              background: "var(--accent-spar)",
-              marginRight: 6,
-              borderRadius: 2,
-            }}
-          />
-          品質ゲート合格率(直近6週)
-        </span>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+        <span style={{ fontSize: 11.5, color: "var(--text-sub)" }}>{label}</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--text)" }}>{value}件</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 4, background: "var(--grid)", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4 }} />
       </div>
     </div>
   );
@@ -181,6 +139,16 @@ export default async function OverviewPage() {
     data.recentDecisions.length > 0 ||
     data.weeklyTrend.some((w) => w.rewardAvg !== null || w.qgPassRate !== null) ||
     data.kpis.recordsThisWeek > 0;
+
+  const rewardColor = levelToTokenColor(scoreLevel(data.kpis.rewardWeekAvg));
+  const qgColor = levelToTokenColor(scoreLevel(data.kpis.qgPassRate));
+  const rewardTrend = data.weeklyTrend.map((w) => w.rewardAvg);
+  const qgTrend = data.weeklyTrend.map((w) => w.qgPassRate);
+  const weekLabels = data.weeklyTrend.map((w) => formatWeekLabel(w.weekStart));
+
+  const qualityEntry = data.kpis.recordsByType.find((t) => t.type === "quality");
+  const qgTotal = qualityEntry?.count ?? 0;
+  const breakdown = qgBreakdown(data.kpis.qgPassRate, qgTotal);
 
   return (
     <section>
@@ -202,29 +170,49 @@ export default async function OverviewPage() {
               display: "grid",
               gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
               gap: 16,
-              marginBottom: 24,
+              marginBottom: 16,
             }}
           >
             <div style={cardStyle}>
-              <div style={cardLabel}>報酬スコア(今週・進行中)</div>
-              <div style={{ ...cardValue, color: scoreColorVar(scoreLevel(data.kpis.rewardWeekAvg)) }}>
-                {formatScore(data.kpis.rewardWeekAvg)}
+              <div style={cardTopRow}>
+                <span style={cardLabel}>報酬スコア(今週・進行中)</span>
+                <span style={pillStyle(data.kpis.rewardPrevDelta !== null && data.kpis.rewardPrevDelta > 0)}>
+                  {formatScoreDelta(data.kpis.rewardPrevDelta)}
+                </span>
               </div>
-              <div style={cardSub}>前週差分 {formatScoreDelta(data.kpis.rewardPrevDelta)}</div>
+              <div style={cardValueRow}>
+                <span style={{ ...cardValue, color: rewardColor }}>{formatScore(data.kpis.rewardWeekAvg)}</span>
+                <span style={cardUnit}>/1.0</span>
+              </div>
+              <div style={{ height: 34 }}>
+                <Sparkline values={rewardTrend} color={rewardColor} />
+              </div>
             </div>
 
             <div style={cardStyle}>
-              <div style={cardLabel}>品質ゲート合格率(今週・進行中)</div>
-              <div style={{ ...cardValue, color: scoreColorVar(scoreLevel(data.kpis.qgPassRate)) }}>
-                {formatPercent(data.kpis.qgPassRate)}
+              <div style={cardTopRow}>
+                <span style={cardLabel}>品質ゲート合格率(今週・進行中)</span>
+                <span style={pillStyle(data.kpis.qgPrevDelta !== null && data.kpis.qgPrevDelta > 0)}>
+                  {formatPercentDelta(data.kpis.qgPrevDelta)}
+                </span>
               </div>
-              <div style={cardSub}>前週差分 {formatPercentDelta(data.kpis.qgPrevDelta)}</div>
+              <div style={cardValueRow}>
+                <span style={{ ...cardValue, color: qgColor }}>{formatPercent(data.kpis.qgPassRate)}</span>
+              </div>
+              <div style={{ height: 34 }}>
+                <Sparkline values={qgTrend} color={qgColor} />
+              </div>
             </div>
 
             <div style={cardStyle}>
-              <div style={cardLabel}>記録件数(今週・進行中)</div>
-              <div style={cardValue}>{data.kpis.recordsThisWeek}</div>
-              <div style={{ ...cardSub, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <div style={cardTopRow}>
+                <span style={cardLabel}>記録件数(今週・進行中)</span>
+              </div>
+              <div style={cardValueRow}>
+                <span style={cardValue}>{data.kpis.recordsThisWeek}</span>
+                <span style={cardUnit}>件</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "var(--text-sub)" }}>
                 {data.kpis.recordsByType.length === 0
                   ? "—"
                   : data.kpis.recordsByType.map((t) => (
@@ -236,50 +224,117 @@ export default async function OverviewPage() {
             </div>
 
             <div style={cardStyle}>
-              <div style={cardLabel}>未処理 inbox(本人)</div>
-              <div style={cardValue}>{data.kpis.unprocessedInbox}</div>
+              <div style={cardTopRow}>
+                <span style={cardLabel}>未処理 inbox(本人)</span>
+              </div>
+              <div style={cardValueRow}>
+                <span style={cardValue}>{data.kpis.unprocessedInbox}</span>
+                <span style={cardUnit}>件</span>
+              </div>
             </div>
           </div>
 
-          <h2 style={{ fontSize: 16 }}>週次トレンド(直近6週)</h2>
-          <WeeklyTrendChart trend={data.weeklyTrend} />
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div className="panel">
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 16 }}>横断タイムライン(直近6週)</div>
+              <LineChart
+                series={[
+                  { label: "reward平均", color: "var(--good)", values: rewardTrend, area: true },
+                  { label: "品質ゲート合格率", color: "var(--accent)", values: qgTrend },
+                ]}
+                xLabels={weekLabels}
+                domain={[0, 1]}
+                formatTick={(v) => v.toFixed(2)}
+              />
+            </div>
 
-          <h2 style={{ fontSize: 16, marginTop: 24 }}>最近の判断ログ</h2>
-          {data.recentDecisions.length === 0 ? (
-            <p>判断ログはありません。</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0 }}>
-              {data.recentDecisions.map((entry, i) => (
-                <li
-                  key={i}
-                  style={{
-                    borderBottom: "1px solid var(--line)",
-                    padding: "8px 0",
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "baseline",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span style={{ color: "var(--text-sub)", fontSize: 13 }}>
-                    {formatEntryDate(entry.occurredAt)}
-                  </span>
-                  <span>{entry.title ?? "(タイトルなし)"}</span>
-                  {entry.org ? (
-                    <span style={{ color: "var(--text-sub)", fontSize: 13 }}>{entry.org}</span>
-                  ) : null}
-                  <a
-                    href={sourceHref(entry.source, entry.filePath)}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: 13, color: "var(--accent)" }}
+            <div className="panel">
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 16 }}>品質ゲート合格率</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+                <div style={{ flexShrink: 0 }}>
+                  <Gauge value={data.kpis.qgPassRate} color={qgColor} caption="今週・進行中" />
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+                  {breakdown === null ? (
+                    <p style={{ fontSize: 12, color: "var(--text-sub)" }}>内訳データなし(—)</p>
+                  ) : (
+                    <>
+                      <BreakdownRow label="合格" value={breakdown.pass} total={qgTotal} color="var(--good)" />
+                      <BreakdownRow label="非合格" value={breakdown.fail} total={qgTotal} color="var(--bad)" />
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 14 }}>最近の判断ログ</div>
+            {data.recentDecisions.length === 0 ? (
+              <p>判断ログはありません。</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {data.recentDecisions.map((entry, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      padding: "11px 12px",
+                      borderRadius: 9,
+                      background: "var(--panel-row)",
+                      border: "1px solid var(--line-row)",
+                    }}
                   >
-                    出典
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 10.5,
+                        color: "var(--text-sub)",
+                        paddingTop: 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatEntryDate(entry.occurredAt)}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 4 }}>
+                        {entry.title ?? "(タイトルなし)"}
+                        {entry.org ? (
+                          <span style={{ color: "var(--text-sub)", fontWeight: 400 }}> · {entry.org}</span>
+                        ) : null}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {entry.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            style={{
+                              fontFamily: "var(--font-mono)",
+                              fontSize: 10,
+                              color: "var(--accent)",
+                              background: "color-mix(in oklch, var(--accent) 10%, transparent)",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                            }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <a
+                      href={sourceHref(entry.source, entry.filePath)}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 11.5, color: "var(--accent)", whiteSpace: "nowrap" }}
+                    >
+                      出典
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
     </section>
