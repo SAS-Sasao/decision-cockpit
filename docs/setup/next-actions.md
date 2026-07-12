@@ -19,9 +19,9 @@
 ## 🟢 M1 仕上げの手動アクション(実装は完了済み)
 
 - [x] `CRON_SECRET` を生成し `.env` に追記済み(2026-07-12・Claude が対応)。**Vercel 展開時に同値を Vercel 環境変数へ登録するのはあなたの操作**
-- [ ] **初回フル同期(実データ)**: `DATABASE_URL=<ローカルdb or Neon> npx tsx scripts/sync-local.ts`(SYNC_SOURCE 未指定=GitHub・既定 SYNC_MAX_FILES=0)→ http://localhost:3000/review で実スコア表示を確認
-  - github-source の実疎通はここが初(fixture 同期は検証済み)。エラーが出たら Claude に共有
-- [ ] **0002 の Neon 本番適用を承認**(0001 と同じ流れ: ブランチ検証 → 承認 → 適用。Claude が実施可能)
+- [x] **初回フル同期(実データ・ローカル db)**: 完了(2026-07-12)。ok 331件(task 155 / score 159 / quality 3 / decision 12 / daily_log 2)+ error 9件(frontmatter 無しの初期 task-log 等・設計どおりレコード化)。github-source 実疎通 OK・denylist 1件遮断・error body の絶対パス残存 0
+- [x] **0002 の Neon 本番適用**: 完了(2026-07-12。ブランチ検証全緑 → 承認 → 適用 → 検証ブランチ削除)
+- [ ] (任意)**Neon 本番への実データ同期** — 本番の timeline_records はまだ空。Vercel 展開時の Cron に任せるか、ローカルから `DATABASE_URL=<Neon> npx tsx scripts/sync-local.ts` で先行投入(Claude が実施可能)
 
 ## 🎨 UI(画面デザイン MoC)対応 — M1 実装完了後
 
