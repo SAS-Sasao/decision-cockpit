@@ -39,3 +39,8 @@ body { background: var(--bg); color: var(--text);
 ::-webkit-scrollbar-thumb { background: oklch(0.32 0.014 255); border-radius: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::selection { background: oklch(0.78 0.11 195 / 0.3); }
+
+/* app/(shell)/template.tsx が適用する ckfade ラッパー(詳細設計 §0 問い1)。 */
+.ckfade {
+  animation: ckfade 0.3s ease;
+}

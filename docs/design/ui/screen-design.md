@@ -138,3 +138,10 @@ MoC と、PASS 済み設計(auth-foundation / ingestion-foundation)・実デー�
 サイドバー + トップバー + ダークテーマ + SC-02 概観 + ルート再編は、機能マイルストーンを横断する **UI 基盤**なので、
 M1 実装完了後に **`/basic-design ui-shell`** として独立に設計 → review → /goal するのを推奨
 (M1-C を最小のまま先に完了させ、見た目の引き上げを一括で行う — 機能と意匠の手戻りを分離)。
+※ 2026-07-12: ui-shell(UI-A/UI-B)として実装完了。SC-02/SC-05 の MoC 忠実化は ui-polish で実施。
+
+### 7.4 M2 以降の実装規範(ui-polish で確立・恒久 — 基本設計 §1-7)
+
+1. **意匠規範**: 新画面の設計は「本書の該当 SC + MoC HTML(docs/design/ui/moc/decision-cockpit.dc.html)の該当ブロック」を意匠規範とし、MoC に近い見た目で実装する(実データとの読み替えは §7.2 を正とする)。
+2. **チャートの再利用**: チャートは `components/charts` の共通部品(sparkline / line-chart / gauge / h-bar / bar-line-chart)を再利用し、不足部品は `components/charts` へ追加する。チャートライブラリの導入・画面内の重複実装はしない。色 props はデザイントークン変数(`var(--…)`)のみ。描画に `dangerouslySetInnerHTML` を使わない。
+3. **テスト世代管理**: 前 goal が新設したテストは次 goal の凍結列挙に編入する(例: ui-polish の tests/chart.test.ts は M2 の凍結対象)。

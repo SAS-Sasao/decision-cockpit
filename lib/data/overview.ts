@@ -2,6 +2,7 @@ import "server-only";
 
 // 対象設計: docs/design/detail/ui-shell.md §1(参照列)/ §2.3(overview.ts の型・関数契約)
 //          docs/design/basic/ui-shell.md §3.1 / §3.4(集計規範 — ingestion-foundation 基本設計 §3.4 を完全継承)
+//          docs/design/detail/ui-polish.md §2.3(recentDecisions への tags 追加のみ)
 //
 // SC-02 概観ダッシュボードの集計。「テスト可能な構造」の分離は lib/data/review.ts と同型:
 //   aggregateOverview() — 純関数。DB/ネットワーク非依存。tests/overview-data.test.ts が直接検証する。
@@ -43,6 +44,7 @@ export type OverviewData = {
     source: string;
     filePath: string;
     org: string | null;
+    tags: string[];
   }[]; // 5件
   lastSync: { repo: string; lastSyncedAt: string | null }[]; // REPOS 定数起点(§0)
 };
@@ -209,6 +211,7 @@ type RecentDecisionQueryRow = {
   source: string;
   file_path: string;
   org: string | null;
+  tags: string[];
 };
 
 /**
@@ -228,7 +231,7 @@ export async function getOverviewData(userId: string): Promise<OverviewData> {
       [windowStart]
     ),
     query<RecentDecisionQueryRow>(
-      `SELECT occurred_at, title, source, file_path, org
+      `SELECT occurred_at, title, source, file_path, org, tags
          FROM timeline_records
         WHERE status = 'ok' AND type = 'decision'
         ORDER BY occurred_at DESC
@@ -258,6 +261,7 @@ export async function getOverviewData(userId: string): Promise<OverviewData> {
     source: row.source,
     filePath: row.file_path,
     org: row.org,
+    tags: row.tags,
   }));
 
   return {

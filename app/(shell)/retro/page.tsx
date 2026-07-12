@@ -3,13 +3,20 @@
 //          docs/design/basic/ingestion-foundation.md §3.4(振り返りの集計契約)
 //          docs/design/detail/ui-shell.md §2.5(app/(shell)/retro/page.tsx — 旧 /review の移設。
 //          集計契約・ラベル・requireUser・dynamic は不変。スコア数値に scoreLevel の色付けのみ追加)
+//          docs/design/detail/ui-polish.md §2.3(app/(shell)/retro/page.tsx — SC-05 チャート追加)
 //
 // データは lib/data/review.ts の索引済み集計(timeline_records, WHERE status='ok')を読むのみ。
-// 重い処理(集計・埋め込み等)はこの画面では行わない。チャートライブラリは使わず素の table で表示する。
+// 重い処理(集計・埋め込み等)はこの画面では行わない。上部チャートは components/charts の
+// 共通部品(line-chart / h-bar / bar-line-chart)、既存テーブル・一覧は素の table のまま不変。
 import Link from "next/link";
 import { requireUser } from "../../../lib/auth/user";
 import { getReviewData, type Bucket, type Entry, type Granularity } from "../../../lib/data/review";
-import { scoreLevel, scoreColorVar } from "../../../lib/ui/score";
+import { scoreLevel, scoreColorVar, type ScoreLevel } from "../../../lib/ui/score";
+import { SIGNAL_DIRECTION } from "../../../lib/ui/score";
+import type { TokenColor } from "../../../lib/ui/chart";
+import { LineChart } from "../../../components/charts/line-chart";
+import { HBar } from "../../../components/charts/h-bar";
+import { BarLineChart } from "../../../components/charts/bar-line-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +42,36 @@ function formatScore(value: number | null): string {
 function scoreColorStyle(value: number | null): { color: string } {
   return { color: scoreColorVar(scoreLevel(value)) };
 }
+
+/** レベル → チャート部品向けの TokenColor(色 props は var(--…) のみ)。 */
+function levelToTokenColor(level: ScoreLevel): TokenColor {
+  switch (level) {
+    case "good":
+      return "var(--good)";
+    case "warn":
+      return "var(--warn)";
+    case "bad":
+      return "var(--bad)";
+    case "na":
+      return "var(--text-sub)";
+  }
+}
+
+type SignalKey = keyof typeof SIGNAL_DIRECTION;
+
+/** 4シグナルの色(SIGNAL_DIRECTION で方向補正 — high-bad は 1-value を scoreLevel に通す)。 */
+function signalColor(key: SignalKey, value: number | null): TokenColor {
+  if (value === null) return "var(--text-sub)";
+  const directed = SIGNAL_DIRECTION[key] === "high-bad" ? 1 - value : value;
+  return levelToTokenColor(scoreLevel(directed));
+}
+
+const SIGNAL_ITEMS: { key: SignalKey; label: string; note?: string }[] = [
+  { key: "completed", label: "完了率" },
+  { key: "artifacts_exist", label: "成果物あり率" },
+  { key: "excessive_edits", label: "過剰編集率", note: "低いほど良い" },
+  { key: "retry_detected", label: "リトライ率", note: "低いほど良い" },
+];
 
 /** 週バケット: 開始日 "MM/DD〜"。月バケット: "YYYY-MM"。 */
 function formatPeriodLabel(bucket: Bucket, granularity: Granularity): string {
@@ -103,6 +140,9 @@ export default async function RetroPage({
   const { buckets, entries } = await getReviewData(granularity);
 
   const hasData = buckets.some((b) => totalCount(b) > 0) || entries.length > 0;
+  const periodLabels = buckets.map((b) => formatPeriodLabel(b, granularity));
+  const latestBucket = buckets[buckets.length - 1];
+  const currentNote = granularity === "month" ? "今月(進行中)" : "今週(進行中)";
 
   return (
     <section>
@@ -131,6 +171,49 @@ export default async function RetroPage({
           <p style={{ fontSize: 13, color: "#555" }}>
             ※ 「過剰編集率」「リトライ率」は発生率です。低いほど良い指標です(他は高いほど良い)。
           </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div className="panel">
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 16 }}>LLM-as-Judge 3軸トレンド</div>
+              <LineChart
+                series={[
+                  { label: "完全性", color: "var(--accent)", values: buckets.map((b) => b.judgeAvg.completeness) },
+                  { label: "正確性", color: "var(--good)", values: buckets.map((b) => b.judgeAvg.accuracy) },
+                  { label: "明瞭性", color: "var(--accent-spar)", values: buckets.map((b) => b.judgeAvg.clarity) },
+                ]}
+                xLabels={periodLabels}
+                domain={[0, 1]}
+                formatTick={(v) => v.toFixed(2)}
+              />
+            </div>
+            <div className="panel">
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 16 }}>報酬スコア & 品質ゲート合格率</div>
+              <BarLineChart
+                bars={buckets.map((b) => b.qualityGatePassRate)}
+                line={buckets.map((b) => b.rewardAvg)}
+                barColor="var(--accent)"
+                lineColor="var(--good)"
+                xLabels={periodLabels}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 8, fontSize: 13.5, fontWeight: 600 }}>4シグナル({currentNote})</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 24 }}>
+            {SIGNAL_ITEMS.map((item) => {
+              const value = latestBucket ? latestBucket.signalRates[item.key] : null;
+              return (
+                <div key={item.key} className="panel">
+                  <HBar label={item.label} value={value} color={signalColor(item.key, value)} />
+                  {item.note ? (
+                    <p style={{ fontSize: 11, color: "var(--text-sub)", marginTop: 8, marginBottom: 0 }}>
+                      {item.note}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
 
           <table style={{ borderCollapse: "collapse", marginBottom: 24, fontSize: 13 }}>
             <thead>
