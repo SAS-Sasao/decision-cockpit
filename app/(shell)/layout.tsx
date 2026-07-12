@@ -8,6 +8,7 @@ import { NavLink } from "../../components/nav-link";
 // 共通シェル(サイドバー + トップバー)。
 // 対象設計: docs/design/detail/ui-shell.md §2.5(app/(shell)/layout.tsx)
 //          docs/design/basic/ui-shell.md §1-2(サイドバー230px・トップバー56px・二層防御)
+//          docs/design/detail/ui-polish.md §2.3(同期ステータスに ckblink ドット追加のみ)
 //
 // requireUser() はナビ用ユーザー情報取得を兼ねる(soft navigation で再実行されないため
 // 認可の層としては数えない — 各ページ側でも requireUser() を呼ぶ)。
@@ -136,12 +137,23 @@ export default async function ShellLayout({ children }: { children: ReactNode })
             background: "var(--panel)",
           }}
         >
-          <div style={{ display: "flex", gap: 20, fontSize: 12, color: "var(--text-sub)" }}>
-            {lastSync.map((s) => (
-              <span key={s.repo}>
-                {s.repo}: {s.lastSyncedAt ? formatDateTime(s.lastSyncedAt) : "未同期"}
-              </span>
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "var(--good)",
+                animation: "ckblink 2.4s infinite",
+              }}
+            />
+            <div style={{ display: "flex", gap: 20, fontSize: 12, color: "var(--text-sub)" }}>
+              {lastSync.map((s) => (
+                <span key={s.repo}>
+                  {s.repo}: {s.lastSyncedAt ? formatDateTime(s.lastSyncedAt) : "未同期"}
+                </span>
+              ))}
+            </div>
           </div>
           <button
             type="button"
