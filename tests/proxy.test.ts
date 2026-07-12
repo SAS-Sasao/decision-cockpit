@@ -26,13 +26,13 @@ function isProtected(pathname: string): boolean {
 
 describe("proxy config.matcher", () => {
   it("保護対象: パス境界付きの除外に一致しないパスはすべて保護される", () => {
-    for (const p of ["/", "/search", "/review", "/api/authx", "/loginx"]) {
+    for (const p of ["/", "/search", "/review", "/api/authx", "/api/syncx", "/loginx"]) {
       expect.soft(isProtected(p), `expected ${p} to be protected`).toBe(true);
     }
   });
 
   it("素通し対象: auth API / login / 静的アセットは保護から除外される", () => {
-    for (const p of ["/api/auth/session", "/login", "/_next/static/x", "/favicon.ico"]) {
+    for (const p of ["/api/auth/session", "/api/sync", "/login", "/_next/static/x", "/favicon.ico"]) {
       expect.soft(isProtected(p), `expected ${p} to pass through`).toBe(false);
     }
   });
