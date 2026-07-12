@@ -1,0 +1,12 @@
+/* 対象設計: docs/design/detail/ui-shell.md §2.4(デザイントークン — 画面設計書 §4.2 の転記)
+   layout.tsx への import は UI-B の領分(本ファイルはトークン定義のみ)。 */
+:root {
+  --bg: oklch(0.15 0.012 255);      --panel: oklch(0.185 0.013 255);
+  --line: oklch(0.26 0.014 255);    --text: oklch(0.93 0.006 255);
+  --text-sub: oklch(0.66 0.012 255); --accent: oklch(0.78 0.11 195);
+  --accent-spar: oklch(0.72 0.11 290);
+  --good: oklch(0.75 0.14 150);     --warn: oklch(0.80 0.13 75);
+  --bad: oklch(0.68 0.16 25);
+}
+body { background: var(--bg); color: var(--text);
+  font-family: "IBM Plex Sans JP", system-ui, sans-serif; }  /* Web フォント配信なし(基本設計 §1) */
