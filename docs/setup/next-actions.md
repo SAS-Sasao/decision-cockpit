@@ -30,6 +30,12 @@
 - [x] **POLISH-A 完了**(2026-07-12・judge PASS): 共通チャート部品5本(スパークライン/面グラフ/円形ゲージ/横バー/複合)+ chart.ts 純関数 + SIGNAL_DIRECTION + トークン/keyframes 拡張 + @fontsource セルフホスト(IBM Plex Sans JP/Mono・exact pin・layout import 7本)。テスト140件緑・build 緑
 - [x] **POLISH-B 完了**(2026-07-12・judge PASS): SC-02 リッチ化(KPI Mono+差分 pill+スパークライン/横断タイムライン/gauge+内訳バー/判断ログ行カード+タグ pill)+ SC-05 チャート(judge 3軸 0-1・報酬×QG 複合・4シグナル横バー granularity 連動)+ ckblink ドット + ckfade template + overview.ts tags + 注記2件。実機 307 確認済み
 - [ ] **ui-polish の手動確認(あなたの操作・機械判定外)**: ログインして `/`(概観)と `/retro` を MoC(docs/design/ui/moc/decision-cockpit.dc.html をブラウザで開く)と目視比較 — 基本設計 §5 末尾のチェックリスト5点。違和感があれば次セッションで微調整(実画面のスクリーンショットは repo/PR に保存しない)
+  - 目視時の観点(実装時の裁量判断 — MoC に厳密な指定がなく executor が決めた点。気になれば微調整対象):
+    1. 差分 pill = MoC どおり「プラスのみ緑(14% アルファ)・ゼロ/マイナス/null はミュート色」(赤にしていない)
+    2. KPI 数値・スパークラインの色 = スコアレベル連動(good/warn/bad)。横断タイムラインの凡例色は系列固定(reward=good 緑 / QG=accent)
+    3. 品質ゲート内訳バー = pass が `--good` / 非 pass が `--bad`
+    4. 記録件数・未処理キャプチャの KPI カードには差分 pill もスパークラインも無し(元データに差分/系列が無いため — 設計どおり)
+    5. 14% アルファ表現は `color-mix(in oklch, var(--…) 14%, transparent)`(トークン由来を維持・oklch 直書きなし)
   - 完了後の手動確認: MoC スクリーンショット(sc02/sc05)との目視比較5点(設計 §5 末尾のチェックリスト。実画面のスクリーンショットは repo/PR に保存しない)
 - [ ] SC-07 ユーザー管理 UI は M4 前後で(M0 未解決の問い#1 の決着候補)
 - 恒久規範(ui-polish 基本設計 §1-7): **M2 以降の新画面は MoC 該当ブロックを意匠規範とし components/charts を再利用** / 前 goal の新設テストは次 goal の凍結列挙に編入
