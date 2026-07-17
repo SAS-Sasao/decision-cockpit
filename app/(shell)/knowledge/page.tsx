@@ -8,6 +8,8 @@
 import { requireUser } from "../../../lib/auth/user";
 import { getKnowledgeData, type KnowledgeHit } from "../../../lib/data/knowledge";
 import { LineChart } from "../../../components/charts/line-chart";
+import { Markdown } from "../../../components/markdown";
+import { stripMarkdown } from "../../../lib/ui/markdown";
 
 export const dynamic = "force-dynamic";
 
@@ -222,7 +224,7 @@ export default async function KnowledgePage({
                     {hit.title ?? "(タイトルなし)"}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--text-sub)", lineHeight: 1.6, marginBottom: 10 }}>
-                    {hit.excerpt}
+                    {stripMarkdown(hit.excerpt)}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {hit.tags.map((tag) => (
@@ -287,9 +289,9 @@ export default async function KnowledgePage({
                     出典
                   </a>
                 </div>
-                <p style={{ fontSize: 12.5, color: "var(--text)", lineHeight: 1.7, marginBottom: 18 }}>
-                  {data.selected.body ?? ""}
-                </p>
+                <div style={{ fontSize: 12.5, color: "var(--text)", marginBottom: 18 }}>
+                  <Markdown text={data.selected.body} />
+                </div>
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
