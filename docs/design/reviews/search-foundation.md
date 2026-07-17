@@ -70,3 +70,36 @@
 4. **[sec] SQL 全文ピンに embedding_model = $n の束縛形まで含める**(§5-4)。similarity 上限の pgvector クランプ依拠のピン。
 5. **[arch] currentEmbeddingModel() / isFixtureMode() の関数 IF ピン**(embed-index / knowledge の取得経路を IF で固定)。
 6. **[data] 過渡期の HNSW 候補痩せ**(ef_search / iterative scan)の要否判断(§6-8)。
+
+---
+
+# 詳細設計(docs/design/detail/search-foundation.md)
+
+## Round 1 — 2026-07-17
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | High 2: **§4-3/§4-4 の grep -F が二重引用符内の `$1`/`$2` をシェル展開**(偽 FAIL ×4 + `embedding_model = $2` ピンが部分一致の偽 PASS に退化 — ui-polish 詳細 R1 と同型の欠陥クラス)/ **§3 の raw 1.2 モックと §2.4 の下側クランプのみの式が自己矛盾**(忠実実装ほど偽 FAIL・申し送り#4 の上限ピン未決着)。Med 2(embed-local の「dotenv 読込」が現物・凍結制約と不一致 / api-sync.test が実 runEmbedIndex → DATABASE_URL 設定済み環境で実接続の窓)。Low 2 + 検証済み良好事項(分割被覆・FROZEN_TESTS 一致・PATTERN 整合・参照先実在) |
+| data | **FAIL** | High 1(ピンのシェル展開 — arch と同根)。Med 4: クランプ自己矛盾 / **基本 §5-4 の切替シミュレーション(検索側)が §3 に不在** / 切詰め 1,000 字の「2 tokens/字」に出典なし(バイトフォールバック悲観は 3 tokens/字)/ **type 固定・org 消失が基本設計から無断乖離** + フィルタ assert の弱体化。Low 5(recent と similarity 型 / 不正 uuid → 500 / embed-local 無限ループ / limit クランプ未テスト / sync-local.ts 凍結漏れ)。DDL・SQL 実在性・窓の数理・凍結テスト両立は問題なしと確認 |
+| sec | **FAIL** | Med 3: ピンの実行形(持ち越し核心の不成立 — 同根)/ **送信先 URL・EMBEDDING_API_KEY 参照の散在を検出する判定がない** / **runEmbedIndex の認可後段配置の機械検証がない**(誤配置でも全ゲート緑で非認証駆動)。Low 2(down 作成経路の guard 注意 / check-no-secrets ヘッダ数詞)。PATTERN の試験適用(自己トリガーなし・AIza×lockfile 0件)は実測で確認 |
+
+**総合: FAIL(全レンズ)** → rev.2 で決着(詳細設計 §0「詳細 Round 1 の rev.2 決着」に10項目で記録):
+ピンの実行形を単一引用符(1本のみ `\$2` エスケープ)の fenced block に確定 / similarity を両側 TS クランプに変更(基本 §1-4 に追随注記)/ 検索側切替シミュレーション・フィルタ件数 assert・limit クランプ・不正 uuid・query() 実引数ピン assert をテストに追加 / 切詰め 600 字(3 tokens/字悲観)/ type・org フィルタ復元 / URL・キー参照の ⊆ 判定追加 / 非認可時 runEmbedIndex 不呼出テスト / `env -u` 形の npm test / embed-local のインライン env・進捗なし停止 / sync-local.ts 凍結追加 / down は Write ツール作成・ヘッダ数詞更新を可変範囲に編入。
+
+## Round 2 — 2026-07-17(rev.2 を再レビュー)
+
+| レンズ | 判定 | 要点 |
+|---|---|---|
+| arch | **PASS** | ピン8本のシェル意味論トレース(単一引用符の非展開・`\$2` の literal 化)で偽 FAIL/偽 PASS の封鎖を確認。rev.2 変更の波及(type/org・両側クランプ・600字・env -u・embed-local)に新規矛盾なし。条件被覆(M2-A ∪ M2-B = 全11条件)・凍結と可変の非交差・placeholder 現物での条件7 部分実行の成立を確認。新規 Low 1(SELECT ピンが括弧内断片のみ — status='ok' 前提が未ピンで error 行埋め込みが素通り)+ Info 1 |
+| data | **PASS** | R1 の H-1/M-1〜M-4/L-1〜L-5/I-1 の全解消を文字単位照合(SQL 固定表記 ↔ ピン8本の一字一句一致・600字の4箇所一致・"all" 解除の3箇所同一定義・基本 §5-4 充足)。新規 Low 1(復元フィルタの params 含有 assert 任意)+ Info 3(サロゲート分断・topTags 意味差・フォーマッタ改行の偽 FAIL) |
+| sec | **PASS** | 持ち越し核心(ピンの実行形)を厳密トレースで確認 — `\$` の二重引用符内規則・fenced block の /goal 転記可能性・偽 PASS 残余は query() 実引数 assert で封鎖。条件5 第3 ⊆ 判定の捕捉性・Med-3 認可後段テストの十分性・rev.2 変更の無害性を確認。新規 Low 1(EMBEDDING_API_KEY の非 member-access 参照が判定素通り)+ Info 1(インライン env の履歴残留) |
+
+**総合: PASS(全レンズ)** — R2 の Low/Info は rev.3 で吸収:
+条件3 の SELECT ピンを `WHERE status = 'ok' AND (…)` まで延伸(`\$1` エスケープ二重引用符)+ §3 に error 行非対象 assert / フィルタ有効時の params 含有 assert / §5 の禁止を「EMBEDDING_API_KEY への参照一般」に拡張(機械判定は member access 形のまま)/ ピン対象文字列の1行維持を §5 に明記 / 本番バックフィル時の履歴残留を手動チェックリストに追加。
+
+### /goal への申し送り(Info・非ブロッキング)
+
+1. buildEmbedInput の code unit slice はサロゲートペア中間切断があり得る(送信は無害・許容済み)。
+2. topTags(全 type)× 既定検索(decision)でチップヒット 0 のタグが出得る(§0 問い4/5 の決着として記録済み)。
+3. EMBEDDING_API_KEY の分割代入・ブラケット記法参照は機械判定外(禁止文言 + 人間レビューで担保)。
+4. 述語ミラーのテストは SQL 実行の意味論そのものは検証しない(SQL ピン + query() 実引数 assert との二重化で担保 — 基本 R2 合意のトレードオフ)。
