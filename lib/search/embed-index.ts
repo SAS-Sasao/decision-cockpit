@@ -46,7 +46,9 @@ type EmbedTargetRow = {
   title: string | null;
   tags: string[];
   body: string | null;
-  synced_at: Date;
+  // ::text の全精度文字列で読む。pg ドライバの Date 変換はミリ秒精度で µs を落とし、
+  // embedded_at < synced_at が恒久成立して全行が再対象化される(2026-07-18 実バグ)。
+  synced_at: string;
 };
 
 function chunkRows<T>(rows: T[], size: number): T[][] {
@@ -66,7 +68,7 @@ export async function runEmbedIndex(
   const maxRows = resolveMaxRows();
 
   const selectResult = await query<EmbedTargetRow>(
-    `SELECT id, title, tags, body, synced_at
+    `SELECT id, title, tags, body, synced_at::text AS synced_at
        FROM timeline_records
       ${EMBED_TARGET_WHERE}
       ORDER BY synced_at ASC
