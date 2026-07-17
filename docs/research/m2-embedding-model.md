@@ -23,7 +23,8 @@
 - Neon の pgvector: **PG14〜17 で 0.8.0、PG18 で 0.8.1**。halfvec(0.7.0〜)・HNSW(0.5.0〜)ともサポート範囲内。
   出典: https://neon.com/docs/extensions/pg-extensions / https://neon.com/docs/extensions/pgvector
 - HNSW 既定パラメータ: `m = 16`、`ef_construction = 64`(pgvector 既定)。数百〜数千件規模なら既定で十分。recall を上げたければ ef_construction 100〜128 でもビルドコストは無視できる。
-- 距離関数は cosine(`vector_cosine_ops`)推奨。主要 API はいずれも正規化済みベクトルを返すため cosine と内積は等価だが、cosine が明示的で事故が少ない。
+- 距離関数は cosine(`vector_cosine_ops`)推奨。OpenAI / Cohere / Voyage は正規化済みベクトルを返すため cosine と内積は等価だが、cosine が明示的で事故が少ない。
+  **注(2026-07-17 追記)**: **gemini-embedding-001 は例外** — 3072 次元出力のみ正規化済みで、**MRL 縮小(outputDimensionality=768/1536)時は非正規化で返る**ため利用側での再正規化が必要(出典: Google Gemini API embeddings ドキュメントの明記)。設計側はアダプタ内の再正規化(冪等 — 正規化済み入力に適用しても無害)で吸収する。
 
 ## 3. research-spike の推奨(参考)
 
