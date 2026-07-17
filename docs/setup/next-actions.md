@@ -1,13 +1,15 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-12 ui-polish 完了(POLISH-A・POLISH-B とも judge PASS)**。
-> **M0 / M1 / ui-shell / ui-polish 完了**(すべて acceptance-judge PASS・main 反映済み。テスト140件緑)。
-> 実データ同期済み(ローカル db・331件)・0002 本番適用済み。**SC-02 概観・SC-05 振り返りが MoC 準拠のチャート表示で稼働中**(IBM Plex セルフホスト・共通チャート部品5種)。
+> 状態スナップショット: **2026-07-18 M2(検索)+ md-render 完了**(M2-A / M2-B / MD-1 すべて judge PASS・main 反映済み。テスト235件緑)。
+> **M0 / M1 / ui-shell / ui-polish / M2 / md-render 完了**。SC-04 ナレッジ検索が MoC 準拠で稼働(pgvector 類似検索・判断後6週チャート・**判断ログ本文の Markdown 描画(テーブル対応込み)**)。
+> 埋め込み = OpenAI text-embedding-3-small(1536)・不調時は Google gemini-embedding-001 へ env 2変数の変更のみで切替可(設計済み)。**0003 マイグレーションは Neon ブランチ検証済み・本番は未適用**(ローカル db は適用済み)。
 > **秘密情報(接続文字列・トークン・パスワード)は本ファイルに実値を書かない。**
 >
-> **▶ 次セッションの再開手順**: **M2(検索 / pgvector)の設計から** — 先に research-spike で埋め込みモデル選定 → **`/basic-design search-foundation`**。
-> M2 の設計時に守ること: MoC 準拠 + components/charts 再利用(screen-design §7.4 の恒久規範)/ 前 goal 新設テスト(tests/chart.test.ts)を凍結列挙に編入 / proxy matcher を変える場合は新 URL を proxy.test.ts の保護集合に追加(ui-shell からの申し送り)。
-> その後 M2(検索)の設計へ(**M2 以降は MoC 準拠 + components/charts 再利用が恒久規範**)。
+> **▶ 次にやること**:
+> 1. **(あなたの操作)OpenAI API キー発行** — **project key(sk-proj- 形式)・embeddings 限定の restricted key** で発行し、`.env` の `EMBEDDING_API_KEY` にあなたが直接記入(**チャットに貼らない**)。`EMBEDDING_MODEL=text-embedding-3-small` / `EMBEDDING_DIM=1536` / `EMBED_MAX_ROWS=200` も .env.example から写す。
+> 2. **(Claude が実施可)ローカル初回バックフィル** — `scripts/embed-local.ts` で全331件を埋め込み(コスト実質ゼロ)→ /knowledge で日本語クエリの体感確認(不足なら 3-large / gemini 切替を判断)。
+> 3. その後: **M3(今日ビュー / SC-03・kanban)設計**へ(`/basic-design` から。MoC 準拠 + components/charts 再利用の恒久規範・前 goal 新設テスト(markdown / M2 4本)を凍結編入)。
+> 4. Vercel 展開時: 0003 本番適用(人間承認)+ 本番実データ同期 + 本番バックフィル。
 
 ---
 
