@@ -105,6 +105,7 @@ export function buildEmbedInput(row: { title: string | null; tags: string[]; bod
 export async function runEmbedIndex(client?: EmbeddingClient): Promise<EmbedSummary>;
   // client 省略時 createEmbeddingClient()。lib/db の query() 直呼び(テストは lib/db をモック)
 ```
+- **※ 追随修正(2026-07-18・fix/embed-snapshot-precision)**: SELECT の synced_at は **`synced_at::text` の全精度文字列で読み、UPDATE $3 にその文字列をそのまま渡す**。pg ドライバの Date 変換(ms 精度)で µs が落ちると `synced_at > embedded_at` が恒久成立し全行が再対象化される実バグ(初回バックフィルで発見・µs 回帰テストを tests/embed-index.test.ts に追加)。「$3 = 読取時の行の synced_at 値」の契約自体は不変 — 値の受け渡し表現の精密化。
 - **対象 SELECT(固定表記 — §4-3 で grep -F ピン)**。WHERE 句は共有定数1箇所に置く:
   `WHERE status = 'ok' AND (embedding IS NULL OR embedding_model <> $1 OR synced_at > embedded_at)`
   取得列 = id, title, tags, body, synced_at(**コンテンツと synced_at を同一 SELECT** — スナップショット一貫)+ `ORDER BY synced_at ASC` + `LIMIT $2`($2 = EMBED_MAX_ROWS・既定 200)。

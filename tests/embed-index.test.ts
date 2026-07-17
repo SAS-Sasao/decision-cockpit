@@ -12,9 +12,11 @@ type FakeRow = {
   tags: string[];
   body: string | null;
   synced_at: Date;
+  // ::text 相当の全精度文字列(省略時は toISOString())。µs 精度回帰テスト用
+  syncedText?: string;
   embedding: number[] | null;
   embedding_model: string | null;
-  embedded_at: Date | null;
+  embedded_at: Date | string | null;
 };
 
 const mocks = vi.hoisted(() => ({
@@ -26,7 +28,11 @@ function isTarget(row: FakeRow, currentModel: string): boolean {
   if (row.status !== "ok") return false;
   if (row.embedding === null) return true;
   if (row.embedding_model !== currentModel) return true;
-  if (row.embedded_at !== null && row.synced_at.getTime() > row.embedded_at.getTime()) return true;
+  if (row.embedded_at !== null) {
+    const embeddedTime =
+      typeof row.embedded_at === "string" ? new Date(row.embedded_at).getTime() : row.embedded_at.getTime();
+    if (row.synced_at.getTime() > embeddedTime) return true;
+  }
   return false;
 }
 
@@ -66,7 +72,7 @@ vi.mock("../lib/db", () => ({
         title: r.title,
         tags: r.tags,
         body: r.body,
-        synced_at: r.synced_at,
+        synced_at: r.syncedText ?? r.synced_at.toISOString(),
       })),
     };
   }),
@@ -167,9 +173,36 @@ describe("runEmbedIndex — 初回・冪等・再対象化", () => {
 
     const updateCall = mocks.calls.find((c) => c.text.includes("UPDATE timeline_records"));
     expect(updateCall).toBeDefined();
-    const embeddedAtParam = updateCall!.params[2] as Date;
-    expect(embeddedAtParam.getTime()).toBe(syncedAt.getTime());
-    expect(mocks.rows[0]!.embedded_at!.getTime()).toBe(syncedAt.getTime());
+    const embeddedAtParam = updateCall!.params[2] as string;
+    expect(embeddedAtParam).toBe(syncedAt.toISOString());
+    expect(mocks.rows[0]!.embedded_at).toBe(syncedAt.toISOString());
+  });
+
+  it("µs 精度回帰: SELECT は synced_at::text で読み、UPDATE $3 に読取文字列がそのまま渡る(Date 変換で µs を落とすと恒久再対象化する実バグの防止)", async () => {
+    // 実 DB の synced_at はマイクロ秒精度。pg ドライバの Date 変換は ms 精度で
+    // .025398 → .025 に落ち、synced_at > embedded_at が恒久成立していた(2026-07-18 発見)。
+    const microText = "2026-07-12 09:32:31.025398+00";
+    mocks.rows = [
+      makeRow({ id: "a", synced_at: new Date("2026-07-12T09:32:31.025Z"), syncedText: microText }),
+    ];
+    const client = makeClient(vi.fn(async (texts: string[]) => texts.map(() => [1, 0, 0])));
+
+    const first = await runEmbedIndex(client);
+    expect(first.embedded).toBe(1);
+
+    // SELECT が全精度テキスト射影を使っている(SQL 実引数レベルのピン)
+    const selectCall = mocks.calls.find((c) => c.text.includes("ORDER BY synced_at ASC"));
+    expect(selectCall!.text).toContain("synced_at::text AS synced_at");
+
+    // UPDATE $3 = SELECT が返した文字列そのもの(Date 往復による精度劣化なし)
+    const updateCall = mocks.calls.find((c) => c.text.includes("UPDATE timeline_records"));
+    expect(updateCall!.params[2]).toBe(microText);
+    expect(mocks.rows[0]!.embedded_at).toBe(microText);
+
+    // 2回目は対象 0 件(恒久再対象化の再発防止)
+    mocks.calls = [];
+    const second = await runEmbedIndex(client);
+    expect(second).toEqual({ embedded: 0, failed: 0, remaining: 0 });
   });
 
   it("EMBED_MAX_ROWS 上限・remaining 計上", async () => {
