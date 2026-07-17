@@ -114,9 +114,51 @@ describe("parseMarkdown", () => {
     ]);
   });
 
-  it("fail-soft: 対応外記法(テーブル行)は段落トークンになる", () => {
+  it("fail-soft: セパレータ行なしのパイプ行は段落トークンになる", () => {
     const blocks = parseMarkdown("| a | b |");
     expect(blocks).toEqual([{ kind: "para", inline: [{ kind: "text", text: "| a | b |" }] }]);
+  });
+
+  it("fail-soft: 対応外記法(画像記法)は段落トークンになる", () => {
+    const blocks = parseMarkdown("![alt](https://example.com/img.png)");
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.kind).toBe("para");
+  });
+
+  it("`|` なし `---` はテーブル化せず hr のまま", () => {
+    const blocks = parseMarkdown("---");
+    expect(blocks).toEqual([{ kind: "hr" }]);
+  });
+
+  it("テーブル: ヘッダ + セパレータ + データ行 → table トークン(不足セル補完・過剰セル切詰め・セル内インライン)", () => {
+    const md = ["| Name | Age |", "| --- | --- |", "| **Alice** | 30 |", "| Bob |", "| Cara | 40 | extra |"].join(
+      "\n"
+    );
+    const blocks = parseMarkdown(md);
+    expect(blocks).toEqual([
+      {
+        kind: "table",
+        header: [[{ kind: "text", text: "Name" }], [{ kind: "text", text: "Age" }]],
+        rows: [
+          [[{ kind: "strong", text: "Alice" }], [{ kind: "text", text: "30" }]],
+          [[{ kind: "text", text: "Bob" }], []],
+          [[{ kind: "text", text: "Cara" }], [{ kind: "text", text: "40" }]],
+        ],
+      },
+    ]);
+  });
+
+  it("テーブル終端後は次ブロックとして再判定される", () => {
+    const md = ["| a | b |", "| --- | --- |", "| 1 | 2 |", "", "# after"].join("\n");
+    const blocks = parseMarkdown(md);
+    expect(blocks).toEqual([
+      {
+        kind: "table",
+        header: [[{ kind: "text", text: "a" }], [{ kind: "text", text: "b" }]],
+        rows: [[[{ kind: "text", text: "1" }], [{ kind: "text", text: "2" }]]],
+      },
+      { kind: "heading", level: 1, inline: [{ kind: "text", text: "after" }] },
+    ]);
   });
 
   it("リンク(https → link トークン・URL 生値保持)", () => {
@@ -204,6 +246,46 @@ describe("Markdown 要素木検査", () => {
     });
     expect(count).toBe(0);
   });
+
+  it("テーブル: table / th / overflow ラッパーが要素木に現れる", () => {
+    const el = Markdown({ text: "| a |\n| --- |\n| b |" });
+    let hasTable = false;
+    let hasTh = false;
+    let hasOverflowWrapper = false;
+    walk(el, (node) => {
+      if (node.type === "table") hasTable = true;
+      if (node.type === "th") hasTh = true;
+      const style = node.props.style as { overflowX?: string } | undefined;
+      if (node.type === "div" && style?.overflowX === "auto") hasOverflowWrapper = true;
+    });
+    expect(hasTable).toBe(true);
+    expect(hasTh).toBe(true);
+    expect(hasOverflowWrapper).toBe(true);
+  });
+
+  it("テーブルセル内の javascript: リンクは type \"a\" の要素にならない", () => {
+    const el = Markdown({ text: "| link |\n| --- |\n| [x](javascript:alert(1)) |" });
+    let hasAnchor = false;
+    walk(el, (node) => {
+      if (node.type === "a") hasAnchor = true;
+    });
+    expect(hasAnchor).toBe(false);
+  });
+
+  it("テーブルセル内の https リンクは a + rel/target を持つ(セル経路の isSafeHref 配線検証)", () => {
+    const el = Markdown({ text: "| link |\n| --- |\n| [x](https://example.com) |" });
+    let found = false;
+    walk(el, (node) => {
+      if (
+        node.type === "a" &&
+        node.props.rel === "noopener noreferrer" &&
+        node.props.target === "_blank"
+      ) {
+        found = true;
+      }
+    });
+    expect(found).toBe(true);
+  });
 });
 
 describe("stripMarkdown", () => {
@@ -246,5 +328,26 @@ describe("stripMarkdown", () => {
     expect(stripMarkdown("")).toBe("");
     expect(stripMarkdown(null)).toBe("");
     expect(stripMarkdown(undefined)).toBe("");
+  });
+
+  it("パイプ行はセル区切りとして空白連結する", () => {
+    expect(stripMarkdown("| a | b |")).toBe("a b");
+  });
+
+  it("セパレータ行は行ごと除去する", () => {
+    expect(stripMarkdown(["| a | b |", "| --- | --- |", "| c | d |"].join("\n"))).toBe(
+      "a b\n\nc d"
+    );
+  });
+
+  it("hr 行(---)は行ごと除去する", () => {
+    expect(stripMarkdown(["text", "---", "more"].join("\n"))).toBe("text\n\nmore");
+  });
+
+  it("切詰められたテーブル断片で throw しない", () => {
+    expect(() => stripMarkdown("| Name | Ag")).not.toThrow();
+    expect(() =>
+      stripMarkdown(["| Name | Age |", "| --- | --- |", "| Ali"].join("\n"))
+    ).not.toThrow();
   });
 });

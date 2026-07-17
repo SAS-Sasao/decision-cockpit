@@ -110,6 +110,45 @@ function renderBlock(block: Block, key: number) {
       );
     case "hr":
       return <hr key={key} style={{ border: "none", borderTop: "1px solid var(--line)", margin: "12px 0" }} />;
+    case "table":
+      return (
+        <div key={key} style={{ overflowX: "auto", marginBottom: 10 }}>
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                {block.header.map((cell, i) => (
+                  <th
+                    key={i}
+                    style={{
+                      fontWeight: 600,
+                      background: "var(--panel-row)",
+                      border: "1px solid var(--line)",
+                      padding: "6px 10px",
+                      textAlign: "left",
+                    }}
+                  >
+                    {renderInline(cell)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, ri) => (
+                <tr key={ri}>
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      style={{ border: "1px solid var(--line)", padding: "6px 10px", textAlign: "left" }}
+                    >
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     default:
       return null;
   }
