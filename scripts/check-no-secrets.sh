@@ -5,7 +5,7 @@
 # 一般則(必ず守ること):
 #  1. 秘密クラスの追加、または既存クラス(例: EMBEDDING_API_KEY)の実値形式の確定を行う
 #     変更は、その実値形式パターンの本スクリプトへの追随を【同一コミット】に含める。
-#  2. リポジトリ内のあらゆるファイルに接頭辞型秘密(下記5クラス)の実値形式ダミー
+#  2. リポジトリ内のあらゆるファイルに接頭辞型秘密(下記8クラス)の実値形式ダミー
 #     (接頭辞+英数字)を書かない。言及は正規表現形式(例: npg_[A-Za-z0-9]+)で行う。
 #     形式のない秘密クラス(cookie secret 等)は明らかな非秘密ダミー(全ゼロ等)を許容。
 #
@@ -16,7 +16,7 @@
 # 判定: ヒット0件 → exit 0 / 1件以上 → 一覧を stderr に出して exit 1 / 判定不能 → exit 2
 set -u
 
-PATTERN='npg_[A-Za-z0-9]+|napi_[A-Za-z0-9]+|ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|sk-ant-[A-Za-z0-9-]+'
+PATTERN='npg_[A-Za-z0-9]+|napi_[A-Za-z0-9]+|ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|sk-ant-[A-Za-z0-9-]+|sk-proj-[A-Za-z0-9_-]+|sk-svcacct-[A-Za-z0-9_-]+|AIza[0-9A-Za-z_-]{35}'
 SELF="scripts/check-no-secrets.sh"
 
 command -v git >/dev/null 2>&1 || { echo "check-no-secrets: git not found (判定不能)" >&2; exit 2; }
