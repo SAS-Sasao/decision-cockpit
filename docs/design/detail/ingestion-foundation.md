@@ -213,6 +213,7 @@ export async function POST(req) // 手動: getUser() null → 401 / !isAdmin(use
   `"/((?!api/auth(?:/|$)|api/sync(?:/|$)|login(?:/|$)|_next/static|_next/image|favicon\\.ico).*)"` に更新。
   `docs/design/detail/auth-foundation.md` §2.1 の matcher 行に「M1 で api/sync 除外を追加(本書参照)」を追記。
 - `vercel.json`: `{ "crons": [ { "path": "/api/sync", "schedule": "0 * * * *" } ] }`(GET 起動)。
+- **※ 追随注記(search-foundation・2026-07-17)**: M2 で本 Route Handler の runSync **成功後**に埋め込みバッチ(`runEmbedIndex` — lib/search/embed-index.ts)が後続フェーズとして接続され、2xx 応答は `SyncSummary + embed キー`(`{ embedded, failed, remaining }` / 失敗時 `{ error: true }`)に拡張された。認可判定(CRON_SECRET / isAdmin)は不変・embed フェーズは認可の内側・全例外吸収で同期本体の成功を妨げない。正典 = docs/design/detail/search-foundation.md §2.5。
 - `scripts/sync-local.ts`: SourceAdapter 経由の CLI(`--force` / env `SYNC_SOURCE` / 既定 `SYNC_MAX_FILES=0`)。
 
 ### 2.5 振り返り
