@@ -78,6 +78,7 @@ SC-07 は admin ロールのみナビに表示
 - 目的: オープン WBS/kanban から「どれに着手するか」を支援。データ: timeline_records(type=task)/ WBS / board.md。
 - ブロック: サマリ帯×4(オープン・着手中・手戻りあり・平均スコア)/ **kanban 4列**(バックログ・着手中・レビュー・完了)/ タスクカード(タグ・org・手戻り↺n・スコア閾値色)。
 - 操作: カード → タスク詳細(関連 decision・差し戻し履歴)。
+- **※ 実装注記(today-view・M3)**: 実装時の読み替え(4列→3列・手戻り↺n 非表示・ソース = WBS のみ ほか)は **§7.2-5 を正**とする。
 
 ### SC-04 ナレッジ再利用(screenshots/sc04-knowledge.png)
 - 目的: 過去判断を pgvector 類似検索し、判断後の組織実績を時間軸で紐づけ提示。
@@ -132,6 +133,7 @@ MoC と、PASS 済み設計(auth-foundation / ingestion-foundation)・実デー�
 2. **LLM-as-Judge のスケール**: MoC は 0〜5 の折れ線だが、**格納は 0-1 正規化**(M1 設計確定)。表示スケールは 0-1(または %)を正とする。
 3. **ルート名**: MoC は `/knowledge` `/retro` `/today`、現骨格は `/search` `/review` `/`(今日)。**M1-C は PASS 済み設計どおり app/review に実装**し、ルート再編(/retro 等への改名 + SC-02 を `/` に配置)は UI シェル対応のスコープで一括判断(PASS 済み設計の受け入れ条件を壊さない)。
 4. スコア閾値(≥0.80 / ≥0.65)・デザイントークン(§4.2)は UI シェル対応時の共通定数として実装。
+5. **SC-03 の読み替え(today-view 詳細設計で確定・M3)**: kanban は **3列**(バックログ `[ ]` / 着手中 `[~]` / 完了 `[x]` — 実データの状態3値に「レビュー」が存在しない)/ カードの「手戻り ↺n」は**表示しない**(WBS 行と task-log の確実な紐付けキーが実データに無い)/ 一次ソースは **WBS(`.companies/<org>/docs/secretary/<name>-wbs.md`)のみ**(board.md は 2026-03-23 更新停止のため不採用・timeline_records(type=task)はカードのソースにしない)/ サマリ帯×4 = オープン・着手中・**手戻り率(今週)・平均スコア(今週)**(後2者は timeline_records の週集計 — weekBucketBoundaries 再利用)。正典 = docs/design/detail/today-view.md。
 
 ### 7.3 提案: 「UI シェル」を独立トピックとして設計する
 
