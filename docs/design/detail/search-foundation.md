@@ -158,6 +158,8 @@ export async function getKnowledgeData(params: KnowledgeSearchParams & { sel?: s
 - **usage コメント等にモデル名リテラル・送信先 URL を書かない**(§4-5 の ⊆ 判定対象)。
 
 ### 2.7 app/(shell)/knowledge/page.tsx(SC-04・M2-B)
+
+> **※ 追随注記(org-docs-ingestion・2026-07-18)**: SC-04 に **type チップ(判断(既定)/ ナレッジ / すべて)** が追加された(knowledge 型の横断検索 — searchKnowledge の IF は無変更・UI の公開のみ)。正典 = docs/design/detail/org-docs-ingestion.md §2.7。
 - GET パラメータ: `q` / `sel` / `tag`。`requireUser()` 存置。データは **getKnowledgeData() のみ**(lib/db / lib/search の直 import 禁止 — §4-7 grep)。
 - 構成(MoC isKnowledge 準拠): 検索パネル(input name="q"・GET form・タグチップ 8 個 = topTags・active はリンクでトグル)→ 2列グリッド:
   - 左: 「類似する過去の判断 · N件」+ 結果行カード(日付・org・**類似 pill = `類似 {similarity.toFixed(2)}`**・similarity null(recent 経路)は pill 非表示・タイトル・excerpt・タグ pill)。q 空は recent を「最近の判断」として表示。searchError 時はエラーメッセージ + recent。行クリック = `?sel=<id>`(q/tag 保持)。

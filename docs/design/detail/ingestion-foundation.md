@@ -213,6 +213,7 @@ export async function POST(req) // 手動: getUser() null → 401 / !isAdmin(use
   `"/((?!api/auth(?:/|$)|api/sync(?:/|$)|login(?:/|$)|_next/static|_next/image|favicon\\.ico).*)"` に更新。
   `docs/design/detail/auth-foundation.md` §2.1 の matcher 行に「M1 で api/sync 除外を追加(本書参照)」を追記。
 - `vercel.json`: `{ "crons": [ { "path": "/api/sync", "schedule": "0 * * * *" } ] }`(GET 起動)。
+- **※ 追随注記(org-docs-ingestion・2026-07-18)**: 取り込み対象が拡張された — allowlist に `.companies/<org>/docs/` 系 8パターン追加(decisions → decision 型 / digest・learning-notes 等 → **knowledge 型(0004 で type 語彙 7→8)**・チャンク分割 1チャンク=1レコード・item_key=`c<n>`)。**knowledge 型のみ occurred_at null 許容**(パーサ契約の明示的例外)。denylist に `claude.md`・`memory.md`・`agents.md` を追加し isDenied は小文字正規化比較に。集計契約(counts 全 type)は 8 type 列挙に追随。正典 = docs/design/detail/org-docs-ingestion.md。
 - **※ 追随注記(search-foundation・2026-07-17)**: M2 で本 Route Handler の runSync **成功後**に埋め込みバッチ(`runEmbedIndex` — lib/search/embed-index.ts)が後続フェーズとして接続され、2xx 応答は `SyncSummary + embed キー`(`{ embedded, failed, remaining }` / 失敗時 `{ error: true }`)に拡張された。認可判定(CRON_SECRET / isAdmin)は不変・embed フェーズは認可の内側・全例外吸収で同期本体の成功を妨げない。正典 = docs/design/detail/search-foundation.md §2.5。
 - `scripts/sync-local.ts`: SourceAdapter 経由の CLI(`--force` / env `SYNC_SOURCE` / 既定 `SYNC_MAX_FILES=0`)。
 

@@ -54,7 +54,7 @@ export type OverviewData = {
   kpis: {
     rewardWeekAvg: number | null;  rewardPrevDelta: number | null;   // 片側 null → delta null(§0-3)
     qgPassRate: number | null;     qgPrevDelta: number | null;
-    recordsThisWeek: number;       recordsByType: { type: string; count: number }[];  // count>0 のみ。表示順は7 type 全列挙で固定: task/quality/score/session/conversation/decision/daily_log(recordsThisWeek は全 type 合計。**基本設計の5 type 列挙を全列挙に意図的詳細化**)
+    recordsThisWeek: number;       recordsByType: { type: string; count: number }[];  // count>0 のみ。表示順は7 type 全列挙で固定: task/quality/score/session/conversation/decision/daily_log(recordsThisWeek は全 type 合計。**基本設計の5 type 列挙を全列挙に意図的詳細化**)※ org-docs-ingestion(2026-07-18)で **8 type(knowledge 追加)** に拡張 — 正典 = docs/design/detail/org-docs-ingestion.md §2.6
     unprocessedInbox: number;
   };
   weeklyTrend: { weekStart: string; rewardAvg: number | null; qgPassRate: number | null }[];  // 6週・古→新・末尾=部分週
