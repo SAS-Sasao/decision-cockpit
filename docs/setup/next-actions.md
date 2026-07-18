@@ -7,9 +7,10 @@
 > **2026-07-18 追記**: recent 経路の type/tag バグ修正(OD-FIX・judge PASS)+ **埋め込みモデルを text-embedding-3-large(1536)へ移行**(全行再埋め込み済み・検索品質向上)。Vercel 展開時の env は **EMBEDDING_MODEL=text-embedding-3-large / EMBEDDING_DIM=1536** を登録。
 > **秘密情報は本ファイルに実値を書かない。**
 >
-> **▶ 次セッションの再開手順(どちらかを選ぶ)**:
-> - **案A(小・30分級): 組織 decision の H1 形式差異の修正** — `docs/decisions/*.md` は H1 に日付がなく error レコード化されており「最近の判断」に合流していない(error 10件中1件・今後の組織判断も同形式なら全部落ちる)。parseDecision に「H1 日付なし → ファイル名から日付・H1 全文をタイトル」フォールバック。org-docs 設計の小改訂(rev)→ 差分レビュー → 小 goal で1周。
-> - **案B(大): M3(今日ビュー / SC-03・kanban)設計** — `secretary/board.md`・`storcon-preparation-wbs.md`・`reports/`・`todos/` の取り込み + kanban UI。`/basic-design` から(MoC 準拠 + components/charts 再利用・前 goal 新設テスト(chunk / knowledge-parser / org-docs-sync / knowledge-aggregation / knowledge-recent)を凍結編入)。
+> **✅ 案A 完了(2026-07-18・OD-DEC judge PASS)**: parseDecision に H1 日付なしフォールバック(3分岐契約)を追加。組織 decision が「最近の判断」に合流(**decision 13件**・title = H1 全文・org 帰属付き・error 10→9)。全行再埋め込み済み(remaining 0)。
+>
+> **▶ 次セッションの再開手順**:
+> - **M3(今日ビュー / SC-03・kanban)設計** — `secretary/board.md`・`storcon-preparation-wbs.md`・`reports/`・`todos/` の取り込み + kanban UI。`/basic-design` から(MoC 準拠 + components/charts 再利用・前 goal 新設テスト(chunk / knowledge-parser / org-docs-sync / knowledge-aggregation / knowledge-recent)を凍結編入)。
 >
 > **2026-07-18 の完了サマリ**: org-docs-ingestion(OD-A / OD-B / OD-FIX すべて judge PASS)・実データ同期(--force 全量・knowledge 7,430 チャンク・機微混入 0)・**埋め込みモデルを text-embedding-3-large(1536)へ移行**(全 7,782 行再埋め込み済み・検索品質向上)・/knowledge の type/tag チップ稼働・テスト 279 件緑。
 >
