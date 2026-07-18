@@ -1,18 +1,28 @@
 // 対象設計: docs/design/basic/ingestion-foundation.md §3.2(decisions 行)
 //          docs/design/detail/ingestion-foundation.md §2.2
-//          docs/design/detail/org-docs-ingestion.md §2.3(org: meta.org への変更)
+//          docs/design/detail/org-docs-ingestion.md §2.3(org: meta.org への変更 + rev.8/9 H1 フォールバック)
 //
-// 入力: ai-war-room `docs/decisions/YYYY-MM-DD-<slug>.md`(frontmatter なし)。
-// H1 `# YYYY-MM-DD - {タイトル}` からタイトルを取り出す。org はパス由来の meta.org をそのまま使う
-// (ai-war-room は org 概念が無いため orgFromPath が null を返し、結果として org は null のまま —
-// 既存契約は無傷。cc-sier-organization 側の組織 decision は meta.org 経由で org 帰属が付く)。
-// 規則外の命名 / H1 なしは throw せず status='error' レコード化する。
+// 入力: ai-war-room `docs/decisions/YYYY-MM-DD-<slug>.md` / cc-sier-organization
+// `.companies/<org>/docs/decisions/<slug>.md`(frontmatter なし)。ファイル名は
+// `YYYY-MM-DD-<slug>.md` 必須(全分岐の前提・不変)。org はパス由来の meta.org を
+// そのまま使う(ai-war-room は org 概念が無いため orgFromPath が null を返し、結果として
+// org は null のまま — 既存契約は無傷。cc-sier-organization 側の組織 decision は meta.org
+// 経由で org 帰属が付く)。
+//
+// H1 は3分岐で評価する(rev.8・列挙順の逐次評価 1 → 2 → 3。rev.9: 分岐2/3 の H1 判定は
+// 分岐1 と同じ空白規約 `/^#\s+/` — literal `# ` ではない):
+//   1. 日付付き H1(`# YYYY-MM-DD - {タイトル}`)→ 従来どおり title = 日付以降。
+//   2. H1 はあるが日付なし(`/^#\s+/` に一致し 1 に不一致)→ フォールバック:
+//      title = H1 全文(`/^#\s+/` 除去・trim・sanitizeAbsPaths)・occurred_at = ファイル名日付
+//      (既存検査済み)で ok レコード化。body・topic は分岐1 と同一。
+//   3. H1 なし(`/^#\s+/` 不一致)→ throw せず status='error' レコード化する(不変)。
 
 import { basename, dateFromFileDate, errorRecord, fileSlug, sanitizeAbsPaths } from "../normalize";
 import type { NormalizedRecord, Parser } from "./types";
 
 const FILENAME_RE = /^(\d{4}-\d{2}-\d{2})-(.+)\.md$/;
 const H1_RE = /^#\s+\d{4}-\d{2}-\d{2}\s+-\s+(.+)$/;
+const H1_ANY_RE = /^#\s+(.+)$/;
 
 export const parseDecision: Parser = (file, meta) => {
   const filenameBase = basename(file.path);
@@ -27,13 +37,19 @@ export const parseDecision: Parser = (file, meta) => {
   }
 
   const firstLine = (file.content.split(/\r?\n/)[0] ?? "").trim();
-  const h1Match = firstLine.match(H1_RE);
-  if (!h1Match) {
+
+  // 分岐1: 日付付き H1
+  const datedMatch = firstLine.match(H1_RE);
+  // 分岐2: H1 はあるが日付なし(分岐1 に不一致)
+  const genericMatch = datedMatch ? null : firstLine.match(H1_ANY_RE);
+
+  if (!datedMatch && !genericMatch) {
+    // 分岐3: H1 なし
     return [errorRecord(file, meta, "decision: H1 heading not found or malformed", "decision")];
   }
 
   const topic = fileSlug(filenameBase);
-  const title = sanitizeAbsPaths(h1Match[1].trim());
+  const title = sanitizeAbsPaths((datedMatch ? datedMatch[1] : genericMatch![1]).trim());
   const body = sanitizeAbsPaths(file.content);
 
   const record: NormalizedRecord = {
