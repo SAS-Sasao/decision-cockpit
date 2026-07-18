@@ -2,6 +2,7 @@ import "server-only";
 
 // 対象設計: docs/design/detail/ingestion-foundation.md §2.2(共通前処理)
 //          docs/design/basic/ingestion-foundation.md §2.1(denylist)/ §3.1(サニタイズ・org 突合)
+//          docs/design/detail/org-docs-ingestion.md §2.4(denylist 拡張・小文字正規化)
 //
 // パーサ共通の前処理関数群(server-only)。ここに実装する関数はすべて純関数
 // (ネットワーク・DB 依存なし)であること。'server-only' はモジュール規約(条件11)。
@@ -40,11 +41,19 @@ const DENY_PATTERNS = [
   ".interaction-log",
   ".active",
   "agent-memory",
+  "claude.md",
+  "memory.md",
+  "agents.md",
 ];
 
-/** パスが機微 denylist(6パターン)のいずれかを部分一致で含むか。 */
+/**
+ * パスが機微 denylist(9パターン)のいずれかを部分一致で含むか。
+ * org-docs-ingestion(§2.4)で小文字正規化比較に変更 — basename の大文字小文字変種
+ * (例: CLAUDE.md)も遮断する。既存6パターンは全て小文字のため挙動に影響なし。
+ */
 export function isDenied(path: string): boolean {
-  return DENY_PATTERNS.some((pattern) => path.includes(pattern));
+  const lower = path.toLowerCase();
+  return DENY_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
 // ---------------------------------------------------------------------------

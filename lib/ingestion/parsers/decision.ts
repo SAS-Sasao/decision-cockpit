@@ -1,8 +1,11 @@
 // 対象設計: docs/design/basic/ingestion-foundation.md §3.2(decisions 行)
 //          docs/design/detail/ingestion-foundation.md §2.2
+//          docs/design/detail/org-docs-ingestion.md §2.3(org: meta.org への変更)
 //
 // 入力: ai-war-room `docs/decisions/YYYY-MM-DD-<slug>.md`(frontmatter なし)。
-// H1 `# YYYY-MM-DD - {タイトル}` からタイトルを取り出す。org は常に null(ai-war-room に org 概念なし)。
+// H1 `# YYYY-MM-DD - {タイトル}` からタイトルを取り出す。org はパス由来の meta.org をそのまま使う
+// (ai-war-room は org 概念が無いため orgFromPath が null を返し、結果として org は null のまま —
+// 既存契約は無傷。cc-sier-organization 側の組織 decision は meta.org 経由で org 帰属が付く)。
 // 規則外の命名 / H1 なしは throw せず status='error' レコード化する。
 
 import { basename, dateFromFileDate, errorRecord, fileSlug, sanitizeAbsPaths } from "../normalize";
@@ -40,7 +43,7 @@ export const parseDecision: Parser = (file, meta) => {
     commit: meta.commit,
     type: "decision",
     occurred_at: occurredAt,
-    org: null,
+    org: meta.org,
     topic,
     tags: [],
     title,

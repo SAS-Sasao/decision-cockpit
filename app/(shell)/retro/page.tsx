@@ -97,9 +97,12 @@ const ENTRY_TYPE_LABEL: Record<Entry["type"], string> = {
   daily_log: "日報",
 };
 
-// counts の内訳として表示する主要 type(M1 で実際に流入する5種)。session/conversation は
-// M1 パーサ非対象のため内訳には出さない(合計件数には含まれる)。
-const BREAKDOWN_TYPES = ["task", "quality", "score", "decision", "daily_log"] as const;
+// counts の内訳として表示する主要 type(M1 の5種 + org-docs-ingestion の knowledge で6種)。
+// session/conversation は M1 パーサ非対象のため内訳には出さない(合計件数には含まれる)。
+const BREAKDOWN_TYPES = ["task", "quality", "score", "decision", "daily_log", "knowledge"] as const;
+
+// 内訳ヘッダ用ラベルマップ(knowledge のみ和名表示。他 type は生キーのまま — 意匠の現状維持)。
+const BREAKDOWN_LABELS: Record<string, string> = { knowledge: "ナレッジ" };
 
 function sourceHref(source: string, filePath: string): string {
   return `https://github.com/SAS-Sasao/${source}/blob/main/${filePath}`;
@@ -222,7 +225,7 @@ export default async function RetroPage({
                 <th style={th}>件数</th>
                 {BREAKDOWN_TYPES.map((t) => (
                   <th key={t} style={th}>
-                    {t}
+                    {BREAKDOWN_LABELS[t] ?? t}
                   </th>
                 ))}
                 <th style={th}>reward平均</th>

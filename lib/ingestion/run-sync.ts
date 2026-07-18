@@ -2,6 +2,7 @@ import "server-only";
 
 // 対象設計: docs/design/detail/ingestion-foundation.md §2.3(同期オーケストレーション・進行カーソル)
 //          docs/design/basic/ingestion-foundation.md §2.1(allowlist)
+//          docs/design/detail/org-docs-ingestion.md §2.5(docs 系 allowlist 拡張)
 //
 // repo ごとに「進行カーソル方式」で livelock せず前進する同期オーケストレーション。
 // SourceAdapter 経由でのみ GitHub(または FixtureSource)にアクセスする。
@@ -11,6 +12,7 @@ import { buildTagVocab } from "./tag-vocab";
 import { parseCaseBank } from "./parsers/case-bank";
 import { parseDailyLog } from "./parsers/daily-log";
 import { parseDecision } from "./parsers/decision";
+import { parseKnowledge } from "./parsers/knowledge";
 import { parseQualityGate } from "./parsers/quality-gate";
 import { parseTaskLog } from "./parsers/task-log";
 import type { NormalizedRecord, ParseMeta, Parser, SourceFile } from "./parsers/types";
@@ -42,7 +44,7 @@ export type SyncSummary = { repos: Record<string, RepoSyncSummary> };
 export type RunSyncOptions = { maxFiles?: number; force?: boolean };
 
 // ---------------------------------------------------------------------------
-// allowlist(基本設計 §2.1 の6パターン・repo スコープ)
+// allowlist(基本設計 §2.1 の6パターン + org-docs-ingestion §2.5 の docs 系8パターン・repo スコープ)
 // ---------------------------------------------------------------------------
 
 type AllowMatch =
@@ -56,12 +58,30 @@ const MASTERS_RE = /^\.companies\/[^/]+\/masters\/(?:departments|roles|workflows
 const DECISIONS_RE = /^docs\/decisions\/[^/]+\.md$/;
 const LOGS_RE = /^docs\/logs\/[^/]+\.md$/;
 
+// org-docs-ingestion §2.5: cc-sier-organization の `.companies/<org>/docs/...` 配下。
+const ORG_DECISIONS_RE = /^\.companies\/[^/]+\/docs\/decisions\/[^/]+\.md$/;
+const ORG_DAILY_DIGEST_RE = /^\.companies\/[^/]+\/docs\/daily-digest\/[^/]+\.md$/;
+const ORG_LEARNING_NOTES_RE = /^\.companies\/[^/]+\/docs\/secretary\/learning-notes\/[^/]+\.md$/;
+const ORG_RESEARCH_RE = /^\.companies\/[^/]+\/docs\/research\/.+\.md$/;
+const ORG_RETAIL_DOMAIN_RE = /^\.companies\/[^/]+\/docs\/retail-domain\/.+\.md$/;
+const ORG_DIAGRAMS_RE = /^\.companies\/[^/]+\/docs\/diagrams\/[^/]+\.md$/;
+const ORG_DRAWIO_RE = /^\.companies\/[^/]+\/docs\/drawio\/[^/]+\.md$/;
+const ORG_INFO_SOURCE_MASTER_RE = /^\.companies\/[^/]+\/docs\/info-source-master\.md$/;
+
 function matchAllowlist(repo: string, path: string): AllowMatch | null {
   if (repo === "cc-sier-organization") {
     if (TASK_LOG_RE.test(path)) return { kind: "record", parser: parseTaskLog };
     if (CASE_BANK_RE.test(path)) return { kind: "record", parser: parseCaseBank };
     if (QUALITY_GATE_RE.test(path)) return { kind: "record", parser: parseQualityGate };
     if (MASTERS_RE.test(path)) return { kind: "masters" };
+    if (ORG_DECISIONS_RE.test(path)) return { kind: "record", parser: parseDecision };
+    if (ORG_DAILY_DIGEST_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (ORG_LEARNING_NOTES_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (ORG_RESEARCH_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (ORG_RETAIL_DOMAIN_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (ORG_DIAGRAMS_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (ORG_DRAWIO_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (ORG_INFO_SOURCE_MASTER_RE.test(path)) return { kind: "record", parser: parseKnowledge };
     return null;
   }
   if (repo === "ai-war-room") {

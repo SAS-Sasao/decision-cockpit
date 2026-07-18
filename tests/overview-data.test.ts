@@ -86,7 +86,7 @@ describe("aggregateOverview — KPI 手計算一致", () => {
     expect(kpis.qgPassRate).toBeCloseTo(2 / 3, 10);
     // 今週 記録件数 = task2 + score1 + quality3 + session1 + decision1 + daily_log1 = 9(error 行は含まない)
     expect(kpis.recordsThisWeek).toBe(9);
-    // 記録内訳: count>0 のみ・7 type 全列挙順(conversation は今週 0 件のため現れない)
+    // 記録内訳: count>0 のみ・8 type 全列挙順(conversation・knowledge は今週 0 件のため現れない)
     expect(kpis.recordsByType).toEqual([
       { type: "task", count: 2 },
       { type: "quality", count: 3 },
@@ -175,9 +175,9 @@ describe("aggregateOverview — null 分母除外", () => {
   });
 });
 
-describe("aggregateOverview — recordsByType(count>0 のみ・7 type 全列挙順)", () => {
-  it("入力順に関わらず task/quality/score/session/conversation/decision/daily_log の順に整列し、0件の型は現れない", () => {
-    // 入力はわざと乱順(daily_log を先頭に置く)。conversation のみ 0 件のまま。
+describe("aggregateOverview — recordsByType(count>0 のみ・8 type 全列挙順)", () => {
+  it("入力順に関わらず task/quality/score/session/conversation/decision/daily_log/knowledge の順に整列し、0件の型は現れない", () => {
+    // 入力はわざと乱順(daily_log を先頭に置く)。conversation・knowledge のみ 0 件のまま。
     const rows: OverviewRow[] = [
       makeRow({ type: "daily_log", occurred_at: IN_CURRENT_WEEK }),
       makeRow({ type: "decision", occurred_at: IN_CURRENT_WEEK }),
