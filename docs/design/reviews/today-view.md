@@ -30,6 +30,39 @@
 **総合: PASS(全レンズ)** — R2 の問い・Info は rev.3 で吸収:
 screen-design 注記は **§7.2 への項目追加が正 + §5 SC-03 にポインタ** / 世代代表 = **各 file_path の max(synced_at) 行の commit**((synced_at, commit) 辞書順タイブレーク・SQL は詳細設計)/ 途中クラッシュの過渡ウィンドウ受容(次回 run 自己修復)/ skippedRows = **表内の不正行のみ** / board フィールド = **RepoSyncSummary(repo 別)** / 恒常失敗の手動チェックリスト依存を確定 / (file_path, synced_at) 索引の要否・mutation 否定チェックの要否は詳細設計判断と本文明記 / redaction 削除の残置は db.md 消し込み枠のトリガとして認識明記。
 
+---
+
+# 詳細設計(docs/design/detail/today-view.md)
+
+## Round 1 — 2026-07-18
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | **High: run-sync.test.ts の store モック factory(既存5関数のみ)に upsertBoardItems が無く、store.ts への追加 + 実 fixtures 全量走査で「モックに無い export」エラー → 凍結テスト赤 = 条件3×6 デッドロック**(「凍結例外なし」の中核主張が「モック契約の次元」で反証 — 件数/toMatchObject の分析は正しかった)。Med(条件2 の grep -F ピン `[^\/]` が §2.3・既存コード規約 `[^/]` と字面不一致 — 偽 FAIL)。Low 3(M3-A の today 不可侵ゲート / 条件6 の実行形 / fixture 期待値の消費主体) |
+| data | **FAIL** | High(同上 — 3レンズ同一検出)。Med 3(空世代(0 items)で旧世代が表示継続 / 列同定「含む」の一致規則未固定 / regex ピン字面)。Low 3(世代 GROUP BY に source なし / skippedRows 一意計上・必須セル欠落の定義 / 週窓の時間列)。世代フィルタ SQL の正しさ・board フィールド非波及・fixture 導出は現物検証で成立 |
+| sec | **PASS** | 機微遮断の継承・恒久ガード・0005 経路の guard 非干渉・認可モデルの整合をすべて現物確認。Low 2(regex ピン字面 / 否定 grep のコメント転記誤爆)+ Info(モック契約 — data へ申し送り) |
+
+**総合: FAIL(arch/data)** → rev.2 で決着: **run-sync.test.ts を凍結例外に編入**(変更 = モック factory へ upsertBoardItems: vi.fn() 1行のみ・§4-3b の差分ピン(追加行はすべて upsertBoardItems/board を含む + 件数ピン3本の不変 grep)・FROZEN_TESTS_M3 は normalize/tag-vocab 個別列挙化 — org-docs 前例と同作法)/ regex ピンを `[^/]`(既存規約)に統一 / 空世代の既知制限明記 / 列同定 = trim 後完全一致・先勝ち / skippedRows 1行1計上 + 必須セル欠落の定義 / 世代 GROUP BY (source, file_path) / 週窓 = occurred_at / M3-A に today 不可侵 diff ゲート / board-sync に実 fixtures 統合ケース(board={1,4,4})/ 注記の today-view リテラル指示 / コメント転記禁止。
+
+## Round 2 — 2026-07-18(rev.2 を再レビュー)
+
+| レンズ | 判定 | 要点 |
+|---|---|---|
+| arch | **FAIL(Med 1)** | R1 決着5点・前例整合(org-docs の run-sync 例外と同作法)・凍結非交差・§4-3b のシェル意味論をすべて確認。**残 = §3 に rev.1 残骸(「例外なし」「1文字も変更しない(run-sync.test.ts 含む)」)が §0-2 と矛盾** |
+| data | **PASS** | fixture 期待値の一意導出・3b の偽 PASS/FAIL 評価(削除行は人間レビュー依存 — 自覚済み受容)・regex 字面一致・FROZEN_TESTS_M3 被覆を検証。Low 4(先勝ち表現 / seen 集合 / source 照合句 / 1行完結) |
+
+**rev.3**: §3 を §0-2 に整合(例外明記・表分割・1行完結/コメント禁止)+ data Low 4件吸収(seen = 有効行のみ・照合句に source ほか)+ arch Info 2件吸収。
+
+## Round 3 — 2026-07-18(rev.3 を arch 最終確認)
+
+**arch PASS(残ギャップなし)** — §3 矛盾の解消・新矛盾なしを確認。**全レンズ PASS 確定**(arch R3 / data R2 / sec R1)。
+
+### /goal への申し送り(Info・非ブロッキング)
+
+1. run-sync.test.ts への追加行は1行完結・無関係コメント禁止(§4-3b の語彙制限 — 設計参照コメント慣行を適用しない)。
+2. 3b の削除行は機械判定外(件数ピン3本 + 人間レビューが防御の実体 — 自覚済み)。
+3. `'use server'`(単一引用符形)は否定 grep 非検知 — repo の引用符規約(double)依存として受容。
+
 ### detailed-design への申し送り(非ブロッキング)
 
 1. 世代フィルタの SQL 実行形(max(synced_at) 世代代表・タイブレーク)と (file_path, synced_at) 索引の要否。

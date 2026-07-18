@@ -1,7 +1,7 @@
 # 詳細設計: today-view(M3 今日ビュー — SC-03・WBS kanban)
 
 > 対象基本設計: docs/design/basic/today-view.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: rev.3(詳細 Round 2(arch Med: §3 の rev.1 残骸)反映済み → arch 最終確認待ち。data は Round 2 PASS)
+> ステータス: **PASS**(design-review 詳細 — arch Round 3 / data Round 2 / sec Round 1 で全レンズ PASS。reviews/today-view.md 参照)
 > 作成: 2026-07-18(主セッション執筆)
 
 ## 0. 申し送りの決着(reviews/today-view.md)
