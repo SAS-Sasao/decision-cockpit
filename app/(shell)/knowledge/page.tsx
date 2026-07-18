@@ -13,19 +13,32 @@ import { stripMarkdown } from "../../../lib/ui/markdown";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { q?: string | string[]; sel?: string | string[]; tag?: string | string[] };
+type SearchParams = {
+  q?: string | string[];
+  sel?: string | string[];
+  tag?: string | string[];
+  type?: string | string[];
+};
+
+/** 種別チップ(decision が既定・knowledge / all で解除)。 */
+const TYPE_CHIPS = [
+  { value: "decision", label: "判断" },
+  { value: "knowledge", label: "ナレッジ" },
+  { value: "all", label: "すべて" },
+];
 
 function paramStr(v: string | string[] | undefined): string {
   if (Array.isArray(v)) return v[0] ?? "";
   return v ?? "";
 }
 
-/** q / tag / sel から画面内リンクの href を組み立てる(空値は省略)。 */
-function qs(params: { q?: string; tag?: string; sel?: string }): string {
+/** q / tag / sel / type から画面内リンクの href を組み立てる(空値は省略)。 */
+function qs(params: { q?: string; tag?: string; sel?: string; type?: string }): string {
   const usp = new URLSearchParams();
   if (params.q) usp.set("q", params.q);
   if (params.tag) usp.set("tag", params.tag);
   if (params.sel) usp.set("sel", params.sel);
+  if (params.type) usp.set("type", params.type);
   const s = usp.toString();
   return s ? `/knowledge?${s}` : "/knowledge";
 }
@@ -97,8 +110,10 @@ export default async function KnowledgePage({
   const q = paramStr(rawParams.q);
   const tagParam = paramStr(rawParams.tag) || undefined;
   const selParam = paramStr(rawParams.sel) || undefined;
+  const typeParam = paramStr(rawParams.type) || undefined;
+  const currentType = typeParam ?? "decision";
 
-  const data = await getKnowledgeData({ q, tag: tagParam, sel: selParam });
+  const data = await getKnowledgeData({ q, tag: tagParam, sel: selParam, type: typeParam });
 
   const trimmedQ = q.trim();
   const isSearching = trimmedQ !== "";
@@ -144,6 +159,30 @@ export default async function KnowledgePage({
             pgvector
           </span>
         </form>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            marginTop: 13,
+            paddingBottom: 11,
+            borderBottom: "1px dashed var(--line)",
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-sub)", marginRight: 2 }}>
+            種別
+          </span>
+          {TYPE_CHIPS.map((c) => {
+            const active = c.value === currentType;
+            const href = qs({ q, tag: tagParam, sel: selParam, type: c.value === "decision" ? undefined : c.value });
+            return (
+              <a key={c.value} href={href} style={chipStyle(active)}>
+                {c.label}
+              </a>
+            );
+          })}
+        </div>
         <div style={{ display: "flex", gap: 7, marginTop: 13, flexWrap: "wrap" }}>
           {data.topTags.map((t) => {
             const active = t.tag === tagParam;
