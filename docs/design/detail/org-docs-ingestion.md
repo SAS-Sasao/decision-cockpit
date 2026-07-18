@@ -1,7 +1,7 @@
 # 詳細設計: org-docs-ingestion(組織ドキュメント取り込み + ナレッジ検索拡張)
 
 > 対象基本設計: docs/design/basic/org-docs-ingestion.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: rev.8(**OD-DEC** — 組織 decision の H1 フォールバック追加 → 差分レビュー待ち)。rev.7 まで = OD-FIX 含め PASS(OD-FIX 差分レビュー Round 2 で data レンズ PASS(arch 指摘の決着検証込み)。Info 3件は rev.7 で吸収済み。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
+> ステータス: rev.9(**OD-DEC PASS** — 差分レビュー data レンズ PASS・Info 2件を吸収済み)。rev.7 まで = OD-FIX 含め PASS(OD-FIX 差分レビュー Round 2 で data レンズ PASS(arch 指摘の決着検証込み)。Info 3件は rev.7 で吸収済み。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
 > 作成: 2026-07-18(主セッション執筆)。Round 決着一覧 = docs/design/reviews/org-docs-ingestion.md
 
 ## 0. 申し送りの決着 + 詳細 Round 1 の決着
@@ -84,7 +84,8 @@ export function parseKnowledge(file: SourceFile, meta: ParseMeta): NormalizedRec
 - **rev.8(OD-DEC・2026-07-18)— H1 形式差異のフォールバック**: 実データ検証で組織 decision(docs/decisions/2026-06-13-….md)の H1 が日付なし形式(`# <タイトル>`)であり error レコード化されて「最近の判断」に合流しないことが判明(error 10件中1件・今後の組織判断も同形式なら全部落ちる)。**3分岐の契約に拡張**:
   1. **日付付き H1**(`# YYYY-MM-DD - タイトル`)→ 従来どおり(title = 日付以降)。
   2. **H1 はあるが日付なし**(先頭行が `# ` で始まり 1 に不一致)→ **フォールバック: title = H1 全文(`# ` 除去・sanitizeAbsPaths)・occurred_at = ファイル名日付(既存の必須検査済み)**。ok レコード化。
-  3. **H1 なし**(先頭行が `# ` で始まらない)→ error(**不変** — 凍結テストの missing-h1 fixture は先頭行がプレーン文のため挙動不変)。
+  3. **H1 なし**(先頭行が H1 でない)→ error(**不変** — 凍結テストの missing-h1 fixture は先頭行がプレーン文のため挙動不変)。
+  - **rev.9 明確化**: 分岐は**列挙順の逐次評価**(1 → 2 → 3)で排他。分岐2/3 の H1 判定は分岐1 と同じ空白規約 `/^#\s+/`(literal `# ` ではない)。**分岐2 の body・topic は分岐1 と同一**(body = sanitizeAbsPaths(file.content) / topic = fileSlug)。
   - ファイル名の日付検査(`YYYY-MM-DD-<slug>.md` 必須)は全分岐の前提として**不変**。**凍結 tests/parsers/decision.test.ts の3ケースはすべて挙動不変**(dated H1 = 分岐1 / 規則外ファイル名 = 前提検査 / H1 なし = 分岐3)。
   - **回帰テスト = 新ファイル tests/decision-fallback.test.ts**(インライン SourceFile のみ — **fixtures 追加なし** = run-sync.test.ts の件数ピン(ok:13 等)不変)。ケース: 日付なし H1 + 日付ファイル名 → ok・title = H1 全文・occurred_at = ファイル名日付・org = meta.org / dated H1 の従来経路(回帰)/ H1 なし → error(回帰)/ ファイル名規則外 → error(回帰)。
   - **実データ反映手順(手動 — OD-DEC 完了後にユーザー指示で)**: 対象ファイルは未変更のため増分同期に乗らない → `--force` 全量同期 → 全行 synced_at 更新により**全行再埋め込み(3-large・概算 $0.4)**が発生(設計 §1-2 の既知挙動・許容)→「最近の判断」に組織 decision が出現・decision 13件。
