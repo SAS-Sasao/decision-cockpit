@@ -97,7 +97,7 @@ body { background: var(--bg); color: var(--text);
 | `app/(shell)/layout.tsx` | async Server Component。`requireUser()` → `isAdmin(user.id)` / `getUnprocessedInboxCount(user.id)` / `getLastSync()`(overview.ts 内 export・REPOS 突合)を取得。サイドバー(230px・ナビ配列 `NAV: {href,label,adminOnly?}[]` 6項目・admin 項目は isAdmin 時のみ描画・inbox バッジ)+ トップバー(56px・同期ステータス・壁打ちボタン `disabled`)+ ログアウト(`<form action={signOutAction}>`)。`export const dynamic = "force-dynamic"` |
 | `components/nav-link.tsx`(client) | `usePathname()` でアクティブ強調(`--accent` 縁取り)。シェル専用の小物 |
 | `app/(shell)/page.tsx` | SC-02。`requireUser()` → `getOverviewData(user.id)`。KPI カード×4(scoreLevel 色・**「今週(進行中)」注記**・delta は ±表示 / null は na)/ 週次トレンドの**インライン SVG**(polyline 2本: reward・QG。null 点はスキップ。viewBox 固定・依存追加なし)/ 最近の判断ログ5件(`https://github.com/SAS-Sasao/${source}/blob/main/${filePath}` — api.github.com / raw.githubusercontent.com は書かない)。`dynamic = "force-dynamic"` |
-| `app/(shell)/today/page.tsx` | 旧 app/page.tsx の骨格移設 + `requireUser()` + 「M3 で実装予定」注記 |
+| `app/(shell)/today/page.tsx` | 旧 app/page.tsx の骨格移設 + `requireUser()` + 「M3 で実装予定」注記。**※ 追随注記(today-view・2026-07-18): M3 で SC-03(サマリ帯×4 + WBS kanban 3列)として実装化** — データ取得は lib/data/today.ts(getTodayData)/ getLastSync 経由のみ・requireUser・`dynamic = "force-dynamic"` 存置。正典 = docs/design/detail/today-view.md §2.5 |
 | `app/(shell)/knowledge/page.tsx` | 旧 /search 移設 + `requireUser()` + 「M2 で実装予定」注記。**※ 追随注記(search-foundation・2026-07-17): M2 で SC-04(pgvector 類似検索 + 判断後6週実績)として実装化** — データ取得は lib/data/knowledge.ts 経由のみ・requireUser 存置。正典 = docs/design/detail/search-foundation.md §2.7 |
 | `app/(shell)/retro/page.tsx` | 旧 /review 移設(ロジック・ラベル・**requireUser・dynamic とも不変**)。スコア数値に `scoreLevel` の色付けのみ追加 |
 | `app/(shell)/capture/page.tsx` | `requireUser()` + 準備中(M4) |
