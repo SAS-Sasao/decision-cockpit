@@ -13,7 +13,7 @@
 | 3 | board フィールドの型位置 | **RepoSyncSummary(repo 別)に必須フィールド** `board: { files: number; items: number; skippedRows: number }`(全 repo で常に存在 — ai-war-room は全て 0)。/api/sync 応答・sync_state.last_summary へは既存経路で自然に流れる(加法拡張・読み手なしを基本設計 R2 で現物確認済み) |
 | 4 | mutation 経路否定チェック | **採用**: `grep -RIn '"use server"' "app/(shell)/today"` exit 1(§4-5) |
 | 5 | 完了列上限・並び順・3列 grep | 完了列 = **直近 8 件**(synced_at 世代内で item_key 降順は意味が無いため **WBS ID 文字列降順**)。todo/doing 列 = **WBS ID 文字列昇順**(数値階層ソートはしない — 宣言)。3列は **BOARD_COLUMNS 配列リテラルのピン**(§4-5 — 「レビュー」の否定 grep は本文語と誤爆するため不採用) |
-| 6 | FROZEN_TESTS 全列挙 | §4 冒頭(前 goal までの全 29 テストファイル + helpers + vitest.config.ts — **例外なし**) |
+| 6 | FROZEN_TESTS 全列挙 | §4 冒頭(前 goal までの全テストファイル + helpers + vitest.config.ts。**rev.2: 凍結例外 = tests/ingestion/run-sync.test.ts のみ** — §0-2) |
 
 基本設計の問いの決着:
 - **問い1(完了列 N・並び順)**: 上記 #5。
