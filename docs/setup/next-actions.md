@@ -1,20 +1,18 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-18 org-docs-ingestion 完了(OD-A / OD-B とも judge PASS)+ 実データ同期・全埋め込み済み**。
-> **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion 完了**(テスト270件緑)。
-> ローカル db = **7,782行・全埋め込み済み**(knowledge 7,430 チャンク: daily-digest 94ファイル / learning-notes 52 / drawio・diagrams・research ほか)。機微・内部ファイル(profile / personality / CLAUDE.md / MEMORY.md)の混入 **0行**(denylist 遮断を実データで確認)。digest 目視ゲート合格(直近1 + 無作為2 + 全チャンク機械走査 — 機微引用なし)。
-> **/knowledge の type チップ(判断 / ナレッジ / すべて)で組織ナレッジを横断検索可能**。0004 は Neon ブランチ検証済み・本番未適用。
-> **2026-07-18 追記**: recent 経路の type/tag バグ修正(OD-FIX・judge PASS)+ **埋め込みモデルを text-embedding-3-large(1536)へ移行**(全行再埋め込み済み・検索品質向上)。Vercel 展開時の env は **EMBEDDING_MODEL=text-embedding-3-large / EMBEDDING_DIM=1536** を登録。
+> 状態スナップショット: **2026-07-18 M3(今日ビュー / SC-03)完了(M3-A / M3-B とも judge PASS)+ 実 WBS 同期済み**。
+> **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion / M3 完了**(テスト312件緑)。
+> ローカル db = timeline_records **7,838行**(decision 13 / knowledge 7,430 チャンク ほか・機微混入 0)+ **board_items 59行**(`storcon-preparation-wbs.md` — todo 52 / doing 3 / done 4・**skippedRows 0** = 実 WBS はパース不正行ゼロ)。**/today で実 WBS kanban 稼働**(サマリ帯×4 + 3列 + 最終同期注記)。
+> **0005(board_items)は Neon ブランチ検証済み・本番未適用**(Vercel 展開時に 0003 → 0004 → 0005 の順で人間承認のうえ適用)。
+> **⚠ 再埋め込み待ち 7,838行**: M3 の実同期(`--force`)で全行の synced_at が進んだため。**検索は既存埋め込み(text-embedding-3-large)でいまも正常稼働**。次回の埋め込みバッチ(/api/sync の embed フェーズ or バックフィル)実行時に全量再埋め込み(~$0.4)— 急ぎ不要・実行時は「バックフィルして」。
 > **秘密情報は本ファイルに実値を書かない。**
 >
-> **✅ 案A 完了(2026-07-18・OD-DEC judge PASS)**: parseDecision に H1 日付なしフォールバック(3分岐契約)を追加。組織 decision が「最近の判断」に合流(**decision 13件**・title = H1 全文・org 帰属付き・error 10→9)。全行再埋め込み済み(remaining 0)。
->
 > **▶ 次セッションの再開手順**:
-> - **M3(今日ビュー / SC-03・kanban)設計** — `secretary/board.md`・`storcon-preparation-wbs.md`・`reports/`・`todos/` の取り込み + kanban UI。`/basic-design` から(MoC 準拠 + components/charts 再利用・前 goal 新設テスト(chunk / knowledge-parser / org-docs-sync / knowledge-aggregation / knowledge-recent)を凍結編入)。
+> - **M4(capture + 壁打ち / SC-06)設計** — capture_inbox 入力 UI + INBOX リスト(kind 語彙 = status/issue/next_move/spar_conclusion — .claude/rules/capture.md 契約準拠)。SC-07 ユーザー管理の配置(M0 未解決の問い#1)もこの前後で判断。`/basic-design` から(MoC 準拠・前 goal 新設テスト(board-parser / board-sync / today-data)+ run-sync.test を凍結列挙に編入)。
 >
-> **2026-07-18 の完了サマリ**: org-docs-ingestion(OD-A / OD-B / OD-FIX すべて judge PASS)・実データ同期(--force 全量・knowledge 7,430 チャンク・機微混入 0)・**埋め込みモデルを text-embedding-3-large(1536)へ移行**(全 7,782 行再埋め込み済み・検索品質向上)・/knowledge の type/tag チップ稼働・テスト 279 件緑。
+> **2026-07-18 の完了サマリ**: 案A(OD-DEC・decision 13件)→ today-view 設計(basic 2R + detail 3R 全レンズ PASS)→ **M3-A**(0005 + parseBoard + board 経路 + lib/data/today.ts・judge PASS)→ **M3-B**(SC-03 画面 + 被変更側注記3件・judge PASS)→ 実同期(`board = { files: 1, items: 59, skippedRows: 0 }`)。テスト 312 件緑。
 >
-> **運用メモ**: allowlist を広げた直後の同期は `--force` が必要(増分は変更ファイルのみ)/ モデル切替時は検索が一時 0件になる(混在防止ガードの過渡状態 — 再埋め込みで自己回復)/ Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536`。
+> **運用メモ**: allowlist を広げた直後の同期は `--force` が必要(増分は変更ファイルのみ)/ **`--force` は全行の synced_at を進める → 次の埋め込みバッチが全量再埋め込みになる(コスト意識)**/ モデル切替時は検索が一時 0件になる(混在防止ガードの過渡状態 — 再埋め込みで自己回復)/ Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536`。
 
 ---|---|---|
 | `daily-digest/` | 94ファイル(日付付き・7〜60KB) | 組織活動の日次サマリ — タイムライン素材そのもの |
@@ -67,7 +65,7 @@ org-docs-ingestion 設計時の必須論点:
 
 | いつ | やること |
 |---|---|
-| **M2**(検索) | 埋め込みモデル選定(research-spike)→ `EMBEDDING_MODEL` / `EMBEDDING_DIM` / `EMBEDDING_API_KEY` 確定 + check-no-secrets.sh へパターン追随(同一コミット)。conversation-log 取り込みは**マスク検証方針の先行設計が前提**(設計の問い#2) |
+| **M4**(capture + 壁打ち) | SC-06 実装(capture_inbox 契約 = .claude/rules/capture.md 準拠・user_id 所有・kind 4語彙)。SC-07 ユーザー管理の配置判断もここで |
 | **M5**(自動整理) | `claude setup-token` → GitHub Secrets(`CLAUDE_CODE_OAUTH_TOKEN` / `WARROOM_PAT` / `DATABASE_URL`)+ Variables `ENABLE_DAILY_ORGANIZE=true` |
 | Vercel 展開時 | **手順書あり: [`vercel-deploy.md`](./vercel-deploy.md)**(事前条件・環境変数・Cron・初回同期・トラブルシュートまで記載。現時点でデプロイ不要) |
 
@@ -91,6 +89,9 @@ org-docs-ingestion 設計時の必須論点:
 - **M1 仕上げ完了**(2026-07-12): CRON_SECRET 生成 / 実データ初回同期(331件)/ 0002 本番適用(ブランチ検証→承認→適用)
 - **ui-shell 実装完了**(2026-07-12): 設計2段階 PASS → UI-A(集計/トークン基盤)・UI-B(シェル+画面再編)judge PASS。テスト120件。/knowledge・/retro 開通・実機確認済み
 - **ui-polish 基本設計 PASS**(2026-07-12): MoC 実 HTML を MCP で取得(docs/design/ui/moc/)→ 視覚仕様抽出(docs/research/ui-polish-moc-spec.md)→ 3レンズ2ラウンドで PASS。ゲージ内訳は pass/非pass 導出・null 契約・SIGNAL_DIRECTION・judge 0-1 軸・フォントセルフホスト(exact pin)を確定
+- **M2(検索)完了**(2026-07-17): dual-provider 埋め込み(OpenAI 主・Google 切替可・fail-closed)+ pgvector 近傍検索 + SC-04(M2-A / M2-B judge PASS)。後日 text-embedding-3-large(1536)へ移行(全行再埋め込み済み)
+- **md-render / org-docs-ingestion / OD-FIX / OD-DEC 完了**(2026-07-18): 安全 MD レンダラ(GFM 表対応)・組織 docs 取り込み(knowledge 型 8種列挙 + /knowledge type チップ)・recent の type/tag バグ修正・org decision H1 フォールバック(decision 13件)
+- **M3(今日ビュー)完了**(2026-07-18): today-view 設計(基本 2R + 詳細 3R 全レンズ PASS)→ M3-A(0005 board_items + parseBoard + board 経路 + lib/data/today.ts)・M3-B(SC-03 画面 + 注記3件)とも judge PASS → 実 WBS 同期(59行・skippedRows 0)。0005 はブランチ検証済み・本番未適用
 
 ## 関連ドキュメント
 
