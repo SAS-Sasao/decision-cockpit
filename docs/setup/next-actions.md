@@ -4,6 +4,7 @@
 > **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion 完了**(テスト270件緑)。
 > ローカル db = **7,782行・全埋め込み済み**(knowledge 7,430 チャンク: daily-digest 94ファイル / learning-notes 52 / drawio・diagrams・research ほか)。機微・内部ファイル(profile / personality / CLAUDE.md / MEMORY.md)の混入 **0行**(denylist 遮断を実データで確認)。digest 目視ゲート合格(直近1 + 無作為2 + 全チャンク機械走査 — 機微引用なし)。
 > **/knowledge の type チップ(判断 / ナレッジ / すべて)で組織ナレッジを横断検索可能**。0004 は Neon ブランチ検証済み・本番未適用。
+> **2026-07-18 追記**: recent 経路の type/tag バグ修正(OD-FIX・judge PASS)+ **埋め込みモデルを text-embedding-3-large(1536)へ移行**(全行再埋め込み済み・検索品質向上)。Vercel 展開時の env は **EMBEDDING_MODEL=text-embedding-3-large / EMBEDDING_DIM=1536** を登録。
 > **秘密情報は本ファイルに実値を書かない。**
 >
 > **▶ 次にやること**:
