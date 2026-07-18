@@ -15,9 +15,10 @@ export type ParseMeta = {
   org: string | null;
 };
 
-// db/migrations/0002_ingestion_foundation.up.sql の type CHECK 制約と一致させる。
+// db/migrations/0002_ingestion_foundation.up.sql + 0004_org_docs.up.sql の type CHECK 制約と一致させる。
 // M1-A のパーサ5本が実際に出力するのは task/score/quality/decision/daily_log の5値
 // (session/conversation は M1 スコープ外だが CHECK 制約上の語彙として型に残す)。
+// knowledge は org-docs-ingestion(0004)で追加(cc-sier-organization の docs 系汎用ナレッジ)。
 export type RecordType =
   | "task"
   | "quality"
@@ -25,7 +26,8 @@ export type RecordType =
   | "session"
   | "conversation"
   | "decision"
-  | "daily_log";
+  | "daily_log"
+  | "knowledge";
 
 export type RecordStatus = "ok" | "error";
 
