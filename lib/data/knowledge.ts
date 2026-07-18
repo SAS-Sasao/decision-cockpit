@@ -2,6 +2,7 @@ import "server-only";
 
 // 対象設計: docs/design/detail/search-foundation.md §2.4(検索クエリ・decisionOutcome・topTags)
 //          docs/design/basic/search-foundation.md §1-4 / §1-5(similarity 契約・SC-04 データ契約)
+//          docs/design/detail/org-docs-ingestion.md §2.7 rev.5/6(recentRecords — type/tag 反映)
 //
 // EmbeddingClient を呼ぶのは searchKnowledge 内のみ(呼び出し位置固定)。
 // SQL は全て $n プレースホルダ束縛(文字列連結によるユーザー値の埋め込み禁止)。
@@ -248,15 +249,37 @@ export async function topTags(n: number = 8): Promise<{ tag: string; count: numb
 // ---------------------------------------------------------------------------
 
 const RECENT_LIMIT = 8;
+const RECENT_TYPES = ["decision", "knowledge", "all"];
 
-async function recentDecisions(): Promise<KnowledgeHit[]> {
+/**
+ * q 空(または検索エラー時)の一覧: status='ok' + type フィルタ(既定 decision・
+ * 3語彙外の不正値も decision 扱い・"all" で解除)+ tag 指定時 ANY(tags)。
+ * ORDER BY occurred_at DESC NULLS LAST, id(タイブレーク = id)・LIMIT $1(params[0] = limit)。
+ */
+async function recentRecords(type: string | undefined, tag: string | undefined): Promise<KnowledgeHit[]> {
+  const normalizedType = type && RECENT_TYPES.includes(type) ? type : "decision";
+
+  const sqlParams: unknown[] = [RECENT_LIMIT];
+  const filters: string[] = [];
+
+  if (normalizedType !== "all") {
+    sqlParams.push(normalizedType);
+    filters.push(`AND type = $${sqlParams.length}`);
+  }
+  if (tag) {
+    sqlParams.push(tag);
+    filters.push(`AND $${sqlParams.length} = ANY(tags)`);
+  }
+
+  const filterSql = filters.length > 0 ? " " + filters.join(" ") : "";
+
   const result = await query<RecordRow>(
     `SELECT id, source, file_path, occurred_at, type, org, title, body, tags
        FROM timeline_records
-      WHERE status = 'ok' AND type = 'decision'
-      ORDER BY occurred_at DESC
+      WHERE status = 'ok'${filterSql}
+      ORDER BY occurred_at DESC NULLS LAST, id
       LIMIT $1`,
-    [RECENT_LIMIT]
+    sqlParams
   );
   return result.rows.map((row) => toHit(row, null));
 }
@@ -297,13 +320,13 @@ export async function getKnowledgeData(
   let searchError = false;
 
   if (params.q.trim() === "") {
-    recent = await recentDecisions();
+    recent = await recentRecords(params.type, params.tag);
   } else {
     try {
       hits = await searchKnowledge(params);
     } catch {
       searchError = true;
-      recent = await recentDecisions();
+      recent = await recentRecords(params.type, params.tag);
     }
   }
 

@@ -2,6 +2,7 @@
 // 対象設計: docs/design/detail/search-foundation.md §2.7(SC-04)・§4(受け入れ条件)・§5(禁止事項)
 //          docs/design/ui/moc/decision-cockpit.dc.html(isKnowledge ブロック)
 //          docs/design/ui/screen-design.md §5(SC-04)
+//          docs/design/detail/org-docs-ingestion.md §2.7 rev.5/6/7(type チップ・recent 経路修正)
 //
 // データは lib/data/knowledge.ts の getKnowledgeData() のみを読む。重い処理(埋め込み・pgvector
 // 検索・集計)はこの画面では行わない。チャートは components/charts/line-chart を再利用する。
@@ -73,6 +74,13 @@ function scoreColor(value: number | null): string {
   return "var(--bad)";
 }
 
+/** 左リストの見出しラベル(q 空時)を種別に追随させる。 */
+function recentLabel(type: string): string {
+  if (type === "knowledge") return "最近のナレッジ";
+  if (type === "all") return "最近の記録";
+  return "最近の判断";
+}
+
 function sourceHref(source: string, filePath: string): string {
   return `https://github.com/SAS-Sasao/${source}/blob/main/${filePath}`;
 }
@@ -117,7 +125,7 @@ export default async function KnowledgePage({
 
   const trimmedQ = q.trim();
   const isSearching = trimmedQ !== "";
-  const listLabel = isSearching ? `類似する過去の判断 · ${data.hits.length}件` : "最近の判断";
+  const listLabel = isSearching ? `類似する過去の判断 · ${data.hits.length}件` : recentLabel(currentType);
   const listItems: KnowledgeHit[] = data.searchError ? data.recent : isSearching ? data.hits : data.recent;
 
   return (
@@ -146,6 +154,7 @@ export default async function KnowledgePage({
             }}
           />
           {tagParam ? <input type="hidden" name="tag" value={tagParam} /> : null}
+          {typeParam ? <input type="hidden" name="type" value={typeParam} /> : null}
           <span
             style={{
               fontFamily: "var(--font-mono)",
@@ -186,7 +195,7 @@ export default async function KnowledgePage({
         <div style={{ display: "flex", gap: 7, marginTop: 13, flexWrap: "wrap" }}>
           {data.topTags.map((t) => {
             const active = t.tag === tagParam;
-            const href = qs({ q, tag: active ? undefined : t.tag });
+            const href = qs({ q, tag: active ? undefined : t.tag, sel: selParam, type: typeParam });
             return (
               <a key={t.tag} href={href} style={chipStyle(active)}>
                 {t.tag}
@@ -221,7 +230,7 @@ export default async function KnowledgePage({
               {listItems.map((hit) => (
                 <a
                   key={hit.id}
-                  href={qs({ q, tag: tagParam, sel: hit.id })}
+                  href={qs({ q, tag: tagParam, sel: hit.id, type: typeParam })}
                   style={{
                     display: "block",
                     background: "var(--panel-row)",
