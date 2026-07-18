@@ -1,7 +1,7 @@
 # 詳細設計: org-docs-ingestion(組織ドキュメント取り込み + ナレッジ検索拡張)
 
 > 対象基本設計: docs/design/basic/org-docs-ingestion.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: **PASS**(OD-FIX 差分レビュー Round 2 で data レンズ PASS(arch 指摘の決着検証込み)。Info 3件は rev.7 で吸収済み。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
+> ステータス: rev.9(**OD-DEC PASS** — 差分レビュー data レンズ PASS・Info 2件を吸収済み)。rev.7 まで = OD-FIX 含め PASS(OD-FIX 差分レビュー Round 2 で data レンズ PASS(arch 指摘の決着検証込み)。Info 3件は rev.7 で吸収済み。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
 > 作成: 2026-07-18(主セッション執筆)。Round 決着一覧 = docs/design/reviews/org-docs-ingestion.md
 
 ## 0. 申し送りの決着 + 詳細 Round 1 の決着
@@ -79,8 +79,16 @@ export function parseKnowledge(file: SourceFile, meta: ParseMeta): NormalizedRec
 - **occurred_at**: frontmatter の **`date:` キー(`YYYY-MM-DD` 形式のみ受理)** → ファイル名 `YYYY-MM-DD.md` → **null**(基本設計 §1-5 の契約改訂 — status='ok' のまま)。ヘルパは既存流用可(受理形式はテストで固定)。
 - パース失敗は既存規約どおり error レコード化。
 
-### 2.3 lib/ingestion/parsers/decision.ts(1点変更)
+### 2.3 lib/ingestion/parsers/decision.ts(org 帰属 + rev.8: H1 フォールバック)
 - `org: null`(固定)→ **`org: meta.org`**(ParseMeta.org は実在・run-sync が供給済み — 現物確認)。ai-war-room 経路は orgFromPath = null で不変(凍結 tests/parsers/decision.test.ts は META org:null のため無傷)。コメントも追随。
+- **rev.8(OD-DEC・2026-07-18)— H1 形式差異のフォールバック**: 実データ検証で組織 decision(docs/decisions/2026-06-13-….md)の H1 が日付なし形式(`# <タイトル>`)であり error レコード化されて「最近の判断」に合流しないことが判明(error 10件中1件・今後の組織判断も同形式なら全部落ちる)。**3分岐の契約に拡張**:
+  1. **日付付き H1**(`# YYYY-MM-DD - タイトル`)→ 従来どおり(title = 日付以降)。
+  2. **H1 はあるが日付なし**(先頭行が `# ` で始まり 1 に不一致)→ **フォールバック: title = H1 全文(`# ` 除去・sanitizeAbsPaths)・occurred_at = ファイル名日付(既存の必須検査済み)**。ok レコード化。
+  3. **H1 なし**(先頭行が H1 でない)→ error(**不変** — 凍結テストの missing-h1 fixture は先頭行がプレーン文のため挙動不変)。
+  - **rev.9 明確化**: 分岐は**列挙順の逐次評価**(1 → 2 → 3)で排他。分岐2/3 の H1 判定は分岐1 と同じ空白規約 `/^#\s+/`(literal `# ` ではない)。**分岐2 の body・topic は分岐1 と同一**(body = sanitizeAbsPaths(file.content) / topic = fileSlug)。
+  - ファイル名の日付検査(`YYYY-MM-DD-<slug>.md` 必須)は全分岐の前提として**不変**。**凍結 tests/parsers/decision.test.ts の3ケースはすべて挙動不変**(dated H1 = 分岐1 / 規則外ファイル名 = 前提検査 / H1 なし = 分岐3)。
+  - **回帰テスト = 新ファイル tests/decision-fallback.test.ts**(インライン SourceFile のみ — **fixtures 追加なし** = run-sync.test.ts の件数ピン(ok:13 等)不変)。ケース: 日付なし H1 + 日付ファイル名 → ok・title = H1 全文・occurred_at = ファイル名日付・org = meta.org / dated H1 の従来経路(回帰)/ H1 なし → error(回帰)/ ファイル名規則外 → error(回帰)。
+  - **実データ反映手順(手動 — OD-DEC 完了後にユーザー指示で)**: 対象ファイルは未変更のため増分同期に乗らない → `--force` 全量同期 → 全行 synced_at 更新により**全行再埋め込み(3-large・概算 $0.4)**が発生(設計 §1-2 の既知挙動・許容)→「最近の判断」に組織 decision が出現・decision 13件。
 
 ### 2.4 lib/ingestion/normalize.ts(denylist 拡張)
 - `DENY_PATTERNS` に **`"claude.md"`, `"memory.md"`, `"agents.md"`** を追加(計9)。
@@ -264,6 +272,12 @@ vitest・実 DB / 実ネットワークなし。**新テストは新ファイル
 - **達成状態**: 条件 **8(rev.5/6 追加ピン込み)** + **条件4(npm test — tests/knowledge-recent.test.ts 込み)** + **条件9(rev.6 改訂後リスト)** が exit 0 + build exit 0 + 実機 未認証 `/knowledge` 307。
 - **成果物**: lib/data/knowledge.ts(recentRecords 置換のみ)/ app/(shell)/knowledge/page.tsx(hidden type input・**全リンクの q/tag/sel/type 相互保持**・見出しラベル追随)/ tests/knowledge-recent.test.ts(不正 type → 既定 decision のケース含む)。
 - **executor**: frontend-engineer。**ターン上限**: 15。**節目 commit**: 1回(fix + テスト + build 緑)。judge = acceptance-judge(独立)。
+
+### /goal OD-DEC「組織 decision の H1 フォールバック」(rev.8)
+- **対象設計**: 本書 §2.3 rev.8。
+- **達成状態**: `test -f tests/decision-fallback.test.ts` + `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE npm test` exit 0(**凍結 tests/parsers/decision.test.ts が無変更で緑**)+ **git diff の変更対象が lib/ingestion/parsers/decision.ts と tests/decision-fallback.test.ts の2ファイルのみ**(git diff --stat main で判定)+ build exit 0。
+- **成果物**: decision.ts のフォールバック分岐 / tests/decision-fallback.test.ts。fixtures・他ファイルは不変。
+- **executor**: ingestion-engineer。**ターン上限**: 10。**節目 commit**: 1回。judge = acceptance-judge(独立)。
 
 ### 共通の禁止事項
 - **凍結対象の変更禁止**(条件9 の diff リスト + FROZEN_TESTS_OD)。凍結例外は3テストの §3 記載範囲のみ(条件7 のピン + 人間レビュー)。新規依存禁止。
