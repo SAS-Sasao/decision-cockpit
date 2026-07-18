@@ -1,7 +1,7 @@
 # 詳細設計: org-docs-ingestion(組織ドキュメント取り込み + ナレッジ検索拡張)
 
 > 対象基本設計: docs/design/basic/org-docs-ingestion.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: **PASS**(design-review 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
+> ステータス: rev.5(**OD-FIX** — 実データ検証で判明した recent 経路の type/tag 無視・フォーム type 消失の修正改訂 → 差分レビュー待ち。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
 > 作成: 2026-07-18(主セッション執筆)。Round 決着一覧 = docs/design/reviews/org-docs-ingestion.md
 
 ## 0. 申し送りの決着 + 詳細 Round 1 の決着
@@ -118,7 +118,13 @@ cc-sier-organization の matchAllowlist に以下を追加(record 種別・パ�
   ];
   ```
   リンクは `qs()` で構築 — **qs() に type 引数を追加する(page 内ローカル関数の拡張 — OD-B 可変範囲。rev.4 明示)**。decision = 既定のため type param なし URL。active 強調はタグチップと同形。q / tag / sel を保持。
-- `getKnowledgeData({ q, tag, sel, type })` に透過(**lib/data/knowledge.ts は無変更** — §4-8 で diff 0 ピン。type param は既存 IF に実在 — 現物確認)。recent(q 空)は decision のまま。
+- `getKnowledgeData({ q, tag, sel, type })` に透過。
+- **rev.5(バグ修正改訂・2026-07-18 ユーザー報告)**: 実データ検証で2欠陥が判明 — (a) **recent 経路(q 空)が type・tag を無視**(recentDecisions が decision 固定・tag なし)→ タグ・type チップが無反応 (b) **検索フォームに type の hidden input がなく送信で type が消える**。決着:
+  - **recent 契約の改訂**: q 空のときの一覧 = `recentRecords(type, tag)` — `WHERE status = 'ok'` + type フィルタ(既定 decision・"all" で解除)+ tag フィルタ(指定時 `= ANY(tags)`)+ `ORDER BY occurred_at DESC NULLS LAST` + LIMIT 8。見出しラベルも type に追随(判断 =「最近の判断」/ ナレッジ =「最近のナレッジ」/ すべて =「最近の記録」)。
+  - **lib/data/knowledge.ts の diff 0 ピンを撤回**し、可変範囲 = recentDecisions → recentRecords の置換(searchKnowledge・decisionOutcome・topTags・埋め込み経路は不変 — §4-8 の SQL ピン群は維持)。
+  - **page.tsx のフォームに type の hidden input を追加**(tag と対称)。
+  - 回帰テスト = **新ファイル tests/knowledge-recent.test.ts**(type/tag 反映・NULLS LAST・既定 decision。凍結 tests/knowledge-data.test.ts は不変)。
+  - 被変更側 = search-foundation 詳細 §2.4(recent = decision 固定の記述)へ追随注記。
 
 ### 2.8 fixtures(新設 — demo-org 配下・すべて匿名・実在人名不使用)
 ```
@@ -223,7 +229,8 @@ vitest・実 DB / 実ネットワークなし。**新テストは新ファイル
    exit "$fail"
    ```
    (削除行・その他の妥当性は人間レビュー — 意図的例外 §0-1。)
-8. **検索拡張(OD-B)**: `grep -Fq '{ value: "knowledge", label: "ナレッジ" }' "app/(shell)/knowledge/page.tsx"` + `grep -Fq '{ value: "all", label: "すべて" }' "app/(shell)/knowledge/page.tsx"` + **`git diff --exit-code main -- lib/data/knowledge.ts`** exit 0(IF 無変更)+ `grep -Fq "requireUser" "app/(shell)/knowledge/page.tsx"`。
+8. **検索拡張(OD-B・rev.5 改訂)**: `grep -Fq '{ value: "knowledge", label: "ナレッジ" }' "app/(shell)/knowledge/page.tsx"` + `grep -Fq '{ value: "all", label: "すべて" }' "app/(shell)/knowledge/page.tsx"` + `grep -Fq "requireUser" "app/(shell)/knowledge/page.tsx"`。
+   **rev.5 追加(OD-FIX)**: `grep -Fq 'recentRecords' lib/data/knowledge.ts` / `grep -Fq 'ORDER BY occurred_at DESC NULLS LAST' lib/data/knowledge.ts` / `grep -Fq 'name="type"' "app/(shell)/knowledge/page.tsx"`(hidden input)/ `test -f tests/knowledge-recent.test.ts` / **M2 由来の検索 SQL ピン(search-foundation 詳細 §4-4 の4本)re-run exit 0**(searchKnowledge 不変の担保 — diff 0 ピンの代替)。
 9. **凍結・退行**:
    `git diff --exit-code main -- lib/search lib/ui components lib/ingestion/github-source.ts lib/ingestion/fixture-source.ts lib/ingestion/source.ts lib/ingestion/store.ts lib/ingestion/tag-vocab.ts db/migrations/0001_auth_foundation.up.sql db/migrations/0001_auth_foundation.down.sql db/migrations/0002_ingestion_foundation.up.sql db/migrations/0002_ingestion_foundation.down.sql db/migrations/0003_search_foundation.up.sql db/migrations/0003_search_foundation.down.sql lib/auth lib/db.ts lib/data/knowledge.ts proxy.ts app/api app/login app/auth app/logout next.config.mjs tsconfig.json package.json package-lock.json scripts "app/(shell)/page.tsx" "app/(shell)/layout.tsx" "app/(shell)/template.tsx" "app/(shell)/today" "app/(shell)/capture" "app/(shell)/admin" app/globals.css app/layout.tsx` exit 0 /
    `git diff --exit-code main -- <FROZEN_TESTS_OD>` exit 0 /
