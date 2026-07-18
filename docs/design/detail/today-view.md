@@ -1,7 +1,7 @@
 # 詳細設計: today-view(M3 今日ビュー — SC-03・WBS kanban)
 
 > 対象基本設計: docs/design/basic/today-view.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: rev.2(詳細 Round 1(arch/data FAIL: run-sync.test モック契約・regex ピン字面ほか)反映済み → 再レビュー待ち)
+> ステータス: rev.3(詳細 Round 2(arch Med: §3 の rev.1 残骸)反映済み → arch 最終確認待ち。data は Round 2 PASS)
 > 作成: 2026-07-18(主セッション執筆)
 
 ## 0. 申し送りの決着(reviews/today-view.md)
@@ -77,7 +77,7 @@ export function parseBoard(file: SourceFile): { items: BoardItem[]; skippedRows:
 ```
 - **列同定 = ヘッダ名ベース**(md テーブルのヘッダ行から「WBS」「タスク」「担当」「期間」「成果物」「Iter」「Pri」「Type」「Issue」「ステータス」の列位置を解決 — 並び替え・列追加に頑健)。**一致規則(rev.2 確定): ヘッダセルの trim 後・完全一致**(部分一致はしない — 「WBS番号」等は不一致)。**同名セルが複数ある場合は先勝ち**。**対象テーブル = ヘッダに「WBS」と「ステータス」を両方含むもののみ**(それ以外の表(マイルストーン表等)・地の文は対象外 = skippedRows 非計上)。**必須列 = WBS・タスク・ステータス**(欠けるテーブルは対象外)。
 - 状態写像: セル値を trim して **`[ ]` / `[~]` / `[x]` の完全一致のみ** → todo / doing / done。
-- **skippedRows 計上(対象テーブル内の不正行のみ・1行 = 1計上(最初に該当したカテゴリ))**: 状態3値外 / WBS ID 空 / **同一ファイル内の重複 WBS ID の2件目以降(行順)** / **必須セル欠落(= 列数不足 or 必須列(WBS/タスク/ステータス)のセルが trim 後空)**。ヘッダ行・区切り行(`|---|`)は行としてカウントしない。
+- **skippedRows 計上(対象テーブル内の不正行のみ・1行 = 1計上(最初に該当したカテゴリ))**: 状態3値外 / WBS ID 空 / **同一ファイル内の重複 WBS ID の2件目以降(行順 — 重複判定の seen 集合には有効行として採用した ID のみを登録・スキップ行の ID は登録しない)** / **必須セル欠落(= 列数不足 or 必須列(WBS/タスク/ステータス)のセルが trim 後空)**。ヘッダ行・区切り行(`|---|`)は行としてカウントしない。
 - sanitizeAbsPaths を **title / assignee / period / deliverable / section / issueRef** に適用(iter / pri / taskType は制約的な短値だが同様に適用して良い — 実装裁量)。
 - 決定的(同一入力 → 同一出力)。パース例外は投げず、解釈不能テーブルは対象外として素通し(fail-soft)。
 
@@ -109,12 +109,12 @@ export async function getTodayData(): Promise<TodayData>;
 ```
 - **世代フィルタ SQL(固定表記 — §4-4 で grep -F ピン)**: 世代代表の選出に
   `array_agg(commit ORDER BY synced_at DESC, commit DESC)`
-  を用いる(file_path ごとに GROUP BY し先頭要素 = 世代代表 commit。その (file_path, commit) に一致する行のみ表示 — JOIN/IN の組み立ては実装裁量・全て $n 束縛)。
+  を用いる(file_path ごとに GROUP BY し先頭要素 = 世代代表 commit。その (source, file_path, commit) に一致する行のみ表示 — JOIN/IN の組み立ては実装裁量・全て $n 束縛)。
 - 列の並び: todo / doing = item_key 文字列昇順・done = item_key 文字列降順の**直近 8 件**(§0-5)。**世代の GROUP BY は (source, file_path)**(キー規約と対称 — 現状 board 経路は cc-sier のみだが将来の複数 source 化に備える)。**既知の制限(rev.2 明記)**: parseBoard が既存ファイルで **0 items** を返した場合(表ヘッダ変更・全行不正化)、upsert が発生せず旧世代が表示され続ける — 観測 = summary の board.files > 0 かつ items 減少(手動チェックリストに含める)。
 - summary: open / doing = 世代フィルタ後の件数。retryRate / rewardAvg = timeline_records の**今週**(`weekBucketBoundaries` を lib/data/review.ts から import — 週境界の二重実装禁止。§4-4 で import ピン)集計: rewardAvg = REWARD_TYPES(task/score)の reward_score 平均・retryRate = signals 非 null 行のうち retry_detected true の率(分母 0 は null)。`WHERE status = 'ok'`・**週窓は occurred_at 列で切る**(既存規約 — review.ts と同一)。
 
 ### 2.5 app/(shell)/today/page.tsx(M3-B — プレースホルダ → SC-03)
-- async Server Component・`requireUser()` 存置・`dynamic = "force-dynamic"`。データは `getTodayData()` のみ(lib/db・lib/ingestion の直 import 禁止 — §4-5 grep)。
+- async Server Component・`requireUser()` 存置・`dynamic = "force-dynamic"`。データは **lib/data 層(getTodayData / getLastSync)経由のみ**(lib/db・lib/ingestion の直 import 禁止 — §4-5 grep)。
 - **列定義の固定リテラル(§4-5 ピン — 1行ずつ)**:
   ```ts
   const BOARD_COLUMNS = [
@@ -135,20 +135,21 @@ export async function getTodayData(): Promise<TodayData>;
 ```
 fixtures/cc-sier-organization/.companies/demo-org/docs/secretary/demo-plan-wbs.md
 ```
-- 内容(設計固定 — テスト期待値の根拠): frontmatter なし・見出し2つ(section 検証)・**対象テーブル1つ**(ヘッダ10列)に **有効行4**(todo 2 / doing 1 / done 1)+ **スキップ行4(各1カテゴリのみに該当 — skippedRows:4 の一意導出)**: 状態外 `[?]` / WBS ID 空 / 重複 ID の2件目 / タスクセル空(必須セル欠落)+ **対象外テーブル1つ**(マイルストーン表 — ヘッダに WBS なし・skippedRows 非計上の検証)。
+- 内容(設計固定 — テスト期待値の根拠): frontmatter なし・見出し2つ(section 検証)・**対象テーブル1つ**(ヘッダ10列)に **有効行4**(todo 2 / doing 1 / done 1)+ **スキップ行4(先勝ち計上で各行1計上 — skippedRows:4 の一意導出。空 ID 行は必須欠落にも該当するが先勝ちで一意)**: 状態外 `[?]` / WBS ID 空 / 重複 ID の2件目 / タスクセル空(必須セル欠落)+ **対象外テーブル1つ**(マイルストーン表 — ヘッダに WBS なし・skippedRows 非計上の検証)。
 - 期待値: `board = { files: 1, items: 4, skippedRows: 4 }`。**run-sync.test.ts の件数ピン(ok:13 / error:3 / skipped:3)は不変**。
 - fixture 作成は python3 stdin(パスに repo 名 — guard 回避の前例)。
 
 ## 3. テスト観点
 
-vitest・実 DB / 実ネットワークなし。新テストは新ファイル。既存テストは**全て凍結(例外なし)**。
+vitest・実 DB / 実ネットワークなし。新テストは新ファイル。既存テストは**凍結(例外 = tests/ingestion/run-sync.test.ts のみ — §0-2)**。
 
 | ファイル(新設) | ケース |
 |---|---|
 | `tests/board-parser.test.ts` | parseBoard: 状態3値変換 / ヘッダ名ベースの列同定(並び替え耐性)/ 対象外テーブル非計上 / スキップ4種(状態外・空 ID・**重複 ID 2件目(行順)**・必須セル欠落)+ skippedRows 計上 / section 追跡 / sanitizeAbsPaths(絶対パス入力)/ 決定性(同一入力2回) |
 | `tests/board-sync.test.ts` | run-sync(モック source): `-wbs.md` が board 経路に乗る / **ok/error/skipped が増えない** / board = {files, items, skippedRows} の計上 / denylist が board より先に効く(`profile-wbs.md` 相当は遮断)/ 冪等(2回同期 → 行数不変・state/commit 更新)/ **実 fixtures(FixtureSource)の統合ケース: demo-plan-wbs.md で `board = { files: 1, items: 4, skippedRows: 4 }` を assert(fixture 形骸化の防止 — §2.7 期待値の消費主体)** |
 | `tests/today-data.test.ts` | getTodayData(モック db): **世代フィルタ(旧 commit 行が結果に現れない・(synced_at, commit) タイブレーク)** / 列並び(todo 昇順・done 降順 8 件)/ summary 4値(retryRate 分母 0 → null・rewardAvg)/ boardEmpty / **weekBucketBoundaries の import 使用**(週境界の自前実装がないこと — import ピンは §4-4)/ SQL 固定表記断片が query() 実引数に含まれる assert |
-| 既存テスト | **1文字も変更しない**(run-sync.test.ts 含む — board フィールドは toMatchObject で不可視・件数ピン不変) |
+| `tests/ingestion/run-sync.test.ts`(**凍結例外** — §0-2) | 変更 = **store モック factory へ `upsertBoardItems: vi.fn()` の追加のみ**(+任意で board フィールド assert)。**追加行は1行完結で書き、設計参照コメント等の無関係行を追加しない**(§4-3b の語彙制限ピンが割れる)。件数ピン(ok:13/error:3/skipped:3)は不変 |
+| 上記以外の既存テスト | **1文字も変更しない** |
 
 ## 4. 受け入れ条件(機械判定)
 
