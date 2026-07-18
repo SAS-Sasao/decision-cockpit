@@ -1,7 +1,7 @@
 # 詳細設計: org-docs-ingestion(組織ドキュメント取り込み + ナレッジ検索拡張)
 
 > 対象基本設計: docs/design/basic/org-docs-ingestion.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: **PASS**(design-review 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
+> ステータス: **PASS**(OD-FIX 差分レビュー Round 2 で data レンズ PASS(arch 指摘の決着検証込み)。Info 3件は rev.7 で吸収済み。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
 > 作成: 2026-07-18(主セッション執筆)。Round 決着一覧 = docs/design/reviews/org-docs-ingestion.md
 
 ## 0. 申し送りの決着 + 詳細 Round 1 の決着
@@ -118,7 +118,13 @@ cc-sier-organization の matchAllowlist に以下を追加(record 種別・パ�
   ];
   ```
   リンクは `qs()` で構築 — **qs() に type 引数を追加する(page 内ローカル関数の拡張 — OD-B 可変範囲。rev.4 明示)**。decision = 既定のため type param なし URL。active 強調はタグチップと同形。q / tag / sel を保持。
-- `getKnowledgeData({ q, tag, sel, type })` に透過(**lib/data/knowledge.ts は無変更** — §4-8 で diff 0 ピン。type param は既存 IF に実在 — 現物確認)。recent(q 空)は decision のまま。
+- `getKnowledgeData({ q, tag, sel, type })` に透過。
+- **rev.5(バグ修正改訂・2026-07-18 ユーザー報告)**: 実データ検証で2欠陥が判明 — (a) **recent 経路(q 空)が type・tag を無視**(recentDecisions が decision 固定・tag なし)→ タグ・type チップが無反応 (b) **検索フォームに type の hidden input がなく送信で type が消える**。決着:
+  - **recent 契約の改訂(rev.6 で精密化)**: q 空のときの一覧 = `recentRecords(type, tag)` — `WHERE status = 'ok'` + type フィルタ(既定 decision・"all" で解除)+ tag フィルタ(指定時 `= ANY(tags)`)+ **`ORDER BY occurred_at DESC NULLS LAST, id`(タイブレーク = id — 同時刻・null 同値群でも全順序・LIMIT 8 の切断が決定的)**。**SQL/パラメータ形の固定: `LIMIT $1` が第1パラメータ(params[0] = limit)・追加フィルタは $2 以降の $n 束縛のみ**(凍結 tests/knowledge-data.test.ts の recent モックが「dispatch キー = `ORDER BY occurred_at DESC` 部分一致・params[0] = limit・decision 固定ミラー」を前提とするため — この形なら凍結テストは既定経路で緑のまま。type は3語彙(decision/knowledge/all)検証後に使用・文字列連結禁止)。見出しラベルも type に追随(判断 =「最近の判断」/ ナレッジ =「最近のナレッジ」/ すべて =「最近の記録」)。**タグチップ・結果行リンク・type チップの qs() 呼び出しで q/tag/sel/type を相互保持**(rev.7: タグチップの sel 落ちも含めて解消 — 全リンクの保持が範囲)。**不正 type 値(3語彙外)は既定 decision 扱い**(rev.7 — テスト観点に含める)。**新ピン対象文字列(ORDER BY 全文等)は実装内1行**(search-foundation §5 の規則を継承)。
+  - **lib/data/knowledge.ts の diff 0 ピンを撤回**(条件9 の凍結リストからも除外 — rev.6 で §4-9 に反映)。可変範囲 = recentDecisions → recentRecords の置換のみ。**searchKnowledge の不変 = search-foundation 詳細 §4-4 の SQL ピン4本 re-run + 凍結 tests/knowledge-data.test.ts の挙動検証**、**decisionOutcome / topTags の不変 = 同凍結テストの挙動検証**(機械ピンなしの残余は人間レビュー — 意図的)。
+  - **page.tsx のフォームに type の hidden input を追加**(tag と対称)。
+  - 回帰テスト = **新ファイル tests/knowledge-recent.test.ts**(type/tag 反映・NULLS LAST とタイブレーク・既定 decision の後方互換・**LIMIT 8・status='ok'(error 行排除)・params[0] = limit の束縛形 assert**。凍結 tests/knowledge-data.test.ts は不変 — 上記 SQL 形の固定により既定経路で緑維持)。
+  - 被変更側 = search-foundation 詳細 §2.4(recent = decision 固定の記述)へ追随注記。
 
 ### 2.8 fixtures(新設 — demo-org 配下・すべて匿名・実在人名不使用)
 ```
@@ -223,9 +229,11 @@ vitest・実 DB / 実ネットワークなし。**新テストは新ファイル
    exit "$fail"
    ```
    (削除行・その他の妥当性は人間レビュー — 意図的例外 §0-1。)
-8. **検索拡張(OD-B)**: `grep -Fq '{ value: "knowledge", label: "ナレッジ" }' "app/(shell)/knowledge/page.tsx"` + `grep -Fq '{ value: "all", label: "すべて" }' "app/(shell)/knowledge/page.tsx"` + **`git diff --exit-code main -- lib/data/knowledge.ts`** exit 0(IF 無変更)+ `grep -Fq "requireUser" "app/(shell)/knowledge/page.tsx"`。
+8. **検索拡張(OD-B・rev.5 改訂)**: `grep -Fq '{ value: "knowledge", label: "ナレッジ" }' "app/(shell)/knowledge/page.tsx"` + `grep -Fq '{ value: "all", label: "すべて" }' "app/(shell)/knowledge/page.tsx"` + `grep -Fq "requireUser" "app/(shell)/knowledge/page.tsx"`。
+   **rev.5/6 追加(OD-FIX)**: `grep -Fq 'recentRecords' lib/data/knowledge.ts` / `grep -Fq 'ORDER BY occurred_at DESC NULLS LAST, id' lib/data/knowledge.ts`(タイブレーク込み全文)/ `grep -Fq 'name="type"' "app/(shell)/knowledge/page.tsx"`(hidden input)/ `grep -Fq '最近のナレッジ' "app/(shell)/knowledge/page.tsx"`(ラベル追随)/ `test -f tests/knowledge-recent.test.ts` / **M2 由来の検索 SQL ピン(search-foundation 詳細 §4-4 の4本)re-run exit 0**(searchKnowledge 不変の担保 — diff 0 ピンの代替)。
 9. **凍結・退行**:
-   `git diff --exit-code main -- lib/search lib/ui components lib/ingestion/github-source.ts lib/ingestion/fixture-source.ts lib/ingestion/source.ts lib/ingestion/store.ts lib/ingestion/tag-vocab.ts db/migrations/0001_auth_foundation.up.sql db/migrations/0001_auth_foundation.down.sql db/migrations/0002_ingestion_foundation.up.sql db/migrations/0002_ingestion_foundation.down.sql db/migrations/0003_search_foundation.up.sql db/migrations/0003_search_foundation.down.sql lib/auth lib/db.ts lib/data/knowledge.ts proxy.ts app/api app/login app/auth app/logout next.config.mjs tsconfig.json package.json package-lock.json scripts "app/(shell)/page.tsx" "app/(shell)/layout.tsx" "app/(shell)/template.tsx" "app/(shell)/today" "app/(shell)/capture" "app/(shell)/admin" app/globals.css app/layout.tsx` exit 0 /
+   `git diff --exit-code main -- lib/search lib/ui components lib/ingestion/github-source.ts lib/ingestion/fixture-source.ts lib/ingestion/source.ts lib/ingestion/store.ts lib/ingestion/tag-vocab.ts db/migrations/0001_auth_foundation.up.sql db/migrations/0001_auth_foundation.down.sql db/migrations/0002_ingestion_foundation.up.sql db/migrations/0002_ingestion_foundation.down.sql db/migrations/0003_search_foundation.up.sql db/migrations/0003_search_foundation.down.sql lib/auth lib/db.ts proxy.ts app/api app/login app/auth app/logout next.config.mjs tsconfig.json package.json package-lock.json scripts "app/(shell)/page.tsx" "app/(shell)/layout.tsx" "app/(shell)/template.tsx" "app/(shell)/today" "app/(shell)/capture" "app/(shell)/admin" app/globals.css app/layout.tsx` exit 0 /
+   (**rev.6: lib/data/knowledge.ts は凍結リストから除外** — OD-FIX の可変対象。不変担保は §2.7 rev.5/6 の代替ピンと凍結テスト)/
    `git diff --exit-code main -- <FROZEN_TESTS_OD>` exit 0 /
    **fixtures は追加のみ**(fail-closed 形): `out=$(git -c diff.renames=false diff --name-status main -- fixtures) || fail=1; printf '%s' "$out" | grep -v '^A' | grep -q . && fail=1`(M/D/R すべて捕捉・git 失敗も fail)/
    `bash scripts/check-no-secrets.sh` exit 0 / M1 条件8(SSoT ホスト)再実行 exit 0。
@@ -250,6 +258,12 @@ vitest・実 DB / 実ネットワークなし。**新テストは新ファイル
 - **成果物**: knowledge/page.tsx の type チップ / 注記3件(主セッション — §2.9)。
 - **executor**: frontend-engineer(画面)+ 主セッション(注記)。**ターン上限**: 15。**節目 commit**: (a) チップ + build 緑 (b) 実機確認緑。
 - 実データ手順(§4 手動チェックリスト)は OD-B 完了後にユーザー指示で実施。
+
+### /goal OD-FIX「recent 経路の type/tag 反映」(OD-B 後の修正 goal — rev.5/6)
+- **対象設計**: 本書 §2.7 rev.5/6。
+- **達成状態**: 条件 **8(rev.5/6 追加ピン込み)** + **条件4(npm test — tests/knowledge-recent.test.ts 込み)** + **条件9(rev.6 改訂後リスト)** が exit 0 + build exit 0 + 実機 未認証 `/knowledge` 307。
+- **成果物**: lib/data/knowledge.ts(recentRecords 置換のみ)/ app/(shell)/knowledge/page.tsx(hidden type input・**全リンクの q/tag/sel/type 相互保持**・見出しラベル追随)/ tests/knowledge-recent.test.ts(不正 type → 既定 decision のケース含む)。
+- **executor**: frontend-engineer。**ターン上限**: 15。**節目 commit**: 1回(fix + テスト + build 緑)。judge = acceptance-judge(独立)。
 
 ### 共通の禁止事項
 - **凍結対象の変更禁止**(条件9 の diff リスト + FROZEN_TESTS_OD)。凍結例外は3テストの §3 記載範囲のみ(条件7 のピン + 人間レビュー)。新規依存禁止。
