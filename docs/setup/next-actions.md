@@ -7,11 +7,13 @@
 > **2026-07-18 追記**: recent 経路の type/tag バグ修正(OD-FIX・judge PASS)+ **埋め込みモデルを text-embedding-3-large(1536)へ移行**(全行再埋め込み済み・検索品質向上)。Vercel 展開時の env は **EMBEDDING_MODEL=text-embedding-3-large / EMBEDDING_DIM=1536** を登録。
 > **秘密情報は本ファイルに実値を書かない。**
 >
-> **▶ 次にやること**:
-> 1. **(あなた)ブラウザで確認**: /knowledge の「ナレッジ」チップ → learning-notes・digest が日本語検索で引けるか体感確認。
-> 2. **🔧 発見された小課題: 組織 decision の H1 形式差異** — `docs/decisions/2026-06-13-….md` は H1 に日付がなく(ai-war-room 契約は `# YYYY-MM-DD - タイトル`)、**error レコード化されて「最近の判断」に現れない**(握り潰さない設計どおりの縮退・error 10件のうちの1件)。対応 = parseDecision に「H1 日付なし時はファイル名から日付・H1 全文をタイトルに」のフォールバックを足す小改訂(設計 rev + 差分レビュー + 小 goal で1周)。
-> 3. その後: **M3(今日ビュー / SC-03・kanban)設計**(board.md・WBS 取り込み)。
-> 4. Vercel 展開時: **0003 → 0004 の順で本番適用(人間承認)→ デプロイ**(順序厳守 — CHECK 違反防止)+ 本番同期・バックフィル。
+> **▶ 次セッションの再開手順(どちらかを選ぶ)**:
+> - **案A(小・30分級): 組織 decision の H1 形式差異の修正** — `docs/decisions/*.md` は H1 に日付がなく error レコード化されており「最近の判断」に合流していない(error 10件中1件・今後の組織判断も同形式なら全部落ちる)。parseDecision に「H1 日付なし → ファイル名から日付・H1 全文をタイトル」フォールバック。org-docs 設計の小改訂(rev)→ 差分レビュー → 小 goal で1周。
+> - **案B(大): M3(今日ビュー / SC-03・kanban)設計** — `secretary/board.md`・`storcon-preparation-wbs.md`・`reports/`・`todos/` の取り込み + kanban UI。`/basic-design` から(MoC 準拠 + components/charts 再利用・前 goal 新設テスト(chunk / knowledge-parser / org-docs-sync / knowledge-aggregation / knowledge-recent)を凍結編入)。
+>
+> **2026-07-18 の完了サマリ**: org-docs-ingestion(OD-A / OD-B / OD-FIX すべて judge PASS)・実データ同期(--force 全量・knowledge 7,430 チャンク・機微混入 0)・**埋め込みモデルを text-embedding-3-large(1536)へ移行**(全 7,782 行再埋め込み済み・検索品質向上)・/knowledge の type/tag チップ稼働・テスト 279 件緑。
+>
+> **運用メモ**: allowlist を広げた直後の同期は `--force` が必要(増分は変更ファイルのみ)/ モデル切替時は検索が一時 0件になる(混在防止ガードの過渡状態 — 再埋め込みで自己回復)/ Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536`。
 
 ---|---|---|
 | `daily-digest/` | 94ファイル(日付付き・7〜60KB) | 組織活動の日次サマリ — タイムライン素材そのもの |
