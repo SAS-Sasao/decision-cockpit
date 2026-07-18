@@ -1,7 +1,7 @@
 # 詳細設計: org-docs-ingestion(組織ドキュメント取り込み + ナレッジ検索拡張)
 
 > 対象基本設計: docs/design/basic/org-docs-ingestion.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: rev.6(OD-FIX 差分レビュー(arch/data FAIL: 条件8×9 矛盾・凍結モック前提・タイブレーク)反映済み → 再レビュー待ち。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
+> ステータス: **PASS**(OD-FIX 差分レビュー Round 2 で data レンズ PASS(arch 指摘の決着検証込み)。Info 3件は rev.7 で吸収済み。rev.4 まで = 詳細 Round 3 全レンズ PASS — reviews/org-docs-ingestion.md 参照。R3 の Low/Info は rev.4 で吸収済み: qs() type 引数明示 / コメント追随の明記 / digest fixture の構成指定 / 見出し行は chunk.text 非包含 / 残骸チャンクの機微残存受容)
 > 作成: 2026-07-18(主セッション執筆)。Round 決着一覧 = docs/design/reviews/org-docs-ingestion.md
 
 ## 0. 申し送りの決着 + 詳細 Round 1 の決着
@@ -120,7 +120,7 @@ cc-sier-organization の matchAllowlist に以下を追加(record 種別・パ�
   リンクは `qs()` で構築 — **qs() に type 引数を追加する(page 内ローカル関数の拡張 — OD-B 可変範囲。rev.4 明示)**。decision = 既定のため type param なし URL。active 強調はタグチップと同形。q / tag / sel を保持。
 - `getKnowledgeData({ q, tag, sel, type })` に透過。
 - **rev.5(バグ修正改訂・2026-07-18 ユーザー報告)**: 実データ検証で2欠陥が判明 — (a) **recent 経路(q 空)が type・tag を無視**(recentDecisions が decision 固定・tag なし)→ タグ・type チップが無反応 (b) **検索フォームに type の hidden input がなく送信で type が消える**。決着:
-  - **recent 契約の改訂(rev.6 で精密化)**: q 空のときの一覧 = `recentRecords(type, tag)` — `WHERE status = 'ok'` + type フィルタ(既定 decision・"all" で解除)+ tag フィルタ(指定時 `= ANY(tags)`)+ **`ORDER BY occurred_at DESC NULLS LAST, id`(タイブレーク = id — 同時刻・null 同値群でも全順序・LIMIT 8 の切断が決定的)**。**SQL/パラメータ形の固定: `LIMIT $1` が第1パラメータ(params[0] = limit)・追加フィルタは $2 以降の $n 束縛のみ**(凍結 tests/knowledge-data.test.ts の recent モックが「dispatch キー = `ORDER BY occurred_at DESC` 部分一致・params[0] = limit・decision 固定ミラー」を前提とするため — この形なら凍結テストは既定経路で緑のまま。type は3語彙(decision/knowledge/all)検証後に使用・文字列連結禁止)。見出しラベルも type に追随(判断 =「最近の判断」/ ナレッジ =「最近のナレッジ」/ すべて =「最近の記録」)。**タグチップ・結果行リンクの qs() 呼び出しにも type を渡し、全リンクで q/tag/sel/type を相互保持**(リンク経由の type 消失も解消 — data 指摘の残存経路)。
+  - **recent 契約の改訂(rev.6 で精密化)**: q 空のときの一覧 = `recentRecords(type, tag)` — `WHERE status = 'ok'` + type フィルタ(既定 decision・"all" で解除)+ tag フィルタ(指定時 `= ANY(tags)`)+ **`ORDER BY occurred_at DESC NULLS LAST, id`(タイブレーク = id — 同時刻・null 同値群でも全順序・LIMIT 8 の切断が決定的)**。**SQL/パラメータ形の固定: `LIMIT $1` が第1パラメータ(params[0] = limit)・追加フィルタは $2 以降の $n 束縛のみ**(凍結 tests/knowledge-data.test.ts の recent モックが「dispatch キー = `ORDER BY occurred_at DESC` 部分一致・params[0] = limit・decision 固定ミラー」を前提とするため — この形なら凍結テストは既定経路で緑のまま。type は3語彙(decision/knowledge/all)検証後に使用・文字列連結禁止)。見出しラベルも type に追随(判断 =「最近の判断」/ ナレッジ =「最近のナレッジ」/ すべて =「最近の記録」)。**タグチップ・結果行リンク・type チップの qs() 呼び出しで q/tag/sel/type を相互保持**(rev.7: タグチップの sel 落ちも含めて解消 — 全リンクの保持が範囲)。**不正 type 値(3語彙外)は既定 decision 扱い**(rev.7 — テスト観点に含める)。**新ピン対象文字列(ORDER BY 全文等)は実装内1行**(search-foundation §5 の規則を継承)。
   - **lib/data/knowledge.ts の diff 0 ピンを撤回**(条件9 の凍結リストからも除外 — rev.6 で §4-9 に反映)。可変範囲 = recentDecisions → recentRecords の置換のみ。**searchKnowledge の不変 = search-foundation 詳細 §4-4 の SQL ピン4本 re-run + 凍結 tests/knowledge-data.test.ts の挙動検証**、**decisionOutcome / topTags の不変 = 同凍結テストの挙動検証**(機械ピンなしの残余は人間レビュー — 意図的)。
   - **page.tsx のフォームに type の hidden input を追加**(tag と対称)。
   - 回帰テスト = **新ファイル tests/knowledge-recent.test.ts**(type/tag 反映・NULLS LAST とタイブレーク・既定 decision の後方互換・**LIMIT 8・status='ok'(error 行排除)・params[0] = limit の束縛形 assert**。凍結 tests/knowledge-data.test.ts は不変 — 上記 SQL 形の固定により既定経路で緑維持)。
@@ -262,7 +262,7 @@ vitest・実 DB / 実ネットワークなし。**新テストは新ファイル
 ### /goal OD-FIX「recent 経路の type/tag 反映」(OD-B 後の修正 goal — rev.5/6)
 - **対象設計**: 本書 §2.7 rev.5/6。
 - **達成状態**: 条件 **8(rev.5/6 追加ピン込み)** + **条件4(npm test — tests/knowledge-recent.test.ts 込み)** + **条件9(rev.6 改訂後リスト)** が exit 0 + build exit 0 + 実機 未認証 `/knowledge` 307。
-- **成果物**: lib/data/knowledge.ts(recentRecords 置換のみ)/ app/(shell)/knowledge/page.tsx(hidden type input・リンクの type 保持・見出しラベル追随)/ tests/knowledge-recent.test.ts。
+- **成果物**: lib/data/knowledge.ts(recentRecords 置換のみ)/ app/(shell)/knowledge/page.tsx(hidden type input・**全リンクの q/tag/sel/type 相互保持**・見出しラベル追随)/ tests/knowledge-recent.test.ts(不正 type → 既定 decision のケース含む)。
 - **executor**: frontend-engineer。**ターン上限**: 15。**節目 commit**: 1回(fix + テスト + build 緑)。judge = acceptance-judge(独立)。
 
 ### 共通の禁止事項
