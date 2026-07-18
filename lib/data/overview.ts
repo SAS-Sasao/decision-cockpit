@@ -58,6 +58,7 @@ export type OverviewAggregates = {
 };
 
 // recordsByType の表示順(基本設計の5 type 列挙を意図的に7 type 全列挙へ詳細化 — §2.3)。
+// knowledge は org-docs-ingestion(0004)で8 type 目として末尾追加。
 const RECORD_TYPE_ORDER: RecordType[] = [
   "task",
   "quality",
@@ -66,6 +67,7 @@ const RECORD_TYPE_ORDER: RecordType[] = [
   "conversation",
   "decision",
   "daily_log",
+  "knowledge",
 ];
 
 // reward 平均の対象(ingestion-foundation 基本設計 §3.4 を継承)。

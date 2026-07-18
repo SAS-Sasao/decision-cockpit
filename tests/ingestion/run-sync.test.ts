@@ -1,4 +1,5 @@
 // 対象設計: docs/design/detail/ingestion-foundation.md §2.3(同期オーケストレーション・進行保証)/ §3
+//          docs/design/detail/org-docs-ingestion.md §0-1(第3の凍結例外)/ §3(新期待値 ok:13/skipped:3)
 // モックアダプタ + モック db(lib/ingestion/store)で実ネットワーク・実 DB なしに検証する。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SourceNotFoundError, type SourceAdapter } from "../../lib/ingestion/source";
@@ -94,15 +95,30 @@ describe("runSync — FixtureSource 集計(単位どおり)", () => {
     const summary = await runSync(adapters, { maxFiles: 0 });
 
     // cc-sier: task-log(ok2/error1)+ case-bank(ok2/error1)+ quality-gate(ok2/error1)
+    // + org-docs-ingestion(0004・8 type)追加分: 組織 decision(ok1)+ digest チャンク(ok3)
+    // + learning-note チャンク(ok3)= ok13。skipped3 は危険経路 fixture(CLAUDE.md /
+    // MEMORY.md / personality-profile-demo.md)の denylist 遮断(恒常検証)。
     expect(summary.repos["cc-sier-organization"]).toMatchObject({
-      ok: 6,
+      ok: 13,
       error: 3,
-      skipped: 0,
+      skipped: 3,
       deleted: 0,
       fetch_failed: 0,
       hasMore: false,
       sourceKind: "fixture",
     });
+
+    // docs 系レコードの存在検証(org-docs-ingestion §2.5 の allowlist 拡張の恒常確認)。
+    const ccSierRecords: { type: string; org: string | null }[] = [];
+    for (const [key, record] of fakeDb.timelineRecords.entries()) {
+      if (key.startsWith("cc-sier-organization|")) {
+        ccSierRecords.push(record as { type: string; org: string | null });
+      }
+    }
+    expect(ccSierRecords.filter((r) => r.type === "decision")).toHaveLength(1);
+    expect(ccSierRecords.filter((r) => r.type === "knowledge")).toHaveLength(6);
+    const orgDecision = ccSierRecords.find((r) => r.type === "decision");
+    expect(orgDecision?.org).toBe("demo-org");
 
     // ai-war-room: decisions(ok1/error2)+ logs(ok1/error2)
     expect(summary.repos["ai-war-room"]).toMatchObject({

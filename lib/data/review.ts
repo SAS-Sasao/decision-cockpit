@@ -82,7 +82,8 @@ export type ReviewData = {
   entries: Entry[];
 };
 
-// timeline_records の type CHECK 制約(db/migrations/0002_ingestion_foundation.up.sql)と一致させる。
+// timeline_records の type CHECK 制約(db/migrations/0002_ingestion_foundation.up.sql +
+// 0004_org_docs.up.sql)と一致させる。knowledge は org-docs-ingestion で8 type 目として末尾追加。
 const ALL_RECORD_TYPES: RecordType[] = [
   "task",
   "quality",
@@ -91,6 +92,7 @@ const ALL_RECORD_TYPES: RecordType[] = [
   "conversation",
   "decision",
   "daily_log",
+  "knowledge",
 ];
 
 // reward 平均の対象(基本設計 §3.4)。
@@ -257,11 +259,13 @@ type ReviewQueryRow = {
  * 全クエリの既定として WHERE status='ok' を課す(詳細設計 §2.5)。
  */
 export async function getReviewData(granularity: Granularity): Promise<ReviewData> {
+  // knowledge 型は occurred_at が null 許容(org-docs-ingestion §0 決着2)のため、
+  // ここで除外する(ReviewRow.occurred_at の型を Date のまま真にするための SQL 側フィルタ)。
   const result = await query<ReviewQueryRow>(
     `SELECT type, status, occurred_at, title, source, file_path, org,
             reward_score, signals, completeness, accuracy, clarity, quality_gate_result
        FROM timeline_records
-      WHERE status = 'ok'`
+      WHERE status = 'ok' AND occurred_at IS NOT NULL`
   );
 
   const rows: ReviewRow[] = result.rows.map((row) => ({
