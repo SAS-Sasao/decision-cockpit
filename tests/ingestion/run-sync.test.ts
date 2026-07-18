@@ -27,6 +27,7 @@ vi.mock("../../lib/ingestion/store", () => ({
   upsertTimelineRecord: vi.fn(async (record: { source: string; file_path: string; item_key: string }) => {
     fakeDb.timelineRecords.set(`${record.source}|${record.file_path}|${record.item_key}`, record);
   }),
+  upsertBoardItems: vi.fn(),
 }));
 
 const { runSync } = await import("../../lib/ingestion/run-sync");

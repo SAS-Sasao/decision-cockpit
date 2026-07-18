@@ -7,6 +7,7 @@ import "server-only";
 
 import { query } from "../db";
 import type { TagVocabEntry } from "./normalize";
+import type { BoardItem } from "./parsers/board";
 import type { NormalizedRecord } from "./parsers/types";
 
 export type SyncProgress = { head: string; done: string[] };
@@ -107,4 +108,46 @@ export async function upsertTimelineRecord(record: NormalizedRecord): Promise<vo
       record.quality_gate_result,
     ]
   );
+}
+
+/**
+ * board_items への冪等 upsert(§2.2 の ON CONFLICT (source, file_path, item_key) 文どおり)。
+ * WBS 行ごとに1行 upsert する(masters・timeline_records 用 upsert と同様の逐次 await)。
+ */
+export async function upsertBoardItems(
+  source: string,
+  filePath: string,
+  commit: string,
+  org: string | null,
+  items: BoardItem[]
+): Promise<void> {
+  for (const item of items) {
+    await query(
+      `INSERT INTO board_items (source, file_path, item_key, commit, title, assignee, period,
+         deliverable, iter, pri, task_type, issue_ref, state, org, section, synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now())
+       ON CONFLICT (source, file_path, item_key) DO UPDATE SET
+         commit = EXCLUDED.commit, title = EXCLUDED.title, assignee = EXCLUDED.assignee,
+         period = EXCLUDED.period, deliverable = EXCLUDED.deliverable, iter = EXCLUDED.iter,
+         pri = EXCLUDED.pri, task_type = EXCLUDED.task_type, issue_ref = EXCLUDED.issue_ref,
+         state = EXCLUDED.state, org = EXCLUDED.org, section = EXCLUDED.section, synced_at = now()`,
+      [
+        source,
+        filePath,
+        item.itemKey,
+        commit,
+        item.title,
+        item.assignee,
+        item.period,
+        item.deliverable,
+        item.iter,
+        item.pri,
+        item.taskType,
+        item.issueRef,
+        item.state,
+        org,
+        item.section,
+      ]
+    );
+  }
 }
