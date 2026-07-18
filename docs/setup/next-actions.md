@@ -1,24 +1,18 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-18 M2(検索)+ md-render + 初回バックフィル完了**(M2-A / M2-B / MD-1 すべて judge PASS・main 反映済み。テスト236件緑・全331件埋め込み済み)。
-> **M0 / M1 / ui-shell / ui-polish / M2 / md-render 完了**。SC-04 ナレッジ検索が MoC 準拠で稼働(pgvector 類似検索・判断後6週チャート・**判断ログ本文の Markdown 描画(テーブル対応込み)**)。
-> 埋め込み = OpenAI text-embedding-3-small(1536)・不調時は Google gemini-embedding-001 へ env 2変数の変更のみで切替可(設計済み)。**0003 マイグレーションは Neon ブランチ検証済み・本番は未適用**(ローカル db は適用済み)。
-> **秘密情報(接続文字列・トークン・パスワード)は本ファイルに実値を書かない。**
+> 状態スナップショット: **2026-07-18 org-docs-ingestion 完了(OD-A / OD-B とも judge PASS)+ 実データ同期・全埋め込み済み**。
+> **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion 完了**(テスト270件緑)。
+> ローカル db = **7,782行・全埋め込み済み**(knowledge 7,430 チャンク: daily-digest 94ファイル / learning-notes 52 / drawio・diagrams・research ほか)。機微・内部ファイル(profile / personality / CLAUDE.md / MEMORY.md)の混入 **0行**(denylist 遮断を実データで確認)。digest 目視ゲート合格(直近1 + 無作為2 + 全チャンク機械走査 — 機微引用なし)。
+> **/knowledge の type チップ(判断 / ナレッジ / すべて)で組織ナレッジを横断検索可能**。0004 は Neon ブランチ検証済み・本番未適用。
+> **秘密情報は本ファイルに実値を書かない。**
 >
-> **✅ 2026-07-18 完了**: OpenAI キー設定($10 クレジット)→ **初回バックフィル 331/331 件・remaining 0**(途中で µs 精度バグを発見・修正 — `4ecfcfa`。放置すると毎時 cron で全行再埋め込みが走り続けるところだった)。/knowledge の実データ検索が稼働。判断ログ本文の Markdown 描画(テーブル対応込み・md-render トピック)も同日完了。
->
-> **▶ 次にやること — どちらを先にやるか選ぶ(次セッション冒頭で決定)**:
-> - **案A: M3(今日ビュー / SC-03・kanban)** — `/basic-design` から。SSoT の `secretary/board.md`・`storcon-preparation-wbs.md` の取り込みが元々 M3 スコープ(org docs の一部を先行して食べる形)。
-> - **案B: org-docs-ingestion(組織ドキュメントの取り込み)** — 下記「📚 発見」参照。ナレッジ検索の価値を一気に上げたいならこちらを先行。**チャンク分割の設計が必須**(現行の 1レコード=1ベクトル・600字切詰めでは 40KB 級文書の検索品質が出ない — M2 で先送りした制限が本題化)。
-> - いずれも恒久規範: MoC 準拠 + components/charts 再利用 / 前 goal 新設テスト(tests/markdown.test.ts + M2 4本)を凍結編入。
-> - Vercel 展開時: 0003 本番適用(人間承認)+ 本番実データ同期 + 本番バックフィル。
+> **▶ 次にやること**:
+> 1. **(あなた)ブラウザで確認**: /knowledge の「ナレッジ」チップ → learning-notes・digest が日本語検索で引けるか体感確認。
+> 2. **🔧 発見された小課題: 組織 decision の H1 形式差異** — `docs/decisions/2026-06-13-….md` は H1 に日付がなく(ai-war-room 契約は `# YYYY-MM-DD - タイトル`)、**error レコード化されて「最近の判断」に現れない**(握り潰さない設計どおりの縮退・error 10件のうちの1件)。対応 = parseDecision に「H1 日付なし時はファイル名から日付・H1 全文をタイトルに」のフォールバックを足す小改訂(設計 rev + 差分レビュー + 小 goal で1周)。
+> 3. その後: **M3(今日ビュー / SC-03・kanban)設計**(board.md・WBS 取り込み)。
+> 4. Vercel 展開時: **0003 → 0004 の順で本番適用(人間承認)→ デプロイ**(順序厳守 — CHECK 違反防止)+ 本番同期・バックフィル。
 
-## 📚 発見(2026-07-18): cc-sier-organization/.companies/<org>/docs は未取り込みの宝の山
-
-M1 の allowlist(.task-log / .case-bank / .quality-gate-log / masters の6パターン)は意図的最小構成のため、`docs/` 配下は**取り込み対象外のまま**。domain-tech-collection/docs の実地調査(読み取りのみ)の結果:
-
-| 内容 | 規模 | 用途 |
-|---|---|---|
+---|---|---|
 | `daily-digest/` | 94ファイル(日付付き・7〜60KB) | 組織活動の日次サマリ — タイムライン素材そのもの |
 | `secretary/learning-notes/` | 約50ファイル(WBS 番号付き・10〜60KB) | ドメイン知識の本体 — ナレッジ検索の主役候補 |
 | `decisions/` | 1件 | **組織側の判断ログ**(現状 decision は ai-war-room の12件のみ) |
