@@ -9,6 +9,7 @@ import "server-only";
 
 import { applyTags, isDenied, orgFromPath } from "./normalize";
 import { buildTagVocab } from "./tag-vocab";
+import { parseBoard } from "./parsers/board";
 import { parseCaseBank } from "./parsers/case-bank";
 import { parseDailyLog } from "./parsers/daily-log";
 import { parseDecision } from "./parsers/decision";
@@ -21,6 +22,7 @@ import {
   getAllTagSynonyms,
   getSyncState,
   saveSyncState,
+  upsertBoardItems,
   upsertTagSynonyms,
   upsertTimelineRecord,
   type SyncProgress,
@@ -37,6 +39,7 @@ export type RepoSyncSummary = {
   hasMore: boolean;
   headCommit: string;
   sourceKind: SourceKind;
+  board: { files: number; items: number; skippedRows: number };
 };
 
 export type SyncSummary = { repos: Record<string, RepoSyncSummary> };
@@ -49,7 +52,8 @@ export type RunSyncOptions = { maxFiles?: number; force?: boolean };
 
 type AllowMatch =
   | { kind: "record"; parser: Parser }
-  | { kind: "masters" };
+  | { kind: "masters" }
+  | { kind: "board" };
 
 const TASK_LOG_RE = /^\.companies\/[^/]+\/\.task-log\/[^/]+\.md$/;
 const CASE_BANK_RE = /^\.companies\/[^/]+\/\.case-bank\/index\.json$/;
@@ -68,6 +72,9 @@ const ORG_DIAGRAMS_RE = /^\.companies\/[^/]+\/docs\/diagrams\/[^/]+\.md$/;
 const ORG_DRAWIO_RE = /^\.companies\/[^/]+\/docs\/drawio\/[^/]+\.md$/;
 const ORG_INFO_SOURCE_MASTER_RE = /^\.companies\/[^/]+\/docs\/info-source-master\.md$/;
 
+// today-view §2.3: WBS 表(kanban 取り込み基盤)。org-docs 系と同じ repo スコープ。
+const BOARD_RE = /^\.companies\/[^/]+\/docs\/secretary\/[^/]+-wbs\.md$/;
+
 function matchAllowlist(repo: string, path: string): AllowMatch | null {
   if (repo === "cc-sier-organization") {
     if (TASK_LOG_RE.test(path)) return { kind: "record", parser: parseTaskLog };
@@ -82,6 +89,7 @@ function matchAllowlist(repo: string, path: string): AllowMatch | null {
     if (ORG_DIAGRAMS_RE.test(path)) return { kind: "record", parser: parseKnowledge };
     if (ORG_DRAWIO_RE.test(path)) return { kind: "record", parser: parseKnowledge };
     if (ORG_INFO_SOURCE_MASTER_RE.test(path)) return { kind: "record", parser: parseKnowledge };
+    if (BOARD_RE.test(path)) return { kind: "board" };
     return null;
   }
   if (repo === "ai-war-room") {
@@ -168,6 +176,7 @@ async function syncRepo(
       hasMore: false,
       headCommit: head,
       sourceKind,
+      board: { files: 0, items: 0, skippedRows: 0 },
     };
   }
 
@@ -203,6 +212,9 @@ async function syncRepo(
   let error = 0;
   let deleted = 0;
   let fetchFailed = 0;
+  let boardFiles = 0;
+  let boardItems = 0;
+  let boardSkippedRows = 0;
 
   for (const { path, match } of toProcess) {
     let content: string;
@@ -225,6 +237,16 @@ async function syncRepo(
       if (entries.length > 0) {
         await upsertTagSynonyms(entries);
       }
+      doneSet.add(path);
+      continue;
+    }
+
+    if (match.kind === "board") {
+      const { items, skippedRows } = parseBoard({ path, content });
+      await upsertBoardItems(repo, path, head, orgFromPath(path), items);
+      boardFiles += 1;
+      boardItems += items.length;
+      boardSkippedRows += skippedRows;
       doneSet.add(path);
       continue;
     }
@@ -254,6 +276,7 @@ async function syncRepo(
     hasMore,
     headCommit: head,
     sourceKind,
+    board: { files: boardFiles, items: boardItems, skippedRows: boardSkippedRows },
   };
 
   if (hasMore) {
