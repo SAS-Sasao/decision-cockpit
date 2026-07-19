@@ -1,16 +1,17 @@
 // 「キャプチャ + 壁打ち」画面(SC-06): 作業メモ・課題・次の一手を capture_inbox へ記録する
 // フォームと、本人の INBOX(未処理/処理済み混在・直近50件)を表示する。壁打ちパネルは M4-B で追加する
-// (本 M4-A ではフォーム + INBOX のみ)。
+// (本 M4-A ではフォーム + INBOX のみ)。INBOX 行の未処理/処理中/完了トリアージは CT-1(capture-triage)。
 // 対象設計: docs/design/detail/capture-spar.md §2.6(app/(shell)/capture/page.tsx)/ §4 条件5a
 //          docs/design/basic/capture-spar.md §1〜§2(認可モデル・外部送信/注意書き)
+//          docs/design/basic/capture-triage.md §1-4(状態チップ・行の枠色・バッジ表記)
 //          docs/design/ui/moc/decision-cockpit.dc.html(isCapture ブロック — 左カラム + INBOX)
 //
 // データは lib/data 経由のみ(listInbox / getUnprocessedInboxCount)。重い処理はこの画面では行わない。
 // 表示はすべて React 既定エスケープの素テキスト(md レンダラ不使用・生 HTML 差し込みはしない)。
 import { requireUser } from "../../../lib/auth/user";
-import { listInbox, type CaptureKind, type InboxRow } from "../../../lib/data/capture";
+import { listInbox, type CaptureKind, type CaptureStatus, type InboxRow } from "../../../lib/data/capture";
 import { getUnprocessedInboxCount } from "../../../lib/data/overview";
-import { saveCaptureFromForm } from "./actions";
+import { saveCaptureFromForm, updateCaptureStatus } from "./actions";
 import { SparPanel } from "./spar-panel";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,15 @@ const KIND_META: Record<CaptureKind, { label: string; color: string }> = {
   spar_conclusion: { label: "spar", color: "var(--accent-spar)" },
 };
 
+// 状態チップ(未処理/処理中/完了 — capture-triage)。表示順 = 遷移の自然順。
+const STATUS_ORDER: readonly CaptureStatus[] = ["open", "in_progress", "done"];
+
+const STATUS_META: Record<CaptureStatus, { label: string; color: string }> = {
+  open: { label: "未処理", color: "var(--warn)" },
+  in_progress: { label: "処理中", color: "var(--accent)" },
+  done: { label: "完了", color: "var(--text-sub)" },
+};
+
 type SearchParams = { error?: string | string[] };
 
 /** ISO 文字列 → "YYYY-MM-DD HH:mm"(UTC)。today/page.tsx と同一フォーマット。 */
@@ -42,18 +52,26 @@ function formatDateTime(iso: string): string {
   return `${y}-${m}-${day} ${hh}:${mm}`;
 }
 
-/** INBOX 1行(未処理は琥珀枠 --warn・処理済みはミュート)。素テキスト表示のみ。 */
+/** 行の枠色 = open: 琥珀(--warn)/ in_progress: --accent / done: ミュート(--line-row)。 */
+function rowBorderColor(status: CaptureStatus): string {
+  if (status === "open") return "var(--warn)";
+  if (status === "in_progress") return "var(--accent)";
+  return "var(--line-row)";
+}
+
+/** INBOX 1行(枠色は status 連動・素テキスト表示のみ)。 */
 function InboxCard({ row }: { row: InboxRow }) {
   const meta = KIND_META[row.kind];
-  const unprocessed = row.processedAt === null;
+  const statusMeta = STATUS_META[row.status];
+  const muted = row.status === "done";
   return (
     <div
       style={{
         background: "var(--panel-row)",
-        border: `1px solid ${unprocessed ? "var(--warn)" : "var(--line-row)"}`,
+        border: `1px solid ${rowBorderColor(row.status)}`,
         borderRadius: 9,
         padding: "12px 14px",
-        opacity: unprocessed ? 1 : 0.7,
+        opacity: muted ? 0.7 : 1,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, flexWrap: "wrap" }}>
@@ -72,14 +90,51 @@ function InboxCard({ row }: { row: InboxRow }) {
         {row.topic ? <span style={{ fontSize: 11.5, color: "var(--text-sub)" }}>{row.topic}</span> : null}
         <div style={{ flex: 1 }} />
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-sub)" }}>
-          {unprocessed ? "未処理" : "処理済み"}
+          {statusMeta.label}
+          {row.processedAt !== null ? "・整理済み" : ""}
         </span>
       </div>
       <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
         {row.body}
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-sub)", marginTop: 8 }}>
-        {formatDateTime(row.createdAt)}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: 8,
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-sub)" }}>
+          {formatDateTime(row.createdAt)}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {STATUS_ORDER.map((s) => {
+            const chip = STATUS_META[s];
+            const active = row.status === s;
+            return (
+              <form key={s} action={updateCaptureStatus.bind(null, { id: row.id, status: s })}>
+                <button
+                  type="submit"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    padding: "3px 9px",
+                    borderRadius: 20,
+                    border: `1px solid ${chip.color}`,
+                    background: active ? chip.color : "transparent",
+                    color: active ? "var(--bg)" : chip.color,
+                    cursor: "pointer",
+                  }}
+                >
+                  {chip.label}
+                </button>
+              </form>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
