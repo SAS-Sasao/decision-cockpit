@@ -154,6 +154,7 @@ DROP EXTENSION IF EXISTS vector;   -- M0 時点では vector 列が存在しな�
 | `app/logout/actions.ts` | `signOutAction()` | `await auth.signOut()` → `redirect('/login')`(配置確定 — §0) |
 
 - **二層防御(基本設計 §3.2 の契約の実装形)**: 保護が必要な Server Component / Server Action / Route Handler は middleware の有無に関わらず冒頭で `requireUser()`(または `getUser()` + 明示分岐)を呼ぶ。`auth.getSession()` を使うページは `export const dynamic = 'force-dynamic'` を明示する。
+- **※ 追随注記(capture-spar・2026-07-19)**: M4 で本書 0001 の **capture_inbox の消費が開始**された(UI からの INSERT のみ — saveCapture(Server Action)が getUser() null で拒否・user_id はセッション由来を強制。processed_at/curated_ref は M5 の整理ループが更新)。`getUser()` の **null → 401 JSON 分岐**は /api/sync POST に続き **/api/spar が2例目**(middleware 307 の内側の二層目)。正典 = docs/design/detail/capture-spar.md §2.2/§2.5。
 - **データアクセス規約(M1+ を拘束・M0 は規約のみ)**: 個人データへのクエリは `lib/data/<domain>.ts` に置き、**第1引数に `userId: string` を必須とする**。UI/Route から直接 SQL を書かない。
 
 ### 2.2 環境変数(.env.example への追記)
