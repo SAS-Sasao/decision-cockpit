@@ -6,7 +6,7 @@
 > パネル = `position:fixed; right:0; width:420px; z-index:41`・border-left = accent-spar 35%・`ckfade 0.25s`・構成は SC-06 壁打ちと同一)/
 > capture-spar 詳細(M4 実装済み資産: spar-panel.tsx・/api/spar)/ 実地偵察: **layout.tsx の `disabled` は壁打ちボタンの1箇所のみ**(否定 grep 可能)。
 > 経緯: capture-spar 設計では layout 凍結を優先して据え置き(問い#4)→ M4 完了後にユーザーが共通化を選択(2026-07-19)。
-> ステータス: rev.2(R1: data FAIL(条件2 の被覆不足)+ arch/sec Med を反映 — 条件2 を広域凍結 diff(2a)+ 閉包判定(2b・untracked 検知)に強化 / SparPanel import パスピン / capture-spar 正典注記を条件5 に追加 / 非永続と遷移生存の文言整理 / 二重保存の受容明記 → data 再レビュー待ち)
+> ステータス: **PASS**(design-review — arch R1 / data R2 / sec R1 で全レンズ PASS。reviews/spar-overlay.md 参照)
 > 作成: 2026-07-19(主セッション執筆・md-render 前例の軽量1枚形式 — 実行形条件まで本書に含め詳細設計は省略)
 
 ## 1. 目的 / スコープ
@@ -79,7 +79,7 @@
    printf '%s\n' "$out" | grep -Fv 'app/(shell)/spar-overlay.tsx' | grep -Fv 'app/(shell)/layout.tsx' | grep -q . && fail=1
    exit "$fail"
    ```
-   (コード領域の変更・新規ファイルは spar-overlay.tsx + layout.tsx のみ — 未宣言の補助ファイル新設も fail。)
+   (コード領域の変更・新規ファイルは spar-overlay.tsx + layout.tsx のみ — 未宣言の補助ファイル新設も fail。**判定タイミング: executor は節目 commit の直前に実行**・judge は commit 後のため `git log main.. --stat` + `git diff main --stat` で全変更ファイル列挙を確認する(2b の時間依存の補完)。grep -Fv は行単位 — `.bak`/`.orig` 等の紛らわしい類似名を作らない(禁止事項・人間レビュー補完)。docker-compose.yml / Dockerfile.dev / .claude/ は宣言防御(禁止事項)のみ — 既存受容水準。)
 3. **回帰**: `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0(37 files / 348 tests — 新テストなし)+ `npm run build` exit 0(ダミー env・.env 非接触)+ app 復帰 /login 200。
 4. **実機(curl -L なし)**: 未認証 GET /capture = 307・未認証 POST /api/spar = 307・未認証 GET / = 307(layout 変更後も保護不変)。
 5. **注記**: `grep -q "spar-overlay" docs/design/detail/ui-shell.md` / 同 `docs/design/ui/screen-design.md` / 同 `docs/design/detail/capture-spar.md`(§0 問い#4・§2.8 の「ボタン据え置き」を活性化済みに読み替え — 正典の stale 化防止)各 exit 0(§1-3 の読み替え更新)。
