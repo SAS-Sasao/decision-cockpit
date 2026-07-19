@@ -23,7 +23,7 @@
 基本設計の問いの決着:
 - **問い#6(ガード既定値)**: SPAR_MAX_TURNS=8(送信 history メッセージ数上限)/ SPAR_CTX_TOPK=3 / SPAR_MAX_INPUT_CHARS=2000 / SPAR_MAX_TOKENS=1024。**4つとも env 任意・コード既定値あり・サーバ側クランプ**(TURNS 1..20 / TOPK 1..20 / INPUT 1..8000 / TOKENS 1..4096)。fail-closed 必須なのは SPAR_PROVIDER / SPAR_MODEL / SPAR_API_KEY の3つのみ。
 - **kind チップのラベル(MoC 現物)**: MoC kindMeta は `status` / `issue` / `next_move` の**英語 Mono ラベル**(spar_conclusion バッジは `spar`)— これを正とする(§2.6)。
-- 問い#1〜5・#7・#8 は基本設計の v1 判断のまま(混在50件 / tags なし / 非ストリーミング / ボタン据え置き / 文脈 type=decision / refs リンクなし / レート制限なし)。
+- 問い#1〜5・#7・#8 は基本設計の v1 判断のまま(混在50件 / tags なし / 非ストリーミング / ボタン据え置き / 文脈 type=decision / refs リンクなし / レート制限なし)。**※ 追随注記(spar-overlay・2026-07-19)**: 問い#4「トップバーボタン据え置き」はその後 **spar-overlay で活性化・全画面スライドオーバー化済み**(SparPanel 無変更再利用 — 本書 §4-5b のピンは全て生存。§2.8 の「トップバーボタン据え置き」読み替えも同設計で更新)。正典 = docs/design/basic/spar-overlay.md。
 
 **rev.2 追補(詳細 design-review R1 の決着)**:
 - **sec High(api.openai.com 局所化の恒常 FAIL)**: 同 URL は **lib/search/embedding.ts(112行・M2 既存)に現存** — 条件4 の除外集合を「**lib/spar/llm.ts + lib/search/embedding.ts の2箇所限定**」に確定(§5 の表現も同旨に修正)。
