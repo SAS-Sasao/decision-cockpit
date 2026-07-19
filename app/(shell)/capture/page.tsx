@@ -1,17 +1,26 @@
 // 「キャプチャ + 壁打ち」画面(SC-06): 作業メモ・課題・次の一手を capture_inbox へ記録する
 // フォームと、本人の INBOX(未処理/処理済み混在・直近50件)を表示する。壁打ちパネルは M4-B で追加する
 // (本 M4-A ではフォーム + INBOX のみ)。INBOX 行の未処理/処理中/完了トリアージは CT-1(capture-triage)。
+// INBOX 行の削除(論理削除)/ ゴミ箱一覧・復元は CT-2(capture-trash)。
 // 対象設計: docs/design/detail/capture-spar.md §2.6(app/(shell)/capture/page.tsx)/ §4 条件5a
 //          docs/design/basic/capture-spar.md §1〜§2(認可モデル・外部送信/注意書き)
 //          docs/design/basic/capture-triage.md §1-4(状態チップ・行の枠色・バッジ表記)
+//          docs/design/basic/capture-trash.md §1-5(ゴミ箱ボタン・?trash=1・復元ボタン)
 //          docs/design/ui/moc/decision-cockpit.dc.html(isCapture ブロック — 左カラム + INBOX)
 //
-// データは lib/data 経由のみ(listInbox / getUnprocessedInboxCount)。重い処理はこの画面では行わない。
+// データは lib/data 経由のみ(listInbox / listTrash / getUnprocessedInboxCount)。重い処理はこの画面では行わない。
 // 表示はすべて React 既定エスケープの素テキスト(md レンダラ不使用・生 HTML 差し込みはしない)。
 import { requireUser } from "../../../lib/auth/user";
-import { listInbox, type CaptureKind, type CaptureStatus, type InboxRow } from "../../../lib/data/capture";
+import {
+  listInbox,
+  listTrash,
+  type CaptureKind,
+  type CaptureStatus,
+  type InboxRow,
+  type TrashRow,
+} from "../../../lib/data/capture";
 import { getUnprocessedInboxCount } from "../../../lib/data/overview";
-import { saveCaptureFromForm, updateCaptureStatus } from "./actions";
+import { deleteCapture, restoreCapture, saveCaptureFromForm, updateCaptureStatus } from "./actions";
 import { SparPanel } from "./spar-panel";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +48,7 @@ const STATUS_META: Record<CaptureStatus, { label: string; color: string }> = {
   done: { label: "完了", color: "var(--text-sub)" },
 };
 
-type SearchParams = { error?: string | string[] };
+type SearchParams = { error?: string | string[]; trash?: string | string[] };
 
 /** ISO 文字列 → "YYYY-MM-DD HH:mm"(UTC)。today/page.tsx と同一フォーマット。 */
 function formatDateTime(iso: string): string {
@@ -59,7 +68,18 @@ function rowBorderColor(status: CaptureStatus): string {
   return "var(--line-row)";
 }
 
-/** INBOX 1行(枠色は status 連動・素テキスト表示のみ)。 */
+const smallButtonStyle = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  padding: "3px 9px",
+  borderRadius: 20,
+  border: "1px solid var(--text-sub)",
+  background: "transparent",
+  color: "var(--text-sub)",
+  cursor: "pointer",
+} as const;
+
+/** INBOX 1行(枠色は status 連動・素テキスト表示のみ)。削除(ゴミ箱)ボタンを持つ(capture-trash)。 */
 function InboxCard({ row }: { row: InboxRow }) {
   const meta = KIND_META[row.kind];
   const statusMeta = STATUS_META[row.status];
@@ -110,7 +130,7 @@ function InboxCard({ row }: { row: InboxRow }) {
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-sub)" }}>
           {formatDateTime(row.createdAt)}
         </span>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {STATUS_ORDER.map((s) => {
             const chip = STATUS_META[s];
             const active = row.status === s;
@@ -134,7 +154,66 @@ function InboxCard({ row }: { row: InboxRow }) {
               </form>
             );
           })}
+          <form action={deleteCapture.bind(null, { id: row.id })}>
+            <button type="submit" style={smallButtonStyle} title="ゴミ箱へ移動する(削除)">
+              削除
+            </button>
+          </form>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** ゴミ箱(削除済み)1行。削除日時 + 復元ボタン(capture-trash)。 */
+function TrashCard({ row }: { row: TrashRow }) {
+  const meta = KIND_META[row.kind];
+  return (
+    <div
+      style={{
+        background: "var(--panel-row)",
+        border: "1px solid var(--line-row)",
+        borderRadius: 9,
+        padding: "12px 14px",
+        opacity: 0.7,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, flexWrap: "wrap" }}>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9.5,
+            padding: "1px 7px",
+            borderRadius: 20,
+            background: `color-mix(in oklch, ${meta.color} 15%, transparent)`,
+            color: meta.color,
+          }}
+        >
+          {meta.label}
+        </span>
+        {row.topic ? <span style={{ fontSize: 11.5, color: "var(--text-sub)" }}>{row.topic}</span> : null}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+        {row.body}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: 8,
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-sub)" }}>
+          削除日時 {formatDateTime(row.deletedAt)}
+        </span>
+        <form action={restoreCapture.bind(null, { id: row.id })}>
+          <button type="submit" style={smallButtonStyle} title="受信箱へ復元する">
+            復元
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -161,9 +240,12 @@ export default async function CapturePage({
 
   const rawParams = await searchParams;
   const errorParam = Array.isArray(rawParams.error) ? rawParams.error[0] : rawParams.error;
+  const trashParam = Array.isArray(rawParams.trash) ? rawParams.trash[0] : rawParams.trash;
+  const isTrash = trashParam === "1";
 
-  const [inbox, unprocessedCount] = await Promise.all([
+  const [inbox, trash, unprocessedCount] = await Promise.all([
     listInbox(user.id),
+    isTrash ? listTrash(user.id) : Promise.resolve([]),
     getUnprocessedInboxCount(user.id),
   ]);
 
@@ -261,14 +343,27 @@ export default async function CapturePage({
                 letterSpacing: "0.06em",
               }}
             >
-              INBOX
+              {isTrash ? "ゴミ箱" : "INBOX"}
             </span>
             <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-sub)" }}>
-              {unprocessedCount} 未処理
-            </span>
+            {!isTrash ? (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-sub)" }}>
+                {unprocessedCount} 未処理
+              </span>
+            ) : null}
           </div>
-          {inbox.length === 0 ? (
+
+          {isTrash ? (
+            trash.length === 0 ? (
+              <p style={{ color: "var(--text-sub)" }}>ゴミ箱は空です。</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {trash.map((row) => (
+                  <TrashCard key={row.id} row={row} />
+                ))}
+              </div>
+            )
+          ) : inbox.length === 0 ? (
             <p style={{ color: "var(--text-sub)" }}>INBOX は空です。</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
@@ -278,7 +373,19 @@ export default async function CapturePage({
             </div>
           )}
 
-          <SparPanel />
+          <p style={{ marginTop: 12 }}>
+            {isTrash ? (
+              <a href="/capture" style={{ fontSize: 11.5, color: "var(--text-sub)" }}>
+                受信箱へ戻る
+              </a>
+            ) : (
+              <a href="/capture?trash=1" style={{ fontSize: 11.5, color: "var(--text-sub)" }}>
+                ゴミ箱を表示
+              </a>
+            )}
+          </p>
+
+          {!isTrash ? <SparPanel /> : null}
         </div>
       </div>
     </section>
