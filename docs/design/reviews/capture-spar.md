@@ -48,3 +48,17 @@
 9. **LLM 実行時エラーの応答契約**: プロバイダの実行時 4xx/5xx → /api/spar の応答形(status のみ・応答本文をクライアントへ非転送)とモック fetch 非 2xx テストを明示。
 10. **SameSite=strict の前提**: 現 SDK バージョン既定値に依存(条件9 の lock で成立)— SDK 更新を伴う将来 goal で CSRF 受容根拠を再確認する条件を残す。
 11. **FROZEN_TESTS_M4 の全列挙**: M3 までの全テスト(tests/capture-contract.test.ts 含む)+ run-sync.test 再凍結 + helpers + vitest.config。scripts は除外(check-no-secrets 追随のため)。新テストの確定名を列挙で固定。
+
+---
+
+# 詳細設計(docs/design/detail/capture-spar.md)
+
+## Round 1 — 2026-07-19
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **PASS**(Low 5) | 申し送り11件の §0 決着・FROZEN_TESTS_M4 の現物完全一致(33ファイル)・fenced block のシェル意味論・goal 分割(不存在ディレクトリへの grep を M4-B に正しく隔離)・モック契約の非破壊(凍結テストのモック対象モジュールに export 追加なし)をすべて現物照合で確認。Low: TOPK クランプの二重定義緊張 / NEXT_PUBLIC 走査縮小の無言 / pipe 形 grep の fail-open / check-no-secrets が M4-B のみ / M4-B 実機範囲の曖昧 |
+| data | **PASS**(Med 1・Low 5) | SQL 契約(INSERT 勘定・listInbox index 適合・grep/assert 対)・searchKnowledge 従属・env -u 6変数と凍結テストの非干渉(embedding.test は env 自己管理)・M5 消費契約(partial index 前提)・check-no-secrets 被覆判定・FROZEN 列挙の過不足なしを現物実証。**Med: revalidatePath のモック欠落**(next/cache は vitest node 環境で throw — 記載モック集合では capture-save 正常系が緑にならない)。Low: TOPK 複製 / 前例引用の方向不正確 / count( 大文字迂回 / sk- 素形非被覆 / .gitkeep |
+| sec | **FAIL** | **High: 条件4 の `api.openai.com` 局所化 grep が lib/search/embedding.ts(112行・M2 既存・凍結対象)に必ずヒットし恒常 FAIL** — 実装側で回避不能・ゲート弱体化を誘発。Med: SparRef に excerpt が無く注入文脈がメタのみ — 基本設計の外部送信宣言「抜粋」と不一致(安全側だがドリフト防止ピンなし)。Low 3(spar-llm assert が本文のみ / NEXT_PUBLIC 縮小無言 / UPDATE・DELETE 否定 grep なし)。二層認証・コストガード・告知・CSRF・破壊的操作は現物照合で成立 |
+
+**総合: FAIL(sec)** → rev.2 で決着: `api.openai.com` の許容 = **llm.ts + embedding.ts(既存)の2箇所限定**(除外集合を修正・§5 表現も同旨)/ **excerpt をプロンプトに含める**(SparCtx 型・外部送信宣言と一致・応答 refs はメタのみ・grep ピン追加)/ revalidatePath は **next/cache を vi.mock**(try/catch は insertCapture のみ)/ spar-llm assert に鍵・プロンプト非包含を追加 / UPDATE・DELETE 否定 grep を条件2 に追加([[:space:]] 形)/ TOPK 1..20 は env サニタイズ(契約上限は MAX_LIMIT 側)と明文化 / NEXT_PUBLIC 縮小根拠(docs・tests の偽 FAIL 回避)明記 / M4-A に check-no-secrets 追加 / M4-B 実機2本明記 / 残 Low 受容明記。
