@@ -8,7 +8,7 @@
 > 実クエリ稼働中(現在 0 行)・`getUser()`(redirect しない null 返し)と api/sync POST の「getUser null → 401」前例が実在・
 > Neon Auth middleware は保護パスに一律 307(redirect_login・401 経路なし — SDK 現物確認)・
 > searchKnowledge は先頭でクエリ埋め込み(EMBEDDING_API_KEY・実ネットワーク)を実行する。
-> ステータス: rev.2(Round 1(3レンズ FAIL: 認証境界・外部送信2系統・鍵局所化ほか)反映済み → 再レビュー待ち)
+> ステータス: **PASS**(design-review Round 2 全レンズ PASS — rev.3 は R2 の Low 2件吸収。reviews/capture-spar.md 参照)
 > 作成: 2026-07-19(主セッション執筆)
 
 ## 1. 目的 / スコープ
@@ -20,7 +20,7 @@
 ### やる
 1. **capture 入力フォーム**: kind チップ(**status / issue / next_move の3種** — `spar_conclusion` はチップに出さない・壁打ちパネル経由のみ)+ トピック(任意・**trim 後空は NULL 正規化**)+ 本文(必須・上限長あり)→ Server Action で INSERT。`source = "ui"` 固定(M4 の契約 — §7 M5 申し送り)・`tags = '{}'`(入力 UI なし — 問い#2)。**二重送信は client 側の送信中 disable のみ・INSERT は非冪等のまま受容**(明示操作のみ・重複行は M5 が個別に処理)。
 2. **INBOX リスト**: 本人分のみ(user_id スコープ — アプリ層強制)。kind バッジ・topic・本文・日時・**未処理は琥珀枠**・未処理件数表示(layout バッジと同一関数 = getUnprocessedInboxCount 再利用)。直近 50 件(処理済み/未処理 混在 — 問い#1)。
-3. **壁打ちパネル(同一画面内・client component)**: メッセージ送信 → **pgvector 文脈注入**(既存 searchKnowledge 再利用 — 類似判断 top-K を出典付きで system 文脈に)→ LLM 応答 + **文脈参照チップ**(参照判断の title・date・類似度 — **title/date は null 許容**(na/省略表示)・**v1 はリンクなしテキスト** — 問い#7)。「結論として保存」→ kind=`spar_conclusion` で capture_inbox へ(本文は編集可・topic は壁打ちの話題)。**会話履歴はクライアント保持のみ**(§2)。
+3. **壁打ちパネル(同一画面内・client component)**: メッセージ送信 → **pgvector 文脈注入**(既存 searchKnowledge 再利用 — 類似判断 top-K を出典付きで system 文脈に)→ LLM 応答 + **文脈参照チップ**(参照判断の title・date・類似度 — **title/date は null 許容**(na/省略表示)・**v1 はリンクなしテキスト**だが **source/filePath をツールチップ(title 属性)等で提示し出典を辿れるようにする**(search.md 充足 — 表示形は詳細設計。リンク化は問い#7))。「結論として保存」→ kind=`spar_conclusion` で capture_inbox へ(本文は編集可・topic は壁打ちの話題)。**会話履歴はクライアント保持のみ**(§2)。
 4. **LLM プロバイダ dispatch(lib/spar/・server-only)**: **OpenAI を推奨既定運用**とするが、env は **`SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY` すべて既定値なし・明示必須**(未設定・未知 provider はいずれも **4xx JSON の fail-closed** — search-foundation の「既定フォールバック禁止」原則に整合。capture 保存・INBOX は影響なし)。M2 embedding と**同一原則(fail-closed・既定なし)**だが、選択方式は provider 明示 env(**意図的相違** — チャットモデル名にはプロバイダを推論できる命名規約が無い)。推奨値(`openai` / `gpt-4o-mini`)は .env.example のコメントで案内。SDK は追加しない(fetch 直 — 新規依存禁止)。
 
 ### やらない
@@ -85,7 +85,7 @@
 4. **壁打ち二層認証・fail-closed・縮退**: **proxy.ts が main と無差分**(`git diff --exit-code main -- proxy.ts tests/proxy.test.ts`)/ 実機 未認証 POST /api/spar → **307**(一層目)/ ユニットテスト(モック): getUser null → **401**(二層目・api/sync POST 同型)・SPAR_PROVIDER / SPAR_MODEL / SPAR_API_KEY いずれか未設定 → 4xx JSON・**searchKnowledge throw → 200 + degraded: true + refs: []**(縮退)。`searchKnowledge` import(grep — 類似検索の重複実装禁止)。テストは実ネットワークなし(モック fetch)。
 5. **画面**: /capture がプレースホルダ文言(「準備中」)を含まない(否定 grep)+ requireUser 存置 + 実機 未認証 `/capture` → 307 + kind チップ3種のリテラルピン(実行形は詳細設計)+ **`dangerouslySetInnerHTML` 否定 grep(capture 配下)**。
 6. **env / 秘密 / 鍵局所化**: .env.example に `SPAR_API_KEY=__set_me__` 存在(grep -F)・check-no-secrets.sh が SPAR 鍵パターンを検査(同一コミット)・`bash scripts/check-no-secrets.sh` exit 0・**lib/spar に server-only(grep)**・**`NEXT_PUBLIC_SPAR` 否定 grep(リポジトリ全体)**・SPAR_API_KEY 参照の局所化(⊆ 判定 — 詳細設計)。
-7. **凍結・回帰**: FROZEN_TESTS_M4(M3 までの全テスト + helpers + vitest.config — 全列挙は詳細設計。scripts は除外)無変更で `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0・`npm run build` exit 0・app 復帰 /login 200。
+7. **凍結・回帰**: FROZEN_TESTS_M4(M3 までの全テスト + helpers + vitest.config — 全列挙は詳細設計。scripts は除外)無変更・**新設テストは凍結済み tests/capture-contract.test.ts と別名**(確定名は詳細設計の列挙で固定)で `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0・`npm run build` exit 0・app 復帰 /login 200。
 8. **被変更側注記**(主セッション・各注記に `capture-spar` リテラル): auth-foundation 詳細(0001 の capture_inbox を M4 が消費開始・getUser の 401 用途)/ ui-shell 詳細 §2.5(capture 実装化)/ screen-design **§7.2 項目 + §5 SC-06 ポインタ + §7.1「壁打ちスライドオーバー = M4」行の読み替え**(パネルは /capture 内・スライドオーバー共通化見送り・tags 入力なし・会話非永続・トップバーボタン据え置き)。
 9. **新規依存なし**: `git diff --exit-code main -- package.json package-lock.json` exit 0。
 
