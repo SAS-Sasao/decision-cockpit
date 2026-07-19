@@ -2,9 +2,10 @@ import "server-only";
 
 // 対象設計: docs/design/detail/capture-spar.md §2.1(lib/data/capture.ts)
 //          docs/design/basic/capture-triage.md §1(status 列・setCaptureStatus)
+//          docs/design/basic/capture-trash.md §1(deleted_at 列・softDeleteCapture・restoreCaptureRow・listTrash)
 //          .claude/rules/capture.md(capture_inbox 契約)
 //
-// capture_inbox への書き込みは INSERT + status 単列 UPDATE のみ(capture-triage)
+// capture_inbox への書き込みは INSERT + status / deleted_at の限定 UPDATE のみ(capture-triage / capture-trash)
 // (processed_at / curated_ref / kind / body への書き込みはしない)。
 // 未処理件数は lib/data/overview.ts の getUnprocessedInboxCount を再利用する(二重実装しない)。
 
@@ -26,6 +27,8 @@ export type InboxRow = {
   status: CaptureStatus;
 };
 
+export type TrashRow = InboxRow & { deletedAt: string };
+
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 
@@ -35,7 +38,8 @@ function clampLimit(limit: number | undefined): number {
 }
 
 /**
- * capture_inbox への INSERT(唯一の書き込み経路 — INSERT + status 単列 UPDATE のみ(capture-triage))。
+ * capture_inbox への INSERT(唯一の書き込み経路 — INSERT + status / deleted_at の限定 UPDATE のみ
+ * (capture-triage / capture-trash))。
  * source は SQL リテラル 'ui' 固定(client から供給しない)。tags / processed_at / curated_ref は
  * 触らない(DB 既定に任せる)。
  */
@@ -64,15 +68,17 @@ type InboxQueryRow = {
   status: CaptureStatus;
 };
 
+type TrashQueryRow = InboxQueryRow & { deleted_at: Date };
+
 /**
- * 本人分の INBOX を新しい順(created_at DESC, id DESC — 同時刻タイブレーク)で取得する。
+ * 本人分の INBOX(未削除)を新しい順(created_at DESC, id DESC — 同時刻タイブレーク)で取得する。
  * limit は既定 50・クランプ 1..100。
  */
 export async function listInbox(userId: string, limit?: number): Promise<InboxRow[]> {
   const result = await query<InboxQueryRow>(
     `SELECT id, kind, topic, tags, body, source, created_at, processed_at, curated_ref, status
        FROM capture_inbox
-      WHERE user_id = $1
+      WHERE user_id = $1 AND deleted_at IS NULL
       ORDER BY created_at DESC, id DESC
       LIMIT $2`,
     [userId, clampLimit(limit)]
@@ -93,6 +99,35 @@ export async function listInbox(userId: string, limit?: number): Promise<InboxRo
 }
 
 /**
+ * 本人分のゴミ箱(削除済み行)を新しい順(created_at DESC, id DESC)で取得する。
+ * limit は listInbox と同型のクランプ(既定 50・1..100)。
+ */
+export async function listTrash(userId: string, limit?: number): Promise<TrashRow[]> {
+  const result = await query<TrashQueryRow>(
+    `SELECT id, kind, topic, tags, body, source, created_at, processed_at, curated_ref, status, deleted_at
+       FROM capture_inbox
+      WHERE user_id = $1 AND deleted_at IS NOT NULL
+      ORDER BY created_at DESC, id DESC
+      LIMIT $2`,
+    [userId, clampLimit(limit)]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    topic: row.topic,
+    tags: row.tags,
+    body: row.body,
+    source: row.source,
+    createdAt: row.created_at.toISOString(),
+    processedAt: row.processed_at ? row.processed_at.toISOString() : null,
+    curatedRef: row.curated_ref,
+    status: row.status,
+    deletedAt: row.deleted_at.toISOString(),
+  }));
+}
+
+/**
  * capture_inbox.status の単列更新(本人行のみ — capture-triage)。
  * 更新対象は status 列に限定(processed_at / curated_ref / kind / body は触らない)。
  * 戻り値は更新行数(0 = 他人の行・不存在 — 呼び出し側で bad_request に潰す)。
@@ -105,6 +140,31 @@ export async function setCaptureStatus(
   const result = await query(
     `UPDATE capture_inbox SET status = $1 WHERE id = $2 AND user_id = $3`,
     [status, id, userId]
+  );
+  return result.rowCount ?? 0;
+}
+
+/**
+ * capture_inbox の論理削除(本人行のみ — capture-trash)。deleted_at に現在時刻をセットする冪等な
+ * 更新(既に削除済みの行は対象外 — 二重実行は rowCount 0)。戻り値は更新行数。
+ */
+export async function softDeleteCapture(userId: string, id: string): Promise<number> {
+  const result = await query(
+    `UPDATE capture_inbox SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+    [id, userId]
+  );
+  return result.rowCount ?? 0;
+}
+
+/**
+ * capture_inbox の削除取り消し(本人行のみ — capture-trash)。deleted_at を NULL に戻す冪等な
+ * 更新(削除済みでない行は対象外 — 二重実行は rowCount 0)。戻り値は更新行数。
+ * action 側の名称は restoreCapture(データ層は Row 接尾辞で同名衝突を回避)。
+ */
+export async function restoreCaptureRow(userId: string, id: string): Promise<number> {
+  const result = await query(
+    `UPDATE capture_inbox SET deleted_at = NULL WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL`,
+    [id, userId]
   );
   return result.rowCount ?? 0;
 }

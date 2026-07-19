@@ -4,6 +4,7 @@ import "server-only";
 //          docs/design/basic/ui-shell.md §3.1 / §3.4(集計規範 — ingestion-foundation 基本設計 §3.4 を完全継承)
 //          docs/design/detail/ui-polish.md §2.3(recentDecisions への tags 追加のみ)
 //          docs/design/basic/capture-triage.md §1(バッジ WHERE の完全形 — status='open' 加味)
+//          docs/design/basic/capture-trash.md §1(バッジ WHERE の完全形 — deleted_at 除外を加味)
 //
 // SC-02 概観ダッシュボードの集計。「テスト可能な構造」の分離は lib/data/review.ts と同型:
 //   aggregateOverview() — 純関数。DB/ネットワーク非依存。tests/overview-data.test.ts が直接検証する。
@@ -186,10 +187,11 @@ export async function getLastSync(): Promise<OverviewData["lastSync"]> {
 }
 
 /** 未処理 inbox バッジ用の軽量 count(layout から毎リクエスト呼ばれるため count 1本に限定)。
- *  status='open' の行のみ対象(capture-triage — 処理中/完了にした瞬間にカウントダウン)。 */
+ *  status='open' かつ未削除の行のみ対象(capture-triage / capture-trash —
+ *  処理中/完了にした瞬間・削除した瞬間にカウントダウン)。 */
 export async function getUnprocessedInboxCount(userId: string): Promise<number> {
   const result = await query<{ count: string }>(
-    `SELECT count(*) AS count FROM capture_inbox WHERE user_id = $1 AND processed_at IS NULL AND status = 'open'`,
+    `SELECT count(*) AS count FROM capture_inbox WHERE user_id = $1 AND processed_at IS NULL AND status = 'open' AND deleted_at IS NULL`,
     [userId]
   );
   return Number(result.rows[0]?.count ?? 0);

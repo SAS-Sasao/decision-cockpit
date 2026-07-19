@@ -2,12 +2,20 @@
 
 // 対象設計: docs/design/detail/capture-spar.md §2.2(app/(shell)/capture/actions.ts)
 //          docs/design/basic/capture-triage.md §1(updateCaptureStatus)
+//          docs/design/basic/capture-trash.md §1(deleteCapture・restoreCapture)
 //
 // capture_inbox への保存 Server Action。user_id はセッション由来のみ(input に含めない)。
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getUser } from "../../../lib/auth/user";
-import { insertCapture, setCaptureStatus, type CaptureKind, type CaptureStatus } from "../../../lib/data/capture";
+import {
+  insertCapture,
+  restoreCaptureRow,
+  setCaptureStatus,
+  softDeleteCapture,
+  type CaptureKind,
+  type CaptureStatus,
+} from "../../../lib/data/capture";
 
 export type SaveCaptureResult = { ok: true } | { ok: false; error: "unauthorized" | "bad_request" };
 
@@ -109,6 +117,71 @@ export async function updateCaptureStatus(input: {
   let rowCount: number;
   try {
     rowCount = await setCaptureStatus(user.id, input.id, input.status);
+  } catch {
+    return { ok: false, error: "bad_request" };
+  }
+
+  if (rowCount === 0) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  revalidatePath("/capture");
+  return { ok: true };
+}
+
+export type DeleteCaptureResult = SaveCaptureResult;
+
+/**
+ * capture_inbox の論理削除(本人行のみ — capture-trash)。UUID 形式の id を検証してから
+ * softDeleteCapture(deleted_at の限定更新)を呼ぶ。rowCount 0(他人の行・不存在・二重削除)は
+ * bad_request に潰す(存在の秘匿 — 列挙オラクルなし)。確認ダイアログなしの1クリック削除
+ * (復元可能なため — 設計の意図的判断)。
+ */
+export async function deleteCapture(input: { id: string }): Promise<DeleteCaptureResult> {
+  const user = await getUser();
+  if (!user) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  if (!isValidUuid(input.id)) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  let rowCount: number;
+  try {
+    rowCount = await softDeleteCapture(user.id, input.id);
+  } catch {
+    return { ok: false, error: "bad_request" };
+  }
+
+  if (rowCount === 0) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  revalidatePath("/capture");
+  return { ok: true };
+}
+
+export type RestoreCaptureResult = SaveCaptureResult;
+
+/**
+ * capture_inbox の削除取り消し(本人行のみ — capture-trash)。UUID 形式の id を検証してから
+ * restoreCaptureRow(deleted_at の限定更新)を呼ぶ。rowCount 0(他人の行・不存在・二重復元)は
+ * bad_request に潰す(存在の秘匿 — 列挙オラクルなし)。
+ */
+export async function restoreCapture(input: { id: string }): Promise<RestoreCaptureResult> {
+  const user = await getUser();
+  if (!user) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  if (!isValidUuid(input.id)) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  let rowCount: number;
+  try {
+    rowCount = await restoreCaptureRow(user.id, input.id);
   } catch {
     return { ok: false, error: "bad_request" };
   }
