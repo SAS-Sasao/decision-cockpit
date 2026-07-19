@@ -1,14 +1,17 @@
 import "server-only";
 
 // 対象設計: docs/design/detail/capture-spar.md §2.1(lib/data/capture.ts)
+//          docs/design/basic/capture-triage.md §1(status 列・setCaptureStatus)
 //          .claude/rules/capture.md(capture_inbox 契約)
 //
-// capture_inbox への書き込みは INSERT のみ(§1 — UPDATE/DELETE を発行しない)。
+// capture_inbox への書き込みは INSERT + status 単列 UPDATE のみ(capture-triage)
+// (processed_at / curated_ref / kind / body への書き込みはしない)。
 // 未処理件数は lib/data/overview.ts の getUnprocessedInboxCount を再利用する(二重実装しない)。
 
 import { query } from "../db";
 
 export type CaptureKind = "status" | "issue" | "next_move" | "spar_conclusion";
+export type CaptureStatus = "open" | "in_progress" | "done";
 
 export type InboxRow = {
   id: string;
@@ -20,6 +23,7 @@ export type InboxRow = {
   createdAt: string;
   processedAt: string | null;
   curatedRef: string | null;
+  status: CaptureStatus;
 };
 
 const DEFAULT_LIMIT = 50;
@@ -31,8 +35,9 @@ function clampLimit(limit: number | undefined): number {
 }
 
 /**
- * capture_inbox への INSERT(唯一の書き込み経路)。source は SQL リテラル 'ui' 固定
- * (client から供給しない)。tags / processed_at / curated_ref は触らない(DB 既定に任せる)。
+ * capture_inbox への INSERT(唯一の書き込み経路 — INSERT + status 単列 UPDATE のみ(capture-triage))。
+ * source は SQL リテラル 'ui' 固定(client から供給しない)。tags / processed_at / curated_ref は
+ * 触らない(DB 既定に任せる)。
  */
 export async function insertCapture(
   userId: string,
@@ -56,6 +61,7 @@ type InboxQueryRow = {
   created_at: Date;
   processed_at: Date | null;
   curated_ref: string | null;
+  status: CaptureStatus;
 };
 
 /**
@@ -64,7 +70,7 @@ type InboxQueryRow = {
  */
 export async function listInbox(userId: string, limit?: number): Promise<InboxRow[]> {
   const result = await query<InboxQueryRow>(
-    `SELECT id, kind, topic, tags, body, source, created_at, processed_at, curated_ref
+    `SELECT id, kind, topic, tags, body, source, created_at, processed_at, curated_ref, status
        FROM capture_inbox
       WHERE user_id = $1
       ORDER BY created_at DESC, id DESC
@@ -82,5 +88,23 @@ export async function listInbox(userId: string, limit?: number): Promise<InboxRo
     createdAt: row.created_at.toISOString(),
     processedAt: row.processed_at ? row.processed_at.toISOString() : null,
     curatedRef: row.curated_ref,
+    status: row.status,
   }));
+}
+
+/**
+ * capture_inbox.status の単列更新(本人行のみ — capture-triage)。
+ * 更新対象は status 列に限定(processed_at / curated_ref / kind / body は触らない)。
+ * 戻り値は更新行数(0 = 他人の行・不存在 — 呼び出し側で bad_request に潰す)。
+ */
+export async function setCaptureStatus(
+  userId: string,
+  id: string,
+  status: CaptureStatus
+): Promise<number> {
+  const result = await query(
+    `UPDATE capture_inbox SET status = $1 WHERE id = $2 AND user_id = $3`,
+    [status, id, userId]
+  );
+  return result.rowCount ?? 0;
 }

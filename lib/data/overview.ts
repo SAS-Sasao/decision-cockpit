@@ -3,6 +3,7 @@ import "server-only";
 // 対象設計: docs/design/detail/ui-shell.md §1(参照列)/ §2.3(overview.ts の型・関数契約)
 //          docs/design/basic/ui-shell.md §3.1 / §3.4(集計規範 — ingestion-foundation 基本設計 §3.4 を完全継承)
 //          docs/design/detail/ui-polish.md §2.3(recentDecisions への tags 追加のみ)
+//          docs/design/basic/capture-triage.md §1(バッジ WHERE の完全形 — status='open' 加味)
 //
 // SC-02 概観ダッシュボードの集計。「テスト可能な構造」の分離は lib/data/review.ts と同型:
 //   aggregateOverview() — 純関数。DB/ネットワーク非依存。tests/overview-data.test.ts が直接検証する。
@@ -184,12 +185,11 @@ export async function getLastSync(): Promise<OverviewData["lastSync"]> {
   return buildLastSync(result.rows);
 }
 
-/** 未処理 inbox バッジ用の軽量 count(layout から毎リクエスト呼ばれるため count 1本に限定)。 */
+/** 未処理 inbox バッジ用の軽量 count(layout から毎リクエスト呼ばれるため count 1本に限定)。
+ *  status='open' の行のみ対象(capture-triage — 処理中/完了にした瞬間にカウントダウン)。 */
 export async function getUnprocessedInboxCount(userId: string): Promise<number> {
   const result = await query<{ count: string }>(
-    `SELECT count(*) AS count
-       FROM capture_inbox
-      WHERE user_id = $1 AND processed_at IS NULL`,
+    `SELECT count(*) AS count FROM capture_inbox WHERE user_id = $1 AND processed_at IS NULL AND status = 'open'`,
     [userId]
   );
   return Number(result.rows[0]?.count ?? 0);
