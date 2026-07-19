@@ -37,6 +37,14 @@
 - **spar-llm テストの非包含 assert 拡張(sec Low)**: エラー message に応答本文に加え**鍵・プロンプト文字列も含まれない**ことを assert(§3)。
 - **UPDATE/DELETE 否定 grep(sec Low)**: 条件2 に capture 経路の否定 grep を追加(M3 条件1 と同じ [[:space:]] 形)。
 
+**M4-FIX 追補(2026-07-19・実機で判明した SDK 欠陥への修正 — ユーザー承認済み「ラッパー正規化」)**:
+- **事象**: 認証済みブラウザでも POST /api/spar が 307 → /login(fetch が追従し POST /login 200 がログに記録)。原因 = **@neondatabase/auth 0.4.2-beta(最新)の middleware が get-session 照会へ元リクエストの method/body をそのまま転送**(`handleAuthRequest` の `method: request.method` — 現物確認)+ cookie キャッシュ路も `request.method === "GET"` 限定。**保護パスへの POST は全て未認証扱い**になり、Server Action(POST /capture のフォーム保存)も同罪。
+- **決着 = proxy.ts の GET 正規化ラッパー**: default export を関数化し、`GET`/`HEAD` 以外のリクエストは **url + headers を保持した GET 複製(NextRequest)** を SDK middleware に渡す。セッション判定は cookie(headers)のみに依存するため意味論同値。redirect URL は request.url 由来で保持。**matcher・loginUrl・auth.middleware({ loginUrl }) 呼び出しは不変**。
+- **凍結例外 = proxy.ts のみ**。tests/proxy.test.ts は **無変更で緑**(ピンは matcher 正規表現と loginUrl 呼び出しのみ — default export の形は非ピン。`git diff --exit-code main -- tests/proxy.test.ts` を条件に含める)。
+- **受け入れ条件(M4-FIX・機械判定)**: (a) `tests/proxy-post.test.ts` 新設 — auth.middleware をモックし「POST 時に SDK へ渡る request.method === "GET"・URL 同一・cookie ヘッダ保持」「GET 時は元 method のまま」を assert (b) `git diff --exit-code main -- tests/proxy.test.ts` exit 0 (c) matcher 不変ピン: `grep -Fq 'api/auth(?:/|$)|api/sync(?:/|$)|login(?:/|$)' proxy.ts` exit 0 (d) `env -u` 6変数形 `npm test` exit 0(既存全テスト無変更)(e) build exit 0 + /login 200 (f) 実機(curl -L なし): 未認証 GET /capture = 307・未認証 POST /api/spar = **307 のまま不変**。
+- **手動確認**: 認証済みブラウザで壁打ち実応答 + フォーム保存 → INBOX 反映(本欠陥で初めて実機確認可能になる項目)。
+- **SDK 更新時の再評価**: SDK が get-session 転送を修正したらラッパーの不要化を検討(§5 の SDK 更新注記に追加)。/goal M4-FIX の executor = backend-engineer・ターン上限 10・変更ファイル = proxy.ts + tests/proxy-post.test.ts のみ。
+
 ## 1. スキーマ DDL
 
 **変更なし。** capture_inbox は 0001_auth_foundation.up.sql の現物(下記)をそのまま使う — M4 でマイグレーションは作らない(§4-1 で `git diff --exit-code main -- db/migrations` をピン)。
