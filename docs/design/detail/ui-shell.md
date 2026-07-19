@@ -100,7 +100,7 @@ body { background: var(--bg); color: var(--text);
 | `app/(shell)/today/page.tsx` | 旧 app/page.tsx の骨格移設 + `requireUser()` + 「M3 で実装予定」注記。**※ 追随注記(today-view・2026-07-18): M3 で SC-03(サマリ帯×4 + WBS kanban 3列)として実装化** — データ取得は lib/data/today.ts(getTodayData)/ getLastSync 経由のみ・requireUser・`dynamic = "force-dynamic"` 存置。正典 = docs/design/detail/today-view.md §2.5 |
 | `app/(shell)/knowledge/page.tsx` | 旧 /search 移設 + `requireUser()` + 「M2 で実装予定」注記。**※ 追随注記(search-foundation・2026-07-17): M2 で SC-04(pgvector 類似検索 + 判断後6週実績)として実装化** — データ取得は lib/data/knowledge.ts 経由のみ・requireUser 存置。正典 = docs/design/detail/search-foundation.md §2.7 |
 | `app/(shell)/retro/page.tsx` | 旧 /review 移設(ロジック・ラベル・**requireUser・dynamic とも不変**)。スコア数値に `scoreLevel` の色付けのみ追加 |
-| `app/(shell)/capture/page.tsx` | `requireUser()` + 準備中(M4) |
+| `app/(shell)/capture/page.tsx` | `requireUser()` + 準備中(M4)。**※ 追随注記(capture-spar・2026-07-19): M4 で SC-06(capture フォーム + INBOX + 壁打ちパネル)として実装化** — データ取得は lib/data/capture.ts / getUnprocessedInboxCount 経由のみ・requireUser・`dynamic = "force-dynamic"` 存置。トップバーの壁打ちボタンは disabled のまま(パネルは /capture 内・layout 凍結)。正典 = docs/design/detail/capture-spar.md §2.6 |
 | `app/(shell)/admin/users/page.tsx` | `requireUser()` → `!isAdmin` なら **`notFound()`** + 準備中 |
 | `app/layout.tsx` | 最小化(html/body + globals.css import + **`@neondatabase/auth/ui/css` import と suppressHydrationWarning は維持** — ログイン画面のスタイル崩れ防止)。旧ナビ削除 |
 | `next.config.mjs` | `redirects()`: `/search→/knowledge`・`/review→/retro`(permanent: true)。**あわせて Next 16 非対応の `eslint` キーを削除**(積み残し #3 の消化 — 同ファイル編集のため) |

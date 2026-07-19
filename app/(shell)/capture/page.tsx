@@ -11,6 +11,7 @@ import { requireUser } from "../../../lib/auth/user";
 import { listInbox, type CaptureKind, type InboxRow } from "../../../lib/data/capture";
 import { getUnprocessedInboxCount } from "../../../lib/data/overview";
 import { saveCaptureFromForm } from "./actions";
+import { SparPanel } from "./spar-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -221,6 +222,8 @@ export default async function CapturePage({
               ))}
             </div>
           )}
+
+          <SparPanel />
         </div>
       </div>
     </section>

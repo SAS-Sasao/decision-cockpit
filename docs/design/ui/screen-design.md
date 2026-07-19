@@ -95,6 +95,7 @@ SC-07 は admin ロールのみナビに表示
 - 表示: INBOX リスト(kind バッジ・未処理は琥珀枠)・未処理件数。
 - 挙動: 保存 → 未処理で追加 → 整理ループ(朝07/昼12/夜19/深夜24)が処理し ai-war-room へ PR。壁打ちは文脈参照チップ(参照判断・類似度・スコア差分)付き応答。
 - 制約: 機微データ(profile.md / minefield.md)は壁打ち文脈に含めない。
+- **※ 実装注記(capture-spar・M4)**: 実装時の読み替え(tags 入力なし・会話非永続・スライドオーバー見送りほか)は **§7.2-6 を正**とする。
 
 ### SC-07 ユーザー管理(screenshots/sc07-admin.png)
 - 目的: ユーザー一覧とロール割当(admin/member)。データ: Neon Auth / roles / user_roles。
@@ -125,7 +126,7 @@ MoC と、PASS 済み設計(auth-foundation / ingestion-foundation)・実デー�
 | SC-05 振り返り | **M1-C(実装予定)が最小版** | M1-C はチャートなしのテーブル + 一覧(PASS 済み詳細設計 §2.5)。MoC のチャート表現(折れ線・複合チャート)への引き上げは UI シェル対応時 |
 | SC-06 キャプチャ + 壁打ち | M4 | kind 語彙・spar_conclusion 自動保存は capture 契約と一致 |
 | SC-07 ユーザー管理 | **M0 未解決の問い#1(管理 UI の配置先)の決着候補** — M4 前後 | 現在は SQL 運用。MoC の一覧項目(キャプチャ数・最終アクティブ)は capture_inbox / Neon Auth から供給可能 |
-| 壁打ちスライドオーバー | M4(全画面共通化は UI シェル対応時) | — |
+| 壁打ちスライドオーバー | M4(全画面共通化は UI シェル対応時) | **※ 読み替え(capture-spar・M4)**: M4 実装は /capture 内パネル(§7.2-6)— スライドオーバー化・全画面共通化は将来スコープのまま |
 
 ### 7.2 データ整合の要注意点(実装時に MoC を読み替える箇所)
 
@@ -134,6 +135,7 @@ MoC と、PASS 済み設計(auth-foundation / ingestion-foundation)・実デー�
 3. **ルート名**: MoC は `/knowledge` `/retro` `/today`、現骨格は `/search` `/review` `/`(今日)。**M1-C は PASS 済み設計どおり app/review に実装**し、ルート再編(/retro 等への改名 + SC-02 を `/` に配置)は UI シェル対応のスコープで一括判断(PASS 済み設計の受け入れ条件を壊さない)。
 4. スコア閾値(≥0.80 / ≥0.65)・デザイントークン(§4.2)は UI シェル対応時の共通定数として実装。
 5. **SC-03 の読み替え(today-view 詳細設計で確定・M3)**: kanban は **3列**(バックログ `[ ]` / 着手中 `[~]` / 完了 `[x]` — 実データの状態3値に「レビュー」が存在しない)/ カードの「手戻り ↺n」は**表示しない**(WBS 行と task-log の確実な紐付けキーが実データに無い)/ 一次ソースは **WBS(`.companies/<org>/docs/secretary/<name>-wbs.md`)のみ**(board.md は 2026-03-23 更新停止のため不採用・timeline_records(type=task)はカードのソースにしない)/ サマリ帯×4 = オープン・着手中・**手戻り率(今週)・平均スコア(今週)**(後2者は timeline_records の週集計 — weekBucketBoundaries 再利用)。正典 = docs/design/detail/today-view.md。
+6. **SC-06 の読み替え(capture-spar 詳細設計で確定・M4)**: kind チップは MoC どおり**英語 Mono ラベル**(status / issue / next_move・spar_conclusion バッジは `spar`)/ **tags 入力 UI なし**(空配列 — M5 の整理ループが付与する余地)/ 壁打ちは **/capture 内パネル**(スライドオーバー共通化・トップバーボタン有効化は見送り — ボタンは disabled のまま)/ **会話は非永続**(保存されるのは「結論として保存」した spar_conclusion 1行のみ)/ 文脈参照チップは **title・日付・類似度 + 出典ツールチップ**(「スコア差分」は表示しない — 判断と実績の確実な紐付けは SC-04 の判断詳細に委ねる)/ 壁打ちの入力は**外部 API(埋め込み + LLM の2系統)に送信**される(UI に告知)/ 整理ループ(朝昼夜深夜)の消費は M5。正典 = docs/design/detail/capture-spar.md。
 
 ### 7.3 提案: 「UI シェル」を独立トピックとして設計する
 
