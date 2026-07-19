@@ -5,7 +5,7 @@
 > **実地偵察(2026-07-20)**: lib/data/capture.ts の `UPDATE capture_inbox` は現在 **1本**(CT-1 条件2 が「= 1」でピン — 本設計で **3本に読み替え必須**)/
 > tests/capture-status.test.ts・capture-data.test.ts の SQL assert は **toContain(包含)**・写像 assert は個別 toBe / toEqual(undefined 無視)—
 > **WHERE 句・SELECT 列・写像フィールドの追加では赤にならない = 凍結例外不要** / M4 条件2 の `count(` 否定 grep が capture.ts に生存(件数クエリを capture.ts に書けない)。
-> ステータス: draft(design-review 待ち)
+> ステータス: rev.2(R1 全レンズ FAIL 反映: **InboxRow 不変 + listTrash 専用型 TrashRow**(凍結 toEqual の null 非無視による三すくみの決着)/ **listInbox・listTrash の WHERE 完全形ピン**(user_id 二重ゲート — sec Med)/ restoreCaptureRow 改名 / 契約コメント成果物化 + 旧文言否定 grep / コメントへの UPDATE リテラル禁止 / 手動確認の open 行前提化 → 再レビュー待ち)
 > 作成: 2026-07-20(主セッション執筆・軽量1枚形式 — 実行形条件込み・詳細設計省略(capture-triage 前例))
 
 ## 1. 目的 / スコープ
@@ -18,7 +18,10 @@
 
 ### やる
 1. **0007 マイグレーション**: `ALTER TABLE capture_inbox ADD COLUMN IF NOT EXISTS deleted_at timestamptz;`(加法のみ・既存行は NULL = 全行生存で意味不変)。down = `ALTER TABLE capture_inbox DROP COLUMN IF EXISTS deleted_at;`(**適用は人間承認のみ・ゴミ箱状態を不可逆に失う**)。**追加 index なし**(ゴミ箱一覧は既存 (user_id, created_at DESC) index で足りる — 削除行は少量前提。理由明記)。
-2. **データ層(lib/data/capture.ts)**: `softDeleteCapture(userId, id)` — SQL = **`UPDATE capture_inbox SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`**(1行維持)/ `restoreCapture(userId, id)` — **`UPDATE capture_inbox SET deleted_at = NULL WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL`**(1行維持)。いずれも返り値 = rowCount。listInbox の WHERE に **`AND deleted_at IS NULL`** 追加(生存のみ)。新関数 `listTrash(userId, limit)` = listInbox 同型で **`deleted_at IS NOT NULL`**(復元用一覧・created_at DESC・クランプ同型)。InboxRow に `deletedAt: string | null` 追加。**件数クエリは書かない**(M4 の `count(` 否定 grep 生存 — ゴミ箱リンクは件数なし表記)。
+2. **データ層(lib/data/capture.ts)**: `softDeleteCapture(userId, id)` — SQL = **`UPDATE capture_inbox SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`**(1行維持)/ `restoreCaptureRow(userId, id)`(**action 名 restoreCapture との同名衝突を回避する Row 接尾辞**)— **`UPDATE capture_inbox SET deleted_at = NULL WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL`**(1行維持)。いずれも返り値 = rowCount。
+   **listInbox / InboxRow は型・写像とも不変**(WHERE の1行を **`WHERE user_id = $1 AND deleted_at IS NULL`** に変えるのみ — 生存行の deletedAt は概念的に常に NULL のため**フィールドを追加しない**。R1 High の決着: 凍結 tests/capture-data.test.ts の完全形 toEqual は `null` を無視しない(undefined のみ無視)ため、deletedAt を InboxRow に足すと凍結×テスト緑×tsc の三すくみになる — 追加しないことで例外なしが成立)。
+   新関数 `listTrash(userId, limit)` — SQL に **`WHERE user_id = $1 AND deleted_at IS NOT NULL`**(1行・完全形ピン)+ `ORDER BY created_at DESC, id DESC` + LIMIT クランプ(listInbox 同型)。返り型は **専用型 `TrashRow = InboxRow & { deletedAt: string }`**(削除済みは必ず非 NULL — ISO 文字列写像)。**件数クエリは書かない**(M4 の `count(` 否定 grep 生存 — ゴミ箱リンクは件数なし表記)。
+   **契約コメント2箇所の更新(成果物)**: ヘッダと insertCapture docstring の「INSERT + status 単列 UPDATE のみ」→「INSERT + status / deleted_at の限定 UPDATE のみ(capture-triage / capture-trash)」(旧文言は条件2 の否定 grep 対象)。**コメントに `UPDATE capture_inbox` のリテラルを書かない**(count=3 ピンの汚染防止 — 禁止事項)。
 3. **Server Action(actions.ts)**: `deleteCapture(input: { id })` / `restoreCapture(input: { id })` — getUser() null → unauthorized(DB 非接触)/ UUID 形式検証(不正 bad_request・DB 非接触)/ **rowCount 0 → bad_request**(他人の行・不存在・二重操作が同一エラー — 列挙オラクルなし)/ 成功で revalidatePath("/capture")。CSRF は既存受容(capture-spar 詳細 §0-10・§5)を継承。
 4. **バッジ(lib/data/overview.ts)**: getUnprocessedInboxCount の WHERE を **`user_id = $1 AND processed_at IS NULL AND status = 'open' AND deleted_at IS NULL`(完全形・1行維持)** に変更(削除で即カウントダウン — CT-1 と同じ連動)。
 5. **UI(page.tsx 内限定・新規ファイル不可)**: 各 INBOX 行に**ゴミ箱ボタン(「削除」)**→ deleteCapture(確認ダイアログなし — **復元可能なので1クリック削除を許容**する意図的判断)。INBOX 下部に「**ゴミ箱を表示**」リンク(`?trash=1` — サーバ側クエリパラメータ切替・knowledge の qs 前例)→ 削除済み一覧(listTrash・各行に**復元ボタン** → restoreCapture・「受信箱へ戻る」リンク)。既存ピン(CAPTURE_KINDS・requireUser・機微情報・処理中)生存。
@@ -60,23 +63,26 @@
    ```bash
    fail=0
    grep -Fq 'softDeleteCapture' lib/data/capture.ts || fail=1
-   grep -Fq 'restoreCapture' lib/data/capture.ts || fail=1
+   grep -Fq 'restoreCaptureRow' lib/data/capture.ts || fail=1
    grep -Fq 'listTrash' lib/data/capture.ts || fail=1
+   grep -Fq 'TrashRow' lib/data/capture.ts || fail=1
    grep -Fq 'SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL' lib/data/capture.ts || fail=1
    grep -Fq 'SET deleted_at = NULL WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL' lib/data/capture.ts || fail=1
+   grep -Fq 'WHERE user_id = $1 AND deleted_at IS NULL' lib/data/capture.ts || fail=1
+   grep -Fq 'WHERE user_id = $1 AND deleted_at IS NOT NULL' lib/data/capture.ts || fail=1
    [ "$(grep -c 'UPDATE capture_inbox' lib/data/capture.ts)" = "3" ] || fail=1
    grep -RIn 'UPDATE' "app/(shell)/capture"; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -RInE "SET[[:space:]].*(processed_at|curated_ref|kind|body|topic|tags)" lib/data/capture.ts; s=$?; [ "$s" -ne 1 ] && fail=1
-   grep -Fq 'deleted_at IS NULL' lib/data/capture.ts || fail=1
    grep -Fq 'deleteCapture' "app/(shell)/capture/actions.ts" || fail=1
    grep -Fq 'restoreCapture' "app/(shell)/capture/actions.ts" || fail=1
    grep -Fq "user_id = \$1 AND processed_at IS NULL AND status = 'open' AND deleted_at IS NULL" lib/data/overview.ts || fail=1
    grep -RInE "DELETE[[:space:]]+FROM" lib/data/capture.ts "app/(shell)/capture"; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -RIn 'INSERT のみ' lib/data/capture.ts; s=$?; [ "$s" -ne 1 ] && fail=1
+   grep -RIn 'status 単列 UPDATE のみ' lib/data/capture.ts; s=$?; [ "$s" -ne 1 ] && fail=1
    exit "$fail"
    ```
-   (SQL は大文字規約・ピン行は1行維持。UPDATE は capture.ts に **3本のみ**(status / soft-delete / restore)・SET 許可列 = status・deleted_at。バッジは deleted_at 込みの**新完全形**。小文字 SQL 回避は人間レビュー補完 — CT-1 と同受容。)
-3. **テスト(新設 tests/capture-trash.test.ts — 既存テストは1文字も変えない)**: `test -f` + `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0。ケース = deleteCapture / restoreCapture(getUser null → unauthorized・query 不呼 / UUID 不正 → bad_request・query 不呼 / 正常 → SQL に `SET deleted_at`・**params = [id, セッション userId]** / rowCount 0 → bad_request)+ **listInbox の SQL に `deleted_at IS NULL`** / **listTrash の SQL に `deleted_at IS NOT NULL` と params[0] = userId** / **バッジ SQL に `deleted_at IS NULL` と `user_id = $1` を含み params[0] = userId**。
+   (SQL は大文字規約・ピン行は1行維持。UPDATE は capture.ts に **3本のみ**(status / soft-delete / restore)・SET 許可列 = status・deleted_at。**listInbox / listTrash の WHERE は完全形ピン**(user_id スコープの機械判定 — R1 sec Med-1 の決着。旧「deleted_at IS NULL 単独 grep」は恒真のため撤去)。バッジは deleted_at 込みの**新完全形**。旧契約コメント2種(「INSERT のみ」「status 単列 UPDATE のみ」)の残存を否定 grep。小文字 SQL 回避は人間レビュー補完 — CT-1 と同受容。)
+3. **テスト(新設 tests/capture-trash.test.ts — 既存テストは1文字も変えない)**: `test -f` + `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0。ケース = deleteCapture / restoreCapture(getUser null → unauthorized・query 不呼 / UUID 不正 → bad_request・query 不呼 / 正常 → SQL に `SET deleted_at`・**params = [id, セッション userId]** / rowCount 0 → bad_request)+ **listInbox の SQL に `user_id = $1 AND deleted_at IS NULL`** / **listTrash の SQL に `user_id = $1` と `deleted_at IS NOT NULL` と `ORDER BY created_at DESC, id DESC` を含み params[0] = userId・写像(モック行 deleted_at: Date → TrashRow.deletedAt が ISO 文字列)** / **バッジ SQL に `deleted_at IS NULL` と `user_id = $1` を含み params[0] = userId**。
 4. **UI**: `grep -Fq 'ゴミ箱' "app/(shell)/capture/page.tsx"` + `grep -Fq 'deleteCapture' "app/(shell)/capture/page.tsx"` + `grep -Fq 'restoreCapture' "app/(shell)/capture/page.tsx"` + `grep -Fq 'trash' "app/(shell)/capture/page.tsx"` 各 exit 0(**page.tsx 内限定**)+ 既存ピン生存(CAPTURE_KINDS 3行・requireUser・機微情報・処理中)+ `dangerouslySetInnerHTML` 否定(capture 配下)。
 5. **契約・正典**: `grep -Fq 'deleted_at' .claude/rules/capture.md` / `grep -q "capture-trash" .claude/rules/capture.md` / `grep -q "capture-trash" docs/design/basic/capture-triage.md` 各 exit 0(読み替えの実体は人間レビュー補完 — CT-1 と同受容)。
 6. **凍結・閉包**:
@@ -103,7 +109,7 @@
 7. **回帰・実機**: `npm run build` exit 0(.env 非接触・`docker compose run --rm -T -e DATABASE_URL=postgres://dummy:dummy@db:5432/dummy app npm run build` 形)→ app 復帰 /login 200 + 未認証 GET /capture = 307(curl -L なし)。
 8. **新規依存なし**: package diff exit 0(6a に包含)。
 
-**手動確認**(機械判定外): 行のゴミ箱ボタン → 一覧・バッジから即消える → 「ゴミ箱を表示」→ 削除済み一覧 → 復元 → 受信箱に status ごと戻りバッジ連動。壁打ち・保存・状態トリアージの既存動作が無事。
+**手動確認**(機械判定外): **未処理(open)の行**のゴミ箱ボタン → 一覧・バッジから即消える(処理中/完了の行の削除は一覧から消えるがバッジは元々非計上 — 表現の正確化)→ 「ゴミ箱を表示」→ 削除済み一覧 → 復元 → 受信箱に status ごと戻りバッジ連動。壁打ち・保存・状態トリアージの既存動作が無事。
 
 ## 5. M5 設計への申し送り
 
@@ -114,13 +120,14 @@
 ## 実装の分割と禁止事項
 
 - **/goal CT-2(1 goal)**: executor = frontend-engineer・**ターン上限 15**・節目 commit: (a) 0007 + データ層 + action + テスト緑(直前に条件6c) (b) UI + build 緑。0007 の down は Write ツール・ローカル適用は `psql < ファイル` リダイレクト形。**capture.md / capture-triage.md の注記(条件5)と Neon ブランチ検証(0007)は主セッション**。
-- 禁止: §2 の変更対象以外の変更・新設(`.bak` 等の類似名も)禁止。物理 DELETE 文・status/deleted_at 以外への UPDATE・processed_at / curated_ref / kind / body / topic / tags への書き込み・.env(退避含む)・globals.css・.claude/(capture.md は主セッションのみ)・docs(注記は主セッションのみ)・既存テスト・実 API キー・実ネットワークテスト。SQL は大文字規約。bash で SSoT repo 名と `>` を同時に含めない。build 後 next-env.d.ts 汚れは `git checkout --`。
+- 禁止: §2 の変更対象以外の変更・新設(`.bak` 等の類似名も)禁止。物理 DELETE 文・status/deleted_at 以外への UPDATE・processed_at / curated_ref / kind / body / topic / tags への書き込み・**InboxRow 型の変更(deletedAt を足さない — R1 High の決着)**・**コメントへの `UPDATE capture_inbox` リテラル(count=3 汚染防止)**・.env(退避含む)・globals.css・.claude/(capture.md は主セッションのみ)・docs(注記は主セッションのみ)・既存テスト・実 API キー・実ネットワークテスト。SQL は大文字規約。bash で SSoT repo 名と `>` を同時に含めない。build 後 next-env.d.ts 汚れは `git checkout --`。
 
 ## 6. 未解決の問い
 
-1. ゴミ箱の保持期限・自動空化(v1 なし — 実利用後)。
+1. ゴミ箱の保持期限・自動空化(v1 なし — 実利用後。期限設計時は「物理 DELETE 禁止」との整合(匿名化/アーカイブ等)を再検討)。
 2. ゴミ箱一覧の上限(v1 は listInbox と同じクランプ 1..100・既定 50)。
 3. M5 消費からの除外(§5 — M5 設計で確定)。
+4. **削除済み行が M5 に書き戻される窓の UI 注記**(「削除しても整理ループは対象にし得る」等)の要否 — M5 設計まで保留(削除ユースケースに「撤回」が含まれるなら M5 で除外を採る前提)。
 
 ## 次の手順
 
