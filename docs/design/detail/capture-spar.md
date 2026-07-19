@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS capture_inbox (
 ```
 
 - 書き込みは **INSERT のみ**(processed_at / curated_ref / tags は触らない — tags は DDL 既定 `'{}'` に任せ INSERT 列に含めない)。
-- UPDATE / DELETE を capture_inbox に発行しない(§5 禁止事項)。
+- UPDATE / DELETE を capture_inbox に発行しない(§5 禁止事項)。**※ 追随注記(capture-triage・2026-07-19)**: この UPDATE 禁止は M4 goal の範囲制約 — その後 **capture-triage(0006 の status 列)で「status 単列・本人行のみの UPDATE」に限定解除**された(§4 条件2 の `UPDATE[[:space:]]+capture_inbox` 否定 grep・§5 の同禁止事項も同様に読み替え。DELETE は引き続き禁止)。正典 = docs/design/basic/capture-triage.md。
 
 ## 2. 関数 / API インターフェース
 

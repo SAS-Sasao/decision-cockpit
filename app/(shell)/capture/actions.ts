@@ -1,12 +1,13 @@
 "use server";
 
 // 対象設計: docs/design/detail/capture-spar.md §2.2(app/(shell)/capture/actions.ts)
+//          docs/design/basic/capture-triage.md §1(updateCaptureStatus)
 //
 // capture_inbox への保存 Server Action。user_id はセッション由来のみ(input に含めない)。
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getUser } from "../../../lib/auth/user";
-import { insertCapture, type CaptureKind } from "../../../lib/data/capture";
+import { insertCapture, setCaptureStatus, type CaptureKind, type CaptureStatus } from "../../../lib/data/capture";
 
 export type SaveCaptureResult = { ok: true } | { ok: false; error: "unauthorized" | "bad_request" };
 
@@ -14,6 +15,18 @@ const CAPTURE_KIND_VALUES: readonly CaptureKind[] = ["status", "issue", "next_mo
 
 function isCaptureKind(value: string): value is CaptureKind {
   return (CAPTURE_KIND_VALUES as readonly string[]).includes(value);
+}
+
+const CAPTURE_STATUS_VALUES: readonly CaptureStatus[] = ["open", "in_progress", "done"];
+
+function isCaptureStatus(value: string): value is CaptureStatus {
+  return (CAPTURE_STATUS_VALUES as readonly string[]).includes(value);
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
 }
 
 export async function saveCapture(input: {
@@ -67,4 +80,43 @@ export async function saveCaptureFromForm(formData: FormData): Promise<void> {
   if (!result.ok) {
     redirect(`/capture?error=${result.error}`);
   }
+}
+
+export type UpdateCaptureStatusResult = SaveCaptureResult;
+
+/**
+ * capture_inbox.status の更新(本人行のみ — capture-triage)。status 3語彙・UUID 形式の id を
+ * 検証してから setCaptureStatus(status 単列の更新)を呼ぶ。rowCount 0(他人の行・不存在)は
+ * bad_request に潰す(存在の秘匿 — 列挙オラクルなし)。
+ */
+export async function updateCaptureStatus(input: {
+  id: string;
+  status: string;
+}): Promise<UpdateCaptureStatusResult> {
+  const user = await getUser();
+  if (!user) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  if (!isCaptureStatus(input.status)) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  if (!isValidUuid(input.id)) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  let rowCount: number;
+  try {
+    rowCount = await setCaptureStatus(user.id, input.id, input.status);
+  } catch {
+    return { ok: false, error: "bad_request" };
+  }
+
+  if (rowCount === 0) {
+    return { ok: false, error: "bad_request" };
+  }
+
+  revalidatePath("/capture");
+  return { ok: true };
 }
