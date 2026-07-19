@@ -4,6 +4,7 @@ import { isAdmin } from "../../lib/auth/roles";
 import { getLastSync, getUnprocessedInboxCount } from "../../lib/data/overview";
 import { signOutAction } from "../logout/actions";
 import { NavLink } from "../../components/nav-link";
+import { SparOverlay } from "./spar-overlay";
 
 // 共通シェル(サイドバー + トップバー)。
 // 対象設計: docs/design/detail/ui-shell.md §2.5(app/(shell)/layout.tsx)
@@ -155,23 +156,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
               ))}
             </div>
           </div>
-          <button
-            type="button"
-            disabled
-            title="M4 で実装予定"
-            style={{
-              background: "transparent",
-              border: "1px solid var(--accent-spar)",
-              color: "var(--accent-spar)",
-              borderRadius: 4,
-              padding: "6px 14px",
-              fontSize: 13,
-              opacity: 0.5,
-              cursor: "not-allowed",
-            }}
-          >
-            壁打ち
-          </button>
+          <SparOverlay />
         </header>
 
         <main style={{ flex: 1, padding: 24, minWidth: 0 }}>{children}</main>
