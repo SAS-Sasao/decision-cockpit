@@ -62,3 +62,15 @@
 | sec | **FAIL** | **High: 条件4 の `api.openai.com` 局所化 grep が lib/search/embedding.ts(112行・M2 既存・凍結対象)に必ずヒットし恒常 FAIL** — 実装側で回避不能・ゲート弱体化を誘発。Med: SparRef に excerpt が無く注入文脈がメタのみ — 基本設計の外部送信宣言「抜粋」と不一致(安全側だがドリフト防止ピンなし)。Low 3(spar-llm assert が本文のみ / NEXT_PUBLIC 縮小無言 / UPDATE・DELETE 否定 grep なし)。二層認証・コストガード・告知・CSRF・破壊的操作は現物照合で成立 |
 
 **総合: FAIL(sec)** → rev.2 で決着: `api.openai.com` の許容 = **llm.ts + embedding.ts(既存)の2箇所限定**(除外集合を修正・§5 表現も同旨)/ **excerpt をプロンプトに含める**(SparCtx 型・外部送信宣言と一致・応答 refs はメタのみ・grep ピン追加)/ revalidatePath は **next/cache を vi.mock**(try/catch は insertCapture のみ)/ spar-llm assert に鍵・プロンプト非包含を追加 / UPDATE・DELETE 否定 grep を条件2 に追加([[:space:]] 形)/ TOPK 1..20 は env サニタイズ(契約上限は MAX_LIMIT 側)と明文化 / NEXT_PUBLIC 縮小根拠(docs・tests の偽 FAIL 回避)明記 / M4-A に check-no-secrets 追加 / M4-B 実機2本明記 / 残 Low 受容明記。
+
+## Round 2 — 2026-07-19(rev.2 を sec 再レビュー)
+
+**sec PASS(残ギャップなし)** — G1〜G5 の反映を現物照合(embedding.ts:112 の URL・KnowledgeHit.excerpt 実在・[[:space:]] 形のシェル安全・fail-closed の exit 2 挙動)。rev.2 追補(check-no-secrets M4-A 追加・実機2本・TOPK 位置づけ・next/cache 決着)にも新矛盾なし。**全レンズ PASS 確定**(arch R1 / data R1 / sec R2)。
+
+### /goal への申し送り(Info・非ブロッキング)
+
+1. 条件4 の pipe 形 grep 2本は fail-open 受容済み — executor が「簡略化」名目で弱めない(fenced block を字面どおり転記)。人間レビュー補完前提。
+2. `grep -Fv` は行単位除外 — llm.ts / embedding.ts と部分一致する紛らわしいファイル名(.bak 等)を作らない。
+3. refs の excerpt 非包含の実体保証は tests/spar-route.test.ts の assert が担う(条件4 の `excerpt` ピンは prompt.ts への存在証明のみ)— 写像実装時に落とさない。
+4. SPAR_API_KEY の実値は sk-proj- / sk-svcacct- 形前提 — レガシー素形鍵運用に変わる場合は check-no-secrets の一般則(同一コミット追随)が発動。
+5. (data R1 Info)`count(` 否定 grep は小文字近似 — 実装で COUNT( と書かない。listInbox の並びは `ORDER BY created_at DESC, id DESC`(方向は本設計固定)。

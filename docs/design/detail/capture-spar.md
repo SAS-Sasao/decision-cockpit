@@ -1,7 +1,7 @@
 # 詳細設計: capture-spar(M4 キャプチャ + 壁打ち — SC-06)
 
 > 対象基本設計: docs/design/basic/capture-spar.md(design-review Round 2 全レンズ PASS・rev.3)
-> ステータス: rev.2(詳細 Round 1(arch/data PASS・sec FAIL: api.openai.com 恒常 FAIL ほか)反映済み → sec 再レビュー待ち)
+> ステータス: **PASS**(design-review 詳細 — arch R1 / data R1 / sec R2 で全レンズ PASS。reviews/capture-spar.md 参照)
 > 作成: 2026-07-19(主セッション執筆)
 
 ## 0. 申し送りの決着(reviews/capture-spar.md「detailed-design への申し送り」11件)
