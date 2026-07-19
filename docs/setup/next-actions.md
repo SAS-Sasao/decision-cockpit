@@ -1,18 +1,18 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-19 M4(capture + 壁打ち / SC-06)完了** — M4-A(フォーム + INBOX)/ M4-B(壁打ち /api/spar + パネル)/ **M4-FIX**(Neon Auth SDK の POST 欠陥への proxy GET 正規化)/ **SPAR-OV**(トップバー壁打ちボタン活性化・全画面スライドオーバー)/ **CT-1**(INBOX 状態管理: 未処理/処理中/完了 + バッジ連動)すべて judge PASS。
-> **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion / M3 / M4 完了**(テスト**355件**緑・38ファイル)。
-> ローカル db = timeline_records 7,838行 + board_items 59行 + **capture_inbox 稼働**(status 列 = open/in_progress/done・0006 適用済み)。壁打ちは実応答確認済み(SPAR env 設定済み・gpt-4o-mini・文脈 = pgvector 判断 top-3)。
-> **本番未適用マイグレーション: 0003 → 0004 → 0005 → 0006**(Vercel 展開時にこの順で人間承認のうえ適用。いずれも Neon ブランチ検証済み)。
+> 状態スナップショット: **2026-07-20 CT-2(INBOX ゴミ箱 — 論理削除 + 復元)完了・capture 系フル装備** — M4-A/M4-B(capture + 壁打ち)/ M4-FIX(SDK POST 欠陥回避)/ SPAR-OV(全画面スライドオーバー)/ CT-1(状態トリアージ)/ **CT-2(deleted_at 論理削除・ゴミ箱表示 ?trash=1・復元・バッジ連動)** すべて judge PASS。
+> **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion / M3 / M4(+CT-1/CT-2)完了**(テスト**368件**緑・39ファイル)。
+> ローカル db = timeline_records 7,838行 + board_items 59行 + **capture_inbox 稼働**(status = open/in_progress/done・deleted_at 論理削除・0006/0007 適用済み)。壁打ちは実応答確認済み(SPAR env 設定済み・gpt-4o-mini・文脈 = pgvector 判断 top-3)。
+> **本番未適用マイグレーション: 0003 → 0004 → 0005 → 0006 → 0007**(Vercel 展開時にこの順で人間承認のうえ適用。いずれも Neon ブランチ検証済み)。
 > **⚠ 再埋め込み待ち 7,838行**(M3 の --force 同期由来・検索は現行埋め込みで正常稼働・バッチ実行時 ~$0.4 — 「バックフィルして」で実行)。
 > **⚠ 既知の SDK 欠陥(記録)**: @neondatabase/auth 0.4.2-beta の middleware は保護パスへの POST を常に 307 にする(get-session へ method 転送)— proxy.ts の GET 正規化ラッパーで回避中。**SDK 更新時はラッパー不要化と CSRF 前提(SameSite=strict)を再評価**。
 > **秘密情報は本ファイルに実値を書かない。**
 >
 > **▶ 次セッションの再開手順**:
-> - **🗑 capture INBOX のゴミ箱ボタン(論理削除)** — ユーザー要求(2026-07-19)。INBOX 行にゴミ箱ボタンを付け**論理削除**できるようにする(物理 DELETE は禁止規範のまま — 実現は 0007 で `deleted_at` 列 or status 語彙拡張のどちらか・設計時判断)。論点: 削除行の非表示(listInbox の WHERE)/ バッジ・M5 消費対象からの除外 / 復元 UI の要否 / capture.md 契約更新。**capture-triage と同じ軽量1枚設計 → 3レンズ → 小 goal(例: CT-2)** で1周。
-> - その後 **M5(自動整理ループ / Claude Action)設計** — capture 消費(processed_at)と status/論理削除の関係を確定(capture-triage §5・capture.md の申し送り参照)。SC-07 ユーザー管理の配置判断もこの前後。
+> - **M5(自動整理ループ / Claude Action)設計** — `/basic-design` から。**capture 消費契約の3点を一括決着**(capture.md・capture-triage §5・capture-trash §5 の申し送り): (1) 消費対象を `processed_at IS NULL AND deleted_at IS NULL`(+ status='open' に絞るか)に確定 (2) 処理完了時に status='done' へ揃えるか(行表記の正) (3) partial index の張り替え要否。加えて WARROOM_PAT・`claude setup-token`・許可パス(ai-war-room docs/logs, docs/decisions)・PR ゲートの CI 設計(.claude/rules/actions.md 準拠)。SC-07 ユーザー管理の配置判断もこの前後。
+> - (先行可)Vercel 展開: [`vercel-deploy.md`](./vercel-deploy.md) 手順 + 本番マイグレーション 0003→0007(人間承認)+ env 登録(EMBEDDING_*・SPAR_*・CRON_SECRET)。
 >
-> **2026-07-19 の完了サマリ**: capture-spar 設計(基本 2R + 詳細 2R 全レンズ PASS)→ M4-A/M4-B(judge PASS)→ 実機で SDK の POST 欠陥発見 → M4-FIX(proxy GET 正規化・judge PASS)→ spar-overlay(設計→レビュー→実装・judge PASS)→ capture-triage(設計 2R → CT-1・judge PASS・0006 Neon ブランチ検証済み)。壁打ち・保存・状態トリアージすべて実機確認済み。
+> **2026-07-19〜20 の完了サマリ**: capture-spar 設計(基本 2R + 詳細 2R 全レンズ PASS)→ M4-A/M4-B(judge PASS)→ 実機で SDK の POST 欠陥発見 → M4-FIX(proxy GET 正規化)→ spar-overlay(全画面スライドオーバー)→ capture-triage(CT-1: status トリアージ + バッジ連動・0006)→ **capture-trash(CT-2: deleted_at 論理削除・ゴミ箱一覧・復元・0007 — InboxRow 不変 + TrashRow 専用型で凍結例外ゼロ・全5 SQL 面に user_id 二重ゲート)**。すべて judge PASS・実機確認済み。
 >
 > **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/ モデル切替時は検索が一時 0件(ガードの過渡状態)/ Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536` / **`SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY`(壁打ち — 3つとも明示必須・未設定時は壁打ちのみ 4xx)** / CRON_SECRET。
 
@@ -97,6 +97,7 @@ org-docs-ingestion 設計時の必須論点:
 - **M4(capture + 壁打ち)完了**(2026-07-19): capture-spar 設計(基本 2R + 詳細 2R 全レンズ PASS — 認証二層化・外部送信2系統・fail-closed dispatch)→ M4-A(フォーム + INBOX)・M4-B(lib/spar + /api/spar + パネル)judge PASS。**M4-FIX**: SDK middleware の POST 欠陥(get-session へ method 転送 → 保護パス POST が常に 307)を実機で発見・proxy.ts の GET 正規化ラッパーで回避(judge PASS)
 - **spar-overlay 完了**(2026-07-19): トップバー壁打ちボタン活性化・全画面スライドオーバー(SparPanel 再利用・layout ボタン置換のみ・judge PASS)
 - **capture-triage(CT-1)完了**(2026-07-19): 0006 status 列(open/in_progress/done)+ INBOX 状態ボタン + バッジ連動(user_id 完全形ピン・UPDATE 単一性ゲート)。capture.md 契約更新済み・0006 ブランチ検証済み・本番未適用
+- **capture-trash(CT-2)完了**(2026-07-20): 0007 deleted_at 論理削除 + ゴミ箱ボタン + `?trash=1` 一覧 + 復元(InboxRow 不変 + TrashRow 専用型で凍結例外ゼロ・UPDATE 3本ゲート・全5 SQL 面 user_id 二重ゲート)。capture.md 契約更新済み・0007 ブランチ検証済み・本番未適用
 
 ## 関連ドキュメント
 
