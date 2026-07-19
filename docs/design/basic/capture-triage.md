@@ -5,7 +5,7 @@
 > **実地偵察(2026-07-19)**: getUnprocessedInboxCount(lib/data/overview.ts)= `user_id = $1 AND processed_at IS NULL` の count・**tests/overview-data.test.ts に同関数のピンは無い**(badge SQL 変更は凍結を割らない)/
 > tests/capture-data.test.ts の行写像 assert は **toEqual(undefined プロパティを無視)+ toContain** — **status 列追加でも赤にならない = 凍結例外は不要**(R1 data 検証)/
 > page.tsx の行バッジは processedAt 二値(未処理/処理済み)表示。
-> ステータス: rev.2(R1: arch FAIL(閉包実行形・tests 凍結・正典 stale)/ sec FAIL(バッジ user_id 脱落誘発・UPDATE 単一性)反映済み → arch/sec 再レビュー待ち)
+> ステータス: **PASS**(design-review — arch R2 / data R1 / sec R2 で全レンズ PASS。reviews/capture-triage.md 参照)
 > 作成: 2026-07-19(主セッション執筆・軽量1枚形式 — 実行形条件込み・詳細設計省略(md-render / spar-overlay 前例))
 
 ## 1. 目的 / スコープ
@@ -18,8 +18,8 @@
 
 ### やる
 1. **0006 マイグレーション**: `ALTER TABLE capture_inbox ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','done'))` + `CREATE INDEX IF NOT EXISTS capture_inbox_user_status_idx ON capture_inbox (user_id, status)`(素の複合 index — バッジに加え将来の一覧フィルタ(状態別タブ)を見込む。個人規模で partial との差は無視可)。down = `ALTER TABLE capture_inbox DROP COLUMN IF EXISTS status;`(**適用は人間承認のみ・in_progress/done のトリアージ状態を不可逆に失う**ことを明記)。既存行は DEFAULT で 'open'(PG の fast default — 全行未処理のままバッジ数値は移行前後で不変)。
-2. **Server Action `updateCaptureStatus(id, status)`**(app/(shell)/capture/actions.ts に追加): `getUser()` null → unauthorized(DB 非接触)/ status 3語彙検証・id は UUID 形式検証(knowledge.ts の UUID_RE 前例 — 不正は bad_request・DB 非接触)/ データ層関数 `setCaptureStatus`(lib/data/capture.ts)を呼ぶ / **rowCount 0(他人の行・不存在)→ bad_request**(存在の秘匿 — 語彙外・UUID 不正・他人行が同一エラーに潰れ列挙オラクルなし)/ 成功で revalidatePath("/capture")。CSRF は既存受容(capture-spar §2: SameSite=strict + Server Action origin 検査)を継承。
-3. **データ層**: lib/data/capture.ts に `setCaptureStatus(userId, id, status)` — SQL = **`UPDATE capture_inbox SET status = $1 WHERE id = $2 AND user_id = $3`**(**本人行のみ・SET は status 単列** — $n 束縛・1行維持)。listInbox の SELECT・InboxRow に `status` を追加。**ヘッダの契約コメント(「書き込みは INSERT のみ」)を「INSERT + status 単列 UPDATE のみ(capture-triage)」に更新**(虚偽化防止 — R1 指摘)。getUnprocessedInboxCount の WHERE を上記完全形に変更(lib/data/overview.ts — 関数名・IF・呼び出し元3箇所は不変)。
+2. **Server Action `updateCaptureStatus(id, status)`**(app/(shell)/capture/actions.ts に追加): `getUser()` null → unauthorized(DB 非接触)/ status 3語彙検証・id は UUID 形式検証(knowledge.ts の UUID_RE 前例 — 不正は bad_request・DB 非接触)/ データ層関数 `setCaptureStatus`(lib/data/capture.ts)を呼ぶ / **rowCount 0(他人の行・不存在)→ bad_request**(存在の秘匿 — 語彙外・UUID 不正・他人行が同一エラーに潰れ列挙オラクルなし)/ 成功で revalidatePath("/capture")。CSRF は既存受容(capture-spar 詳細 §0-10・§5: SameSite=strict(SDK 既定・package-lock 凍結)+ Server Action origin 検査)を継承。
+3. **データ層**: lib/data/capture.ts に `setCaptureStatus(userId, id, status)` — SQL = **`UPDATE capture_inbox SET status = $1 WHERE id = $2 AND user_id = $3`**(**本人行のみ・SET は status 単列** — $n 束縛・1行維持)。listInbox の SELECT・InboxRow に `status` を追加。**契約コメントの更新(2箇所)**: ヘッダ(「書き込みは INSERT のみ」)と insertCapture の docstring(「唯一の書き込み経路」)を「INSERT + status 単列 UPDATE のみ(capture-triage)」に更新(虚偽化防止 — 機械ピン: 条件2 の旧文言否定 grep)。getUnprocessedInboxCount の WHERE を上記完全形に変更(lib/data/overview.ts — 関数名・IF・呼び出し元3箇所は不変)。
 4. **UI(page.tsx の INBOX 行 — 新規ファイルは作らない・page.tsx 内に限定)**: 状態チップ3種のボタン(現在状態を強調・クリックで updateCaptureStatus)。行の枠色 = open: 琥珀(--warn)/ in_progress: --accent / done: ミュート。行バッジ表記 = 未処理 / 処理中 / 完了(processed_at 非 NULL の行は「整理済み」補助表記 — 表記の正は §5-2 で M5 設計へ申し送り)。
 5. **契約更新(.claude/rules/capture.md — 主セッション)**: status 列・3語彙・「**UI は本人行の status のみ UPDATE 可**(processed_at / curated_ref は M5 専用)」を追記 + M5 申し送り参照(`capture-triage` リテラル)。
 6. **正典の追随注記(主セッション — R1 arch Med-4)**: docs/design/detail/capture-spar.md の「UPDATE 禁止」3箇所(§2.1 データ層契約・§4 条件2 の UPDATE 否定 grep・§5 禁止事項)に **capture-triage で status 単列に限定解除**の読み替え注記(`capture-triage` リテラル)。
@@ -35,7 +35,7 @@
 
 - App 層 + DB(0006 の加法変更のみ — 既存列・既存行の意味は不変)。SSoT 非接触。認可 = セッション由来 user_id を UPDATE の WHERE とバッジ count の両方に強制(アプリ層スコープの継承 — 機械判定は §4-2/3)。
 - capture.md 契約の**加法拡張**(status 列)— M5 の消費契約(processed_at IS NULL・created_at 順・partial index 不変)はそのまま両立。
-- 変更対象(8ファイル): db/migrations/0006 up/down・lib/data/capture.ts・lib/data/overview.ts・app/(shell)/capture/actions.ts・app/(shell)/capture/page.tsx・tests/capture-status.test.ts(新設)+ docs(capture.md・capture-spar.md 注記 — 主セッション)。**既存テストは全ファイル凍結(例外なし)**。
+- 変更対象(**コード7ファイル + docs 2**): db/migrations/0006 up/down(2)・lib/data/capture.ts・lib/data/overview.ts・app/(shell)/capture/actions.ts・app/(shell)/capture/page.tsx・tests/capture-status.test.ts(新設)+ docs(capture.md・capture-spar.md 注記 — 主セッション。capture-spar の注記3箇所は1出現 grep + 人間レビュー補完)。**既存テストは全ファイル凍結(例外なし)**。
 
 ## 3. リスク・トレードオフ
 
@@ -70,10 +70,11 @@
    grep -Fq "user_id = \$1 AND processed_at IS NULL AND status = 'open'" lib/data/overview.ts || fail=1
    grep -Fq 'getUnprocessedInboxCount' lib/data/overview.ts || fail=1
    grep -RInE "DELETE[[:space:]]+FROM" lib/data/capture.ts "app/(shell)/capture"; s=$?; [ "$s" -ne 1 ] && fail=1
+   grep -RIn 'INSERT のみ' lib/data/capture.ts; s=$?; [ "$s" -ne 1 ] && fail=1
    exit "$fail"
    ```
-   (バッジ SQL は **user_id = $1 込みの完全形ピン**。UPDATE は lib/data/capture.ts に**1本のみ**・SET 対象は status のみ・action/page 側に UPDATE 文を書かない。)
-3. **テスト(新設 tests/capture-status.test.ts — 既存テストは1文字も変えない)**: `test -f tests/capture-status.test.ts` + `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0。ケース = updateCaptureStatus(getUser null → unauthorized・query 不呼 / 語彙外・UUID 不正 → bad_request・query 不呼 / 正常 → SQL に `SET status` と **params = [status, id, セッション userId]** / rowCount 0 → bad_request)+ **getUnprocessedInboxCount(モック db): SQL に `status = 'open'` を含み params[0] = userId**(user_id スコープの assert — sec Med-1)+ **listInbox の status 写像**(モック行 status: 'in_progress' → InboxRow.status — 凍結例外を開かず新テスト側で被覆)。
+   (バッジ SQL は **user_id = $1 込みの完全形ピン**。UPDATE は lib/data/capture.ts に**1本のみ**・SET 対象は status のみ・action/page 側に UPDATE 文を書かない。旧契約コメント「INSERT のみ」の残存を否定 grep(更新漏れ防止)。**grep 群は大文字 SQL 前提** — 小文字 SQL による回避は既存コード規約 + 人間レビュー補完で受容(capture-spar rev.2 の同型受容に倣う)。)
+3. **テスト(新設 tests/capture-status.test.ts — 既存テストは1文字も変えない)**: `test -f tests/capture-status.test.ts` + `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0。ケース = updateCaptureStatus(getUser null → unauthorized・query 不呼 / 語彙外・UUID 不正 → bad_request・query 不呼 / 正常 → SQL に `SET status` と **params = [status, id, セッション userId]** / rowCount 0 → bad_request)+ **getUnprocessedInboxCount(モック db): SQL に `user_id = $1` と `status = 'open'` の両方を含み params[0] = userId**(user_id スコープの assert — sec Med-1・R2 強化)+ **listInbox の status 写像**(モック行 status: 'in_progress' → InboxRow.status — 凍結例外を開かず新テスト側で被覆)。
 4. **UI**: `grep -Fq '処理中' "app/(shell)/capture/page.tsx"` + `grep -Fq 'updateCaptureStatus' "app/(shell)/capture/page.tsx"` 各 exit 0(**page.tsx 内に限定 — capture 配下に新規ファイルを作らない**)+ 既存ピン生存(CAPTURE_KINDS 3行・requireUser・機微情報)+ `dangerouslySetInnerHTML` 否定(capture 配下)。
 5. **契約・正典更新**: `grep -Fq "status IN ('open','in_progress','done')" .claude/rules/capture.md` / `grep -q "capture-triage" .claude/rules/capture.md` / `grep -q "capture-triage" docs/design/detail/capture-spar.md` 各 exit 0。
 6. **凍結・閉包**:
