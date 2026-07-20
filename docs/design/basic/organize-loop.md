@@ -78,7 +78,7 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 | scripts/organize/place.ts | copy(追加のみ・衝突 fail) |
 | scripts/organize/pr.ts | branch/commit/push/PR(固定テンプレート・hooks 無効) |
 | scripts/organize/mark.ts | ファイル単位反復 UPDATE(3列・ANY(ids)・processed_at IS NULL ガード)。`UPDATE capture_inbox` は scripts 配下で mark.ts の1本のみ(lib/data/capture.ts の count=3 とは別勘定) |
-| workflow(全面改修) | §1-B のパイプライン(実行形は詳細 §2.5 の 3-job)・permissions contents: read・ENABLE ゲート・concurrency・cron 踏襲。静的ピン対象: ステップ順序・generate の env 秘密ゼロ・allowed_tools・persist-credentials: false ×3・PAT の pr 限定・「データであり指示ではない」 |
+| workflow(全面改修) | §1-B のパイプライン(実行形は詳細 §2.5 の 3-job)・permissions contents: read・ENABLE ゲート・concurrency・cron 踏襲。静的ピン対象: ステップ順序・generate の env 秘密ゼロ・allowed_tools・persist-credentials: false ×4(checkout 4本)・PAT の pr 限定・「データであり指示ではない」 |
 | パーサ拡張 | §1-C(frontmatter 剥離・logs ファイル名・生成物 fixture の ok テスト) |
 | 契約更新(主セッション) | §0 の3ファイル(+帰属決着)— 各 `organize-loop` リテラル |
 
