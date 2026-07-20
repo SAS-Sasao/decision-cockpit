@@ -3,7 +3,8 @@
 組織メトリクス(GitHub: SAS-Sasao/cc-sier-organization)と判断ログ(SAS-Sasao/ai-war-room)の Markdown を
 SSoT として GitHub から自動同期し、Neon(Postgres + pgvector)に索引化、Next.js(App Router/TS・Vercel)で
 「今日 / ナレッジ検索 / 振り返り」の3画面を提供する個人用の統合意思決定コックピット。UI から作業メモ・課題・
-次の一手・壁打ちを入力でき、朝昼夜深夜の Claude Action がそれを整理して ai-war-room の MD に PR で書き戻す。
+次の一手・壁打ちを入力でき、朝昼夜深夜の Claude Action がそれを整理して **ai-war-room と cc-sier-organization の
+両方**の MD に PR で書き戻す(振り分けは内容ベース・許可パス限定 — organize-loop)。
 
 ## スタック
 - Next.js App Router / TypeScript / Vercel
@@ -12,7 +13,10 @@ SSoT として GitHub から自動同期し、Neon(Postgres + pgvector)に索引
 - 自動整理: GitHub Actions × claude-code-action(朝/昼/夜/深夜)
 
 ## 黄金ルール
-1. **元リポジトリ(cc-sier-organization / ai-war-room)へは書き込まない。** 読み取りは GitHub API 経由のみ。
+1. **元リポジトリ(cc-sier-organization / ai-war-room)へは、手元(開発セッション・executor)から書き込まない。**
+   索引のための読み取りは GitHub API 経由のみ。**唯一の例外 = Claude Action(CI)の PR 経由の書き戻し**(organize-loop)—
+   許可パスは ai-war-room の `docs/logs/`・`docs/decisions/` と cc-sier-organization の
+   `.companies/<org>/docs/decisions/`・`.companies/<org>/docs/todos/` に限定し、**追加のみ・削除禁止・main 直 push 禁止**。
 2. **秘密情報は直書きしない。** 接続文字列・APIキー・トークンは `.env.example` のプレースホルダのみ。
 3. **設計 → design-review(全レンズ PASS) → 実装。** /goal の対象は docs/design/ に設計があり PASS 済みのもの。
 4. **作業役と判定役を分離。** 設計は主セッション(human-in-loop)で執筆し critic には書かせない。実装は executor、
