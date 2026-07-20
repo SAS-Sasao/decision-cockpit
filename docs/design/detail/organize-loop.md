@@ -1,7 +1,8 @@
 # 詳細設計: organize-loop(M5 自動整理ループ)
 
-> 対象基本設計: docs/design/basic/organize-loop.md(**rev.8** — 詳細と調停済み・受け入れ条件は本書 §4 が正典)
-> ステータス: rev.8(詳細 R7: data FAIL(残1件)反映 — §0-H。**awk レンジの終端アンカーを実行形で保証**し、TZ 経路の silent な1日ずれを完全に閉じる)
+> 対象基本設計: docs/design/basic/organize-loop.md(最新版を参照 — **版数は書かない**(追随漏れの再発源。R8 G-3)。**受け入れ条件の正典は本書 §4**)
+> ステータス: **PASS**(design-review 詳細 — arch R6 / data R8 / sec R3 で全レンズ PASS。reviews/organize-loop.md 参照)。rev.9 = R8 の Low 4件吸収
+> (rev.8: 詳細 R7: data FAIL(残1件)反映 — §0-H。**awk レンジの終端アンカーを実行形で保証**し、TZ 経路の silent な1日ずれを完全に閉じる)
 > (rev.7: 詳細 R6: **arch PASS** / data FAIL 反映 — §0-G。TZ と date 算出の**同居を step レンジで機械保証** + checkFrontmatter の IF 修正)
 > (rev.6: 詳細 R5: arch・data FAIL 反映 — §0-F。**org 供給の断線を解消(rows.json の内容契約を確定)+ JST を計算主体に束縛**)
 > (rev.5: 詳細 R4: arch・data FAIL 反映 — §0-E。**date/slot の権威を workflow の `id: run` step に一本化 + JST/env/重複/契約の機械ピン化**。基本設計も rev.6 に再調停(命名規約))
@@ -381,12 +382,15 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    [ "$(grep -c 'upload-artifact' "$W")" = "3" ] || fail=1
    grep -Fq '--allowedTools "Read,Write(out/**)"' "$W" || fail=1
    # レンジの前提(両アンカーの存在と順序)を実行形で保証(R7 D-1 — R2 G-4 と同基準)
-   lr=$(grep -n 'id: run' "$W" | head -1 | cut -d: -f1); lc=$(grep -n 'id: checkout-cockpit' "$W" | head -1 | cut -d: -f1)
+   [ "$(grep -c 'id: run$' "$W")" = "1" ] || fail=1            # アンカーの一意性(id: run-verify 等での再開を封じる — R8 G-1)
+   [ "$(grep -c 'id: checkout-cockpit$' "$W")" = "1" ] || fail=1
+   lr=$(grep -n 'id: run$' "$W" | cut -d: -f1); lc=$(grep -n 'id: checkout-cockpit$' "$W" | cut -d: -f1)
    [ -n "$lr" ] && [ -n "$lc" ] && [ "$lr" -lt "$lc" ] || fail=1
+   [ "$((lc - lr))" -le 12 ] || fail=1                          # 両アンカーの近接(間に別 step を挟ませない — R8 G-1a)
    # 日付算出 step(id: run)の中に TZ と date +%F が**同居**することを保証(R6 G-1)
    awk '/id: run/,/id: checkout-cockpit/' "$W" | grep -Fq 'TZ: Asia/Tokyo' || fail=1
    awk '/id: run/,/id: checkout-cockpit/' "$W" | grep -Fq 'date +%F' || fail=1
-   grep -E 'date -u|toISOString|TZ=' "$W"; s=$?; [ "$s" -ne 1 ] && fail=1
+   grep -E 'date .*-u|date .*--utc|toISOString|TZ=' "$W"; s=$?; [ "$s" -ne 1 ] && fail=1   # オプション後置形も否定(R8 G-2)
    grep -Fq 'allowed_orgs から選ぶ' "$W" || fail=1
    grep -Fq '<date>-<slot>' "$W" || fail=1
    grep -Fq 'ORGANIZE_DATE' "$W" || fail=1
@@ -496,7 +500,9 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
 10. **allowed_orgs は env 定数**(R4 data G-7): SSoT の `.companies/*` 実体からは導出しない。**org の追加・改名時は `ORGANIZE_ALLOWED_ORGS` の更新が必要**(未更新だと正当な org が verify で拒否され run fail = 気づける方向の失敗)。
 11. **その他の受容**(R4 G-12〜G-16): 生成 decisions の `topic` は `fileSlug` 由来で `2026-07-20-morning-d01` の無意味値になる(現状 topic を読む経路がないため実害なし)/ verify の `DENY_WORDS` は normalize.ts の `DENY_PATTERNS` の手動複製で**ドリフト検知手段がない**(server-only 境界の代償 — §0-D-4)/ 多ユーザーガードと本体 SELECT は**別クエリ**(非トランザクション・個人環境で受容)。
 12. **既存 logs の error → ok 転帰**(R5 data L-1): `LOGS_RE` は `docs/logs/` 配下の全 `.md` を parseDailyLog に流すため、**現在 error 行として索引済みの `YYYY-MM-DD-<何か>.md` が FILENAME_RE 拡張により ok 行に転じ、本文が索引・埋め込みに入る**。還流の目的に沿うため受容(実データでの有無は条件8 の手動確認で観測)。
-13. **action のバージョンはメジャータグ運用**(R3 R-9): `actions/checkout@v4` / `upload-artifact@v4` / `claude-code-action@v1`。SHA 固定はしない(現行踏襲)— job A/C は secrets を持つため、上流侵害時の影響は受容範囲外に出る点を認識のうえ、更新時は挙動確認を行う。
+13. **org 名が denylist 語と衝突した場合**(R8 G-4): verify の `DENY_WORDS` は **basename のみ**を見る一方、取り込み側 `normalize.isDenied` は**パス全体**を部分一致で判定する。したがって org 名に deny 語(`profile` / `personality` / `minefield` / `.active` / `agent-memory` 等)を含む org を `ORGANIZE_ALLOWED_ORGS` に追加すると、**verify は通過 → SSoT に配置 → mark done → 索引側で黙って落ちる**(§4-R-4 の todos と同じ dangling `curated_ref`。ただし失敗の向きが「気づけない」側)。**allowed_orgs の設定時に deny 語を含まないことを人間が確認する**(§4-R-10 の env 更新運用の一部)。
+14. **日付の値の流路は機械判定外**(R8 G-2): `date +%F` の出力が `$GITHUB_OUTPUT` → `ORGANIZE_DATE` → `run.json` と流れる**配線**そのものはリテラル存在ピンでは押さえられない。結果側の検証は条件8 の手動確認(morning スロットの生成日付が JST 当日)が担う。
+15. **action のバージョンはメジャータグ運用**(R3 R-9): `actions/checkout@v4` / `upload-artifact@v4` / `claude-code-action@v1`。SHA 固定はしない(現行踏襲)— job A/C は secrets を持つため、上流侵害時の影響は受容範囲外に出る点を認識のうえ、更新時は挙動確認を行う。
 
 ## 5. 実装の分割(/goal 単位)と禁止事項
 

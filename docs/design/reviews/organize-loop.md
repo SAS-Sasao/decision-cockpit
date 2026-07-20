@@ -45,3 +45,72 @@
 6. step5 checkout の token 設計(PAT 入力)とピン文言の整合・pr.ts の push 認証形。
 7. cc-sier decisions/ の既存 MD 規約の現物偵察(生成規約との整合)。
 8. workflow 静的ピンの実行形(fenced block 化)と M5-A/M5-B の条件割付・FROZEN_TESTS_M5 全列挙(scripts/organize・parsers 例外2 + テスト2 を除く)。
+
+---
+
+# 詳細設計(docs/design/detail/organize-loop.md)
+
+## Round 1 — 2026-07-20
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | High: 還流の主張がパーサ契約と構造矛盾(logs の slot 付きファイル名・frontmatter 先頭が両パーサの1行目 H1 契約と衝突 → 生成物が全て error 行化)。Med 6・Low 群 |
+| data | **FAIL** | High 3(同・パーサ適合の機械判定ゼロ)。Med(mark IF が集約粒度と矛盾・重複を合併一致が素通し)ほか |
+| sec | **FAIL** | **High 3: persist-credentials 残留で generate 中の直 push / Claude が verify・mark スクリプトを改ざん可能 / 機微ファイル読み取り流出が verify で検知不能**。Med 11 |
+
+→ rev.2: **3-job 分離**(Claude の job に checkout・secrets・スクリプト実体が存在しない構造)+ パーサ拡張の編入 + 帰属の決着。
+
+## Round 2 — 2026-07-20
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | G-1: `persist-credentials: false` の count が 3(実際は checkout 4本)— **ピンが誤った是正(guard 外し)を誘導** |
+| data | **PASS**(Med 1) | High 3件の決着を現物突合。Med: revalidatePath 相当の穴なし・残 Low |
+| sec | **FAIL** | B-2: `--name-status` 検査が commit 後で常に空振り / B-3: artifact に capture 本文が既定90日永続 / B-4: 機微ファイル文言の脱落 |
+
+→ rev.3: count 修正・検査順序の是正・`retention-days: 1`・固定文言の復帰。
+
+## Round 3 — 2026-07-20
+
+| レンズ | 判定 | 核心 |
+|---|---|---|
+| arch | **FAIL** | A-1: **CI 層 → Ingestion 層の import 境界が未宣言**(server-only は tsx で throw・テスト緑のまま CI だけ落ちる false-green) |
+| data | **FAIL** | **D-5: 前進保証がない**(denylist 語が日常語 → slug 混入 → run 全体 fail → キュー先頭が恒久停止 = livelock)/ **D-6: date/slot を供給する主体が存在しない** |
+| sec | **PASS** | 3-job 分離で High-1/2/3 が構造的に消滅したことを確認 |
+
+→ rev.4: **ファイル名の決定化(slug 廃止)**で livelock の発火源を除去 + **`state/run.json`** で date/slot/org をアンカー化 + frontmatter.ts を依存ゼロの純モジュールに。
+
+## Round 4・5・6 — 2026-07-20
+
+| ラウンド | arch | data | 決着 |
+|---|---|---|---|
+| R4 | FAIL(pr の date 供給・clone 契約・server-only grep の不発) | FAIL(date 権威の二重化・JST の機械ピンゼロ・org 供給断線) | rev.5: 権威を workflow step に一本化・ingestion.md を契約更新に追加・許可リスト形の import ピン |
+| R5 | FAIL(G-A: allowed_orgs が job B に届かない) | FAIL(B-1 同・B-2 JST が存在ピンのみ) | rev.6: **rows.json の内容契約を確定**(`{date, slot, allowed_orgs, rows}`)+ `date +%F` の契約化 |
+| R6 | **PASS** | FAIL(TZ と date の同居が未保証・checkFrontmatter に manifest が渡らない) | rev.7: **step レンジで同居を検査**(`id: run` 〜 `id: checkout-cockpit`)+ IF 修正 |
+
+## Round 7・8 — 2026-07-20(最終)
+
+| ラウンド | data | 決着 |
+|---|---|---|
+| R7 | FAIL(D-1: **awk レンジの終端アンカーが未ピン** — 失効するとレンジが EOF まで広がり TZ 経路が復活) | rev.8: **両アンカーの存在 + 行番号順序を実行形で保証**(R2 G-4 と同基準)+ §5 で id の削除・改名を禁止 + 条件8 に JST 当日の手動確認 |
+| R8 | **PASS** | 供給鎖(算出 → env → run.json → verify / pr)が端から端まで機械ピンで閉じたことを確認。残 Low 4件を rev.9 で吸収(アンカーの一意性・近接性 / `date` オプション後置形の否定 / 版ポインタから版数を撤去 / org 名の deny 語衝突を §4-R に明記) |
+
+**総合: PASS(全レンズ — arch R6 / data R8 / sec R3)**
+
+### 最終的な防御構造(8ラウンドの帰結)
+
+1. **3-job 分離**: Claude が動く job には checkout・node_modules・`.git`・workflow secrets のいずれも存在しない(改ざん対象が同一 FS に無い)。
+2. **信頼アンカーの非対称**: `state/ids.json`(分割一致の基準)は job B に渡さない。date/slot/allowed_orgs は決定に必要なので渡すが、**verify は必ず run.json 基準**で突合。
+3. **決定的ファイル名**: 自由語 slug を廃止し `<date>-<slot>[-d<nn>]` に固定 — denylist 衝突による **livelock の発火源を構造的に除去**。
+4. **CI 内 judge(verify)**: 許可パス正規化・ソース域限定・分割一致・H1・frontmatter(capture_ids 集合一致含む)・org・重複 path・run メタ書式。
+5. **DB 専用ロール**: organize_bot(SELECT 10列 / UPDATE 3列)で**被害上限を3列 UPDATE に封じ込め**。
+6. **多ユーザーガード**: `count(DISTINCT user_id) ≥ 2` で run fail(単一ユーザー前提の破れを機械検知)。
+7. **PR ゲート**: force / main push の否定・`git add --` のパス列挙・`--name-status` 全 A(commit 前)・branch protection(条件8)。
+8. **人間レビュー**: 最終防御。機械で検知できない範囲(内容の持ち出し・意味論の妥当性)は §4-R に受容として宣言。
+
+### /goal への申し送り(Info)
+
+1. 条件3 の awk レンジは `id: run` / `id: checkout-cockpit` の**一意性・順序・近接(12行以内)**に依存する — workflow 編集時に壊さない(§5 禁止事項)。
+2. 条件4 のケース名 grep は**抜き取り**(主要ケースが黙って落とされていないことまで)。アサーションの妥当性は人間レビュー。
+3. §4-R の15項目は**既知の制限の受容宣言** — M5 で解決しない事項(provenance 非索引化・タグ床なし・todos 非還流・head-of-line ほか)は M6 送りとして明示済み。
+4. M5-B は主セッション実施だが**判定は acceptance-judge**(黄金ルール4)。
