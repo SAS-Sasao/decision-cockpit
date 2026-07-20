@@ -25,6 +25,25 @@ case "$cmd" in
   *"DELETE FROM"*)                                              deny "生の DELETE は禁止" ;;
 esac
 
+# --- ローカル DB ボリュームの破棄(2026-07-20 の全データ消失事故の再発防止) ---
+# docker compose down に -v / --volumes が付くと cockpit-db-data が削除され、
+# timeline_records / board_items / **capture_inbox(SSoT に無い唯一のデータ)** が消える。
+case "$cmd" in
+  *"docker compose down"*|*"docker-compose down"*)
+    case "$cmd" in
+      *" -v"*|*"--volumes"*|*"-v "*)
+        deny "docker compose down -v は禁止(DB ボリューム = 全データが消える。capture_inbox は SSoT から復元できない)。コンテナだけ落とすなら -v なしの 'docker compose down' か 'docker compose stop' を使うこと" ;;
+    esac ;;
+esac
+case "$cmd" in
+  *"docker volume rm"*|*"docker volume prune"*)                 deny "docker volume rm/prune は禁止(cockpit-db-data が消える)" ;;
+  *"docker system prune"*)                                       deny "docker system prune は禁止(未使用ボリューム/イメージを巻き込む)" ;;
+  *cockpit-db-data*)
+    case "$cmd" in
+      *" rm"*|*prune*)                                          deny "cockpit-db-data(DB ボリューム)の削除は禁止" ;;
+    esac ;;
+esac
+
 # --- 元 repo(SSoT)への書き込み兆候 ---
 case "$cmd" in
   *cc-sier-organization*|*ai-war-room*)
