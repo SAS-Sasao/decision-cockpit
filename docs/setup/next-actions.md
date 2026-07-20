@@ -1,20 +1,38 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-20 CT-2(INBOX ゴミ箱 — 論理削除 + 復元)完了・capture 系フル装備** — M4-A/M4-B(capture + 壁打ち)/ M4-FIX(SDK POST 欠陥回避)/ SPAR-OV(全画面スライドオーバー)/ CT-1(状態トリアージ)/ **CT-2(deleted_at 論理削除・ゴミ箱表示 ?trash=1・復元・バッジ連動)** すべて judge PASS。
-> **M0 / M1 / ui-shell / ui-polish / M2 / md-render / org-docs-ingestion / M3 / M4(+CT-1/CT-2)完了**(テスト**368件**緑・39ファイル)。
-> ローカル db = timeline_records 7,838行 + board_items 59行 + **capture_inbox 稼働**(status = open/in_progress/done・deleted_at 論理削除・0006/0007 適用済み)。壁打ちは実応答確認済み(SPAR env 設定済み・gpt-4o-mini・文脈 = pgvector 判断 top-3)。
-> **本番未適用マイグレーション: 0003 → 0004 → 0005 → 0006 → 0007**(Vercel 展開時にこの順で人間承認のうえ適用。いずれも Neon ブランチ検証済み)。
-> **⚠ 再埋め込み待ち 7,838行**(M3 の --force 同期由来・検索は現行埋め込みで正常稼働・バッチ実行時 ~$0.4 — 「バックフィルして」で実行)。
-> **⚠ 既知の SDK 欠陥(記録)**: @neondatabase/auth 0.4.2-beta の middleware は保護パスへの POST を常に 307 にする(get-session へ method 転送)— proxy.ts の GET 正規化ラッパーで回避中。**SDK 更新時はラッパー不要化と CSRF 前提(SameSite=strict)を再評価**。
+> 状態スナップショット: **2026-07-20 M5(自動整理ループ / organize-loop)完了** — M5-A(0008 + scripts/organize 5本 + パーサ拡張)/
+> M5-B(3-job workflow + generate プロンプト + 契約4ファイル改定)とも judge PASS。**M0〜M5 完了**(テスト **450件**緑・44ファイル)。
+> **⚠ 同日 DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
+> ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
+> タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
+> **本番未適用マイグレーション: 0003 → 0004 → 0005 → 0006 → 0007 → 0008**(Vercel 展開時にこの順で人間承認のうえ適用。
+> 0008 は 0003→0008 の連鎖適用を Neon ブランチで検証済み)。
+> **⚠ 既知の SDK 欠陥(記録)**: @neondatabase/auth 0.4.2-beta の middleware は保護パスへの POST を常に 307 にする —
+> proxy.ts の GET 正規化ラッパーで回避中。**SDK 更新時はラッパー不要化と CSRF 前提(SameSite=strict)を再評価**。
+> **概観の「今週」KPI が空なのは正常**(週の切り替わり — 組織側 score/quality の最新が先週分。新しい記録が入れば埋まる)。
 > **秘密情報は本ファイルに実値を書かない。**
 >
-> **▶ 次セッションの再開手順**:
-> - **M5(自動整理ループ / Claude Action)設計** — `/basic-design` から。**capture 消費契約の3点を一括決着**(capture.md・capture-triage §5・capture-trash §5 の申し送り): (1) 消費対象を `processed_at IS NULL AND deleted_at IS NULL`(+ status='open' に絞るか)に確定 (2) 処理完了時に status='done' へ揃えるか(行表記の正) (3) partial index の張り替え要否。加えて WARROOM_PAT・`claude setup-token`・許可パス(ai-war-room docs/logs, docs/decisions)・PR ゲートの CI 設計(.claude/rules/actions.md 準拠)。SC-07 ユーザー管理の配置判断もこの前後。
-> - (先行可)Vercel 展開: [`vercel-deploy.md`](./vercel-deploy.md) 手順 + 本番マイグレーション 0003→0007(人間承認)+ env 登録(EMBEDDING_*・SPAR_*・CRON_SECRET)。
+> **▶ 次セッションの再開手順**(どれから始めてもよい):
+> 1. **🔧 コールドスタートのタグ空問題の恒久修正**(下記「事故と再発防止」の既存バグ)— **本番初回同期でも必ず起きる**ため
+>    Vercel 展開の前に片付けるのが望ましい。`run-sync.ts` の vocab 読み込み順(masters を先に処理 or 遅延ロード)を
+>    軽量1枚設計 → 3レンズ → 小 goal で1周。あわせて `npx tsc --noEmit` の2件エラー(scripts のトップレベル関数名衝突)も修正。
+> 2. **🚀 Vercel 展開**: [`vercel-deploy.md`](./vercel-deploy.md) + 本番マイグレーション **0003→0008**(人間承認)+
+>    env 登録(EMBEDDING_* / SPAR_* / CRON_SECRET)+ 本番初回同期(**タグ問題の回避策 = 2回走らせる**)+ 埋め込みバックフィル。
+> 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
+>    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
+> 4. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
+>    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
-> **2026-07-19〜20 の完了サマリ**: capture-spar 設計(基本 2R + 詳細 2R 全レンズ PASS)→ M4-A/M4-B(judge PASS)→ 実機で SDK の POST 欠陥発見 → M4-FIX(proxy GET 正規化)→ spar-overlay(全画面スライドオーバー)→ capture-triage(CT-1: status トリアージ + バッジ連動・0006)→ **capture-trash(CT-2: deleted_at 論理削除・ゴミ箱一覧・復元・0007 — InboxRow 不変 + TrashRow 専用型で凍結例外ゼロ・全5 SQL 面に user_id 二重ゲート)**。すべて judge PASS・実機確認済み。
+> **2026-07-20 の完了サマリ**: capture-trash(CT-2)→ **organize-loop 設計(基本3R + 詳細8R の全レンズ PASS** — livelock・
+> 時間軸汚染・PAT 流出経路・スクリプト改ざん経路などを実装前に構造で除去)→ **M5-A**(0008 + 消費スクリプト5本 +
+> frontmatter 剥離とパーサ拡張で**還流を実際に閉じた**)→ **M5-B**(3-job 分離 workflow + プロンプト + 契約4ファイル改定)。
+> 途中で DB 全消失事故が発生し、**復旧 + 再発防止(guard hook + ルール + runbook)まで完了**。
 >
-> **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/ モデル切替時は検索が一時 0件(ガードの過渡状態)/ Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536` / **`SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY`(壁打ち — 3つとも明示必須・未設定時は壁打ちのみ 4xx)** / CRON_SECRET。
+> **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/
+> **空 DB からの初回同期はタグが付かない(2回走らせる)** / モデル切替時は検索が一時 0件(ガードの過渡状態)/
+> **DB ボリュームの破棄は禁止**(guard-bash.sh で遮断・復旧は [`db-recovery.md`](./db-recovery.md))/
+> Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536` /
+> `SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY` / `CRON_SECRET`。
 
 ---|---|---|
 | `daily-digest/` | 94ファイル(日付付き・7〜60KB) | 組織活動の日次サマリ — タイムライン素材そのもの |
@@ -93,7 +111,7 @@ M5-A の executor 稼働中に発生。
 | いつ | やること |
 |---|---|
 | **M4**(capture + 壁打ち) | SC-06 実装(capture_inbox 契約 = .claude/rules/capture.md 準拠・user_id 所有・kind 4語彙)。SC-07 ユーザー管理の配置判断もここで |
-| **M5**(自動整理・**実装完了**) | 有効化手順は下記「🤖 整理ループの有効化」を参照 |
+| **M5**(自動整理・**実装完了 2026-07-20**) | 有効化手順は下記「🤖 整理ループの有効化」を参照 |
 | Vercel 展開時 | **手順書あり: [`vercel-deploy.md`](./vercel-deploy.md)**(事前条件・環境変数・Cron・初回同期・トラブルシュートまで記載。現時点でデプロイ不要) |
 
 ## 🤖 整理ループ(M5 organize-loop)の有効化 — あなたの操作
@@ -142,6 +160,7 @@ M5-A の executor 稼働中に発生。
 - **spar-overlay 完了**(2026-07-19): トップバー壁打ちボタン活性化・全画面スライドオーバー(SparPanel 再利用・layout ボタン置換のみ・judge PASS)
 - **capture-triage(CT-1)完了**(2026-07-19): 0006 status 列(open/in_progress/done)+ INBOX 状態ボタン + バッジ連動(user_id 完全形ピン・UPDATE 単一性ゲート)。capture.md 契約更新済み・0006 ブランチ検証済み・本番未適用
 - **capture-trash(CT-2)完了**(2026-07-20): 0007 deleted_at 論理削除 + ゴミ箱ボタン + `?trash=1` 一覧 + 復元(InboxRow 不変 + TrashRow 専用型で凍結例外ゼロ・UPDATE 3本ゲート・全5 SQL 面 user_id 二重ゲート)。capture.md 契約更新済み・0007 ブランチ検証済み・本番未適用
+- **M5(自動整理ループ / organize-loop)完了**(2026-07-20): 設計は**基本3R + 詳細8R の全レンズ PASS**(3-job 分離・決定的ファイル名で livelock 除去・state/run.json アンカー・organize_bot で被害上限を3列 UPDATE に封じ込め)。M5-A(0008 + scripts/organize 5本 + frontmatter 剥離 + パーサ拡張 = 還流の成立)・M5-B(workflow 全面改修 + プロンプト + 契約4ファイル)とも judge PASS。**有効化はユーザー操作**(下記「整理ループの有効化」)
 
 ## 関連ドキュメント
 
