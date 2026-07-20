@@ -34,6 +34,31 @@ org-docs-ingestion 設計時の必須論点:
 
 ---
 
+## ⚠️ 2026-07-20 の事故と再発防止(記録)
+
+**事象**: ローカル DB のボリュームが作り直され(`docker compose down -v` 相当)、**全テーブルが消失**。
+M5-A の executor 稼働中に発生。
+
+**復旧結果**(docs/setup/db-recovery.md の手順で実施):
+- 復旧: スキーマ(0001〜0008)/ timeline_records **8,013行**(ok・error 9)/ board_items 59行 / タグ 564行 /
+  埋め込み 8,013行(バックフィル ~$0.4)/ admin ロール2ユーザー
+- **復元不能**: `capture_inbox`(UI 入力のメモ・課題・壁打ち結論)— SSoT に無いため消失
+
+**再発防止(実装済み)**:
+1. `.claude/hooks/guard-bash.sh` に**ボリューム破棄コマンドの遮断**を追加
+   (`docker compose down -v` / `--volumes` / `docker volume rm|prune` / `docker system prune` / `cockpit-db-data` の削除)。
+   12ケースで動作検証済み(禁止形6件 BLOCKED・正常形6件 allowed)。
+2. `CLAUDE.md` 黄金ルール6 と `.claude/rules/db.md` に禁止と**復旧義務**を明記。
+3. **復旧 runbook を新設**: [`db-recovery.md`](./db-recovery.md)(実際に復旧できた手順をそのまま収録)。
+
+**あわせて判明した既存バグ(未修正)**:
+- **コールドスタートでタグが空になる**: `lib/ingestion/run-sync.ts` はタグ語彙を同期開始時に1回だけ読むため、
+  **DB が空の状態からの初回同期では全行 `tags` が空**になる(語彙を作る masters は同じ run の後半で取り込まれるため間に合わない)。
+  → **Vercel 本番の初回同期でも必ず起きる**。回避策: 初回だけ**同期を2回**走らせる(または db-recovery.md 手順3 の対処 B)。
+  恒久修正(masters を先に処理する / vocab を遅延ロードする)は別トピックで設計する。
+- `npx tsc --noEmit` が main で2件エラー(`scripts/sync-local.ts` と `embed-local.ts` のトップレベル関数名衝突)。
+  `npm run build` では検出されない。実害はないが要修正。
+
 ## 🔴 最優先(持ち越し・すぐ終わる)
 
 - [ ] **Neon のパスワードをリセットする**(チャット露出分の後始末)

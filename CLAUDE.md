@@ -23,6 +23,10 @@ SSoT として GitHub から自動同期し、Neon(Postgres + pgvector)に索引
    検証は acceptance-judge / `/goal`。
 5. **拡張は Hooks > Skills > MCP の順で軽く。** 重い実装/調査はサブエージェントに委譲し、要約で受け取る。
 6. **破壊的操作は禁止。** 生 DROP/TRUNCATE/DELETE・`git push --force`・本番ブランチ破壊はしない。
+   **ローカル DB ボリューム(`cockpit-db-data`)の破棄も禁止** — `docker compose down -v` / `docker volume rm` /
+   `docker volume prune` / `docker system prune` は使わない(コンテナを落とすなら `docker compose stop`)。
+   **理由**: `capture_inbox`(UI 入力)は SSoT に無く**復元不能**。万一消してしまった場合は
+   **docs/setup/db-recovery.md の復旧手順を最後まで完了させ、復元できなかったデータを必ず人間に報告する。**
 
 ## 進め方
 新機能は `/basic-design <topic>` → `/design-review <topic>`(全レンズ PASS)→ `/goal` で実装する。
