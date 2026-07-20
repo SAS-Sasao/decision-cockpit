@@ -1,7 +1,8 @@
 # 詳細設計: organize-loop(M5 自動整理ループ)
 
-> 対象基本設計: docs/design/basic/organize-loop.md(design-review 3ラウンド全レンズ PASS・**rev.5**(詳細と調停済み))
-> ステータス: rev.7(詳細 R6: **arch PASS** / data FAIL 反映 — §0-G。TZ と date 算出の**同居を step レンジで機械保証** + checkFrontmatter の IF 修正)
+> 対象基本設計: docs/design/basic/organize-loop.md(**rev.8** — 詳細と調停済み・受け入れ条件は本書 §4 が正典)
+> ステータス: rev.8(詳細 R7: data FAIL(残1件)反映 — §0-H。**awk レンジの終端アンカーを実行形で保証**し、TZ 経路の silent な1日ずれを完全に閉じる)
+> (rev.7: 詳細 R6: **arch PASS** / data FAIL 反映 — §0-G。TZ と date 算出の**同居を step レンジで機械保証** + checkFrontmatter の IF 修正)
 > (rev.6: 詳細 R5: arch・data FAIL 反映 — §0-F。**org 供給の断線を解消(rows.json の内容契約を確定)+ JST を計算主体に束縛**)
 > (rev.5: 詳細 R4: arch・data FAIL 反映 — §0-E。**date/slot の権威を workflow の `id: run` step に一本化 + JST/env/重複/契約の機械ピン化**。基本設計も rev.6 に再調停(命名規約))
 > (rev.4: 詳細 R3: sec PASS / arch・data FAIL 反映 — §0-D。**ファイル名の決定化(slug 廃止)+ `state/run.json` による date/slot/org のアンカー化**で livelock・時間軸汚染・org 幽霊を構造から解消)
@@ -87,7 +88,7 @@
 
 | # | R4 指摘 | 決着 |
 |---|---|---|
-| 1 | **data G-1/G-2/G-3(ブロッカー): `run.date` の供給主体が二重**(§2.1 の fetch 算出 vs §2.5 の `id: run` step の env)**+ JST の機械ピンゼロ**(runner 既定 UTC で素直に実装すると morning スロットだけ1日ずれ、run.json と自己整合するため全条件が緑)**+ env 受け渡しが未ピン**(欠落で恒久 run-fail) | **権威を workflow の `id: run` step に一本化**: step 0 が `TZ: Asia/Tokyo` の下で date/slot を算出し `$GITHUB_OUTPUT` へ。**fetch.ts は env(`ORGANIZE_DATE` / `ORGANIZE_SLOT` / `ORGANIZE_ALLOWED_ORGS`)を受け取るだけ**(自分で日付を計算しない — `new Date()` を使わない)。**機械ピン**: 条件3 に `TZ: Asia/Tokyo` と env 3種の受け渡し・条件2 に **fetch.ts の `new Date(` 否定 grep** + env 必須(未設定なら fail)。 |
+| 1 | **data G-1/G-2/G-3(ブロッカー): `run.date` の供給主体が二重**(§2.1 の fetch 算出 vs §2.5 の `id: run` step の env)**+ JST の機械ピンゼロ**(runner 既定 UTC で素直に実装すると morning スロットだけ1日ずれ、run.json と自己整合するため全条件が緑)**+ env 受け渡しが未ピン**(欠落で恒久 run-fail) | **権威を workflow の `id: run` step に一本化**: `id: run` step が `TZ: Asia/Tokyo` の下で date/slot を算出し `$GITHUB_OUTPUT` へ。**fetch.ts は env(`ORGANIZE_DATE` / `ORGANIZE_SLOT` / `ORGANIZE_ALLOWED_ORGS`)を受け取るだけ**(自分で日付を計算しない — `new Date()` を使わない)。**機械ピン**: 条件3 に `TZ: Asia/Tokyo` と env 3種の受け渡し・条件2 に **fetch.ts の `new Date(` 否定 grep** + env 必須(未設定なら fail)。 |
 | 2 | **arch G-1: `pr.ts` の date/slot 供給元がない**(env に ORGANIZE_STATE がなく run.json を読めない = 第2の真実源を発明させる) | **pr.ts も `state/run.json` を読む**(§2.5 step 9 の env に `ORGANIZE_STATE` を追加・条件2 に `run.json` ピン)。ブランチ名・PR タイトルの date/slot は run.json 由来に統一 |
 | 3 | **arch G-3: server-only 否定 grep が構文的に発火しない**(`from` 必須だが `import "server-only";` は from なし) | **許可リスト形に転換**: **scripts/organize が import してよい `lib/` は `parsers/frontmatter` のみ**(`grep -RIn "lib/" scripts/organize \| grep -v 'parsers/frontmatter'` が空)+ `server-only` リテラルの否定(from 非依存) |
 | 4 | **arch G-2: SSoT の「読み取りは GitHub API 経由のみ」(CLAUDE.md 黄金ルール1 第2文・ingestion.md)と publish job の checkout が未調停** | **§2.7 の契約更新に `.claude/rules/ingestion.md` を追加**(4ファイルに): 「clone 禁止は**索引の取得経路**に対する規約であり、**CI の書き戻し経路(PR 作成のための checkout)は本例外の対象**」と明記。条件6 に grep 追加 |
@@ -103,7 +104,7 @@
 | # | R5 指摘 | 決着 |
 |---|---|---|
 | 1 | **B-1/G-A(ブロッカー・両レンズ): `allowed_orgs` が job B に届かない** — §2.6 は「rows.json から読む」と指示するが §2.1 の rows.json 仕様は `行配列 + { date, slot }` で allowed_orgs が無い。cc-sier 行が1件でもあると org 創作 → checkOrg 拒否 → run 全体 fail が**系統的に**発生(§4-R-7 の livelock 解消の主張が崩れる) | **rows.json の内容契約を確定**: `{ date, slot, allowed_orgs, rows: [...] }`(§2.1)。**「job B に渡さないのは `state/ids.json`(分割一致の信頼アンカー)のみ」**と原則を精密化 — date/slot/allowed_orgs は job B が決定に必要なので渡す。**改ざん耐性は run.json 側の突合で担保**(verify は必ず run.json 基準・rows.json は読まない)。**機械ピン**: 条件2 に fetch.ts の `allowed_orgs` 肯定 grep + §3 に rows.json 形状の assert |
-| 2 | **B-2(High・data): JST が「リテラルの存在」でしか担保されていない** — `TZ: Asia/Tokyo` が別 step に付く / 算出形が `date -u` や `toISOString()`(TZ 非依存で UTC 固定)だと **morning スロットだけ1日ずれ、run.json と自己整合するため全条件が緑**(誰も気づかない方向の失敗) | **算出形を契約化**: step 0 は **`date +%F`**(TZ 環境変数に従う・`-u` を使わない)で date を算出。**機械ピン**(条件3): `TZ: Asia/Tokyo` の存在 + **workflow 全体で `date -u` と `toISOString` を否定** + `id: run` step の run ブロックに `date +%F` の肯定ピン。加えて **verify に `run.date` の書式検査**(`^\d{4}-\d{2}-\d{2}$` — R5 arch L-5 も同時決着) |
+| 2 | **B-2(High・data): JST が「リテラルの存在」でしか担保されていない** — `TZ: Asia/Tokyo` が別 step に付く / 算出形が `date -u` や `toISOString()`(TZ 非依存で UTC 固定)だと **morning スロットだけ1日ずれ、run.json と自己整合するため全条件が緑**(誰も気づかない方向の失敗) | **算出形を契約化**: `id: run` step は **`date +%F`**(TZ 環境変数に従う・`-u` を使わない)で date を算出。**機械ピン**(条件3): `TZ: Asia/Tokyo` の存在 + **workflow 全体で `date -u` と `toISOString` を否定** + `id: run` step の run ブロックに `date +%F` の肯定ピン。加えて **verify に `run.date` の書式検査**(`^\d{4}-\d{2}-\d{2}$` — R5 arch L-5 も同時決着) |
 | 3 | **M-1(data): `checkFrontmatter` の kind 規則が実装不能**(capture の kind は rows.json にしかなく、verify は rows.json を読めない) | **語彙メンバシップ検査までに限定**(§2.2 を修正): `kind ∈ {mixed, status, issue, next_move, spar_conclusion}`。**複数 capture を束ねた場合は `mixed` を使う**と規約化(混在時の正解値を定義)。capture 個別の kind との一致は検査しない(rows.json 非読取の原則を優先) |
 | 4 | **M-2(data): manifest と frontmatter の `capture_ids` が突合されない**(不一致でも全条件緑・provenance の人間可読な裏付けが崩れる) | **`checkFrontmatter` に一致検査を追加**(frontmatter の capture_ids == manifest エントリの capture_ids・順序不問の集合一致)。§3 の CLI テストに `'capture_ids 不一致'` ケース + 条件4 のケース名ピン |
 | 5 | **arch L-2: `ORGANIZE_STATE` ピンが step を識別しない**(pr step への配線を証明しない) | §2.3 に **「pr.ts は `ORGANIZE_STATE` 未設定なら fail」**を明記(fetch の3 env と同じ fail-loud 規約)。実行時に必ず露見する形にする |
@@ -123,7 +124,15 @@
 | 4 | **G-4(Low・data): `mixed` 規約が verify のコメントにしかない** | §2.6(生成側契約)にも **「複数 capture を束ねたファイルの kind は `mixed`」** を明記 |
 | 5 | **G-5(Low・data): DENY_WORDS の照合対象が未定**(org セグメントを含むと将来の org 名と衝突し正当パスが拒否される) | **照合対象は basename のみ**と確定(§2.2)。org セグメントは `checkOrg`(allowed_orgs 突合)が担当 |
 | 6 | **L-6(Low・arch): 条件2 の `allowed_orgs` ピンが空振り**(run.json にだけ書く実装でも通る) | 条件4 のケース名ピンに **`rows.json 形状`** を追加(ブロッカー級防御を他と同じ階層に載せる) |
-| 7 | **L-1/L-7/L-8(Low・arch): 基本 §3 本文の `×3` が3ラウンド持ち越し / 「step 0」参照が実体を失っている / 基本 §5 の契約更新が3ファイルのまま** | 基本を **rev.8** に: §3 本文の `×3` → **×4** に直接修正 + rev.6/7 ヘッダの正誤表行を削除 / 本文の「step 0」→ **`id: run` step** に統一(詳細も) / **基本 §5 を「受け入れ条件の正典は詳細 §4」への参照に縮退**(3ラウンド連続で追随漏れが出た方式そのものを廃止) |
+| 7 | **L-1/L-7/L-8(Low・arch): 基本 §3 本文の `×3` が3ラウンド持ち越し / 「`id: run` step」参照が実体を失っている / 基本 §5 の契約更新が3ファイルのまま** | 基本を **rev.8** に: §3 本文の `×3` → **×4** に直接修正 + rev.6/7 ヘッダの正誤表行を削除 / 本文の「`id: run` step」→ **`id: run` step** に統一(詳細も) / **基本 §5 を「受け入れ条件の正典は詳細 §4」への参照に縮退**(3ラウンド連続で追随漏れが出た方式そのものを廃止) |
+
+### 0-H. 詳細 R7 の決着(data FAIL — 残1件)
+
+| # | R7 指摘 | 決着 |
+|---|---|---|
+| 1 | **D-1(High 相当): awk レンジの終端アンカー `id: checkout-cockpit` が未ピン** — awk のレンジ式は終端パターン不在なら **EOF まで印字**するため、`id: checkout-cockpit` が無い/改名された実装ではレンジが workflow 全体に広がり、**R6 G-1 で塞いだはずの「TZ が別 step」経路が復活**する(morning が前日日付・全て自己整合で silent)。しかも当該 id は**検査専用アンカー**で機能的必然性がなく、掃除・改名で静かに失効し得る | **R2 G-4 と同じ基準(レンジの前提を実行形で保証)を適用**: 条件3 に **両 id の存在 + 行番号の順序比較**(`lr < lc`)を追加。加えて **§5 禁止事項に「`id: run` / `id: checkout-cockpit` を削除・改名しない(条件3 のレンジ前提)」を明記** + **条件8 の手動確認に「morning スロットの生成日付が JST 当日であること」を追加**(機械・手動の二重バックストップ) |
+| 2 | **D-2(Low): 基本 §5 縮退の副作用 — 基本本文の条件番号が詳細 §4 の別条件に着地**(例: 基本の「条件5 でピン」は実際には詳細 条件6(契約更新)) | **基本本文から条件番号参照を撤去**(rev.9): 「条件5 でピン」→「**詳細 §4 の契約更新条件でピン**」等、番号を持たない語での参照に統一 |
+| 3 | **D-3(Low): §0-E/§0-F に「`id: run` step」が残存・版ポインタが rev.5 のまま** | 決着表本文の「`id: run` step」→ **`id: run` step** に統一 / 版ポインタを **rev.8** に更新 |
 
 ## 1. スキーマ DDL・DB 資産
 
@@ -371,6 +380,9 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    [ "$(grep -c 'retention-days: 1' "$W")" = "3" ] || fail=1
    [ "$(grep -c 'upload-artifact' "$W")" = "3" ] || fail=1
    grep -Fq '--allowedTools "Read,Write(out/**)"' "$W" || fail=1
+   # レンジの前提(両アンカーの存在と順序)を実行形で保証(R7 D-1 — R2 G-4 と同基準)
+   lr=$(grep -n 'id: run' "$W" | head -1 | cut -d: -f1); lc=$(grep -n 'id: checkout-cockpit' "$W" | head -1 | cut -d: -f1)
+   [ -n "$lr" ] && [ -n "$lc" ] && [ "$lr" -lt "$lc" ] || fail=1
    # 日付算出 step(id: run)の中に TZ と date +%F が**同居**することを保証(R6 G-1)
    awk '/id: run/,/id: checkout-cockpit/' "$W" | grep -Fq 'TZ: Asia/Tokyo' || fail=1
    awk '/id: run/,/id: checkout-cockpit/' "$W" | grep -Fq 'date +%F' || fail=1
@@ -462,6 +474,7 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    - **両 repo の branch protection**: (a) main へのレビュー必須 (b) **force push 無効** (c) ブランチ削除保護 (d) **PAT に自分の PR をマージする権限を与えない**(PAT スコープ = contents:write + pull_requests:write のみ・admin なし)。
    - workflow_dispatch → **0行 green skip**(generate/publish がスキップされること)。
    - **job generate が checkout なしで完走すること**(claude-code-action の前提確認 — R2 G-4)。**完走しない場合は M5-B を止めて設計に戻る**(即興で checkout を足さない = sec High-1 の復活を防ぐ)。
+   - **morning スロットの生成日付が JST 当日であること**(R7 D-1 の手動バックストップ — cron 22:00 UTC が JST 翌07:00 に走るため、UTC 実装だと前日日付になる。生成 MD のファイル名と `run.json` の date を JST カレンダーと突合)。
    - **ネットワーク系ツールの無効確認**: `WebFetch` / `WebSearch` / `mcp__*` が generate で使えないこと(`--allowedTools` が許可列挙として効いているか)+ `Write(out/**)` の効き。
    - (Vercel 展開後)実 capture で両 repo PR・frontmatter/H1・mark・**次回同期で ok 行として還流**(**logs / decisions のみ対象** — todos は allowlist 外)・error 行が増えないこと。
    - **同 slot 再実行が詰まった場合の復旧**(R2 D-1 / R3 D-8): **PR をクローズ + `organize/<date>-<slot>` ブランチを削除 → 再実行**(マージは復旧手段にならない — 宛先が main に載ると place が恒久 fail)。**マージ済みの場合は次スロットを待つ**(別 slot 名で自動回復)。**未 mark の capture 行は次スロットで自動的に再消費される**ため通常は放置でよい。
@@ -500,6 +513,7 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
 - 変更してよいのは成果物列挙のみ(`.bak` 類似名禁止)。凍結: 条件7 の全列挙 + 既存テスト(例外2本の追加を除く)。新規依存禁止(pg / tsx は既存)。
 - **force push(`--force` / `--force-with-lease`)・main への push を書かない**。**ファイル削除・移動 API(rmSync / rmdirSync / unlinkSync / renameSync / fs.rm / promises.* / git の `rm` / `commit -a`)を scripts/organize に書かない**。`git add -A` / `git add .` を使わない。**`--name-status` 検査は `add` の後・`commit` の前**(順序を守る)。
 - `UPDATE capture_inbox` は scripts/organize では mark.ts のみ(**ファイル数=1 のピン** — 同一ファイル内の出現回数は人間レビュー)。SQL 大文字・ピン1行維持。
+- **workflow の `id: run` / `id: checkout-cockpit` を削除・改名しない**(条件3 の awk レンジの前提 — 失効すると TZ 検査が workflow 全体に広がり silent な日付ずれを見逃す。R7 D-1)。
 - **workflow の危険変更禁止**: permissions 拡大(job 級 permissions の追加も不可)/ persist-credentials 省略(**4本すべてに必須**)/ generate job への secrets・checkout・env・素の `run:` 追加 / allowedTools 拡大(特に Bash・WebFetch・mcp__*)/ workflow 級・job 級 env ブロックの追加 / artifact の `retention-days` 省略・延長 / **out artifact に rows.json を含めること**。
 - 実 API キー・実ネットワークテスト禁止(CI 実機はユーザー)。ログに capture 本文・接続文字列・トークンを出さない。
 - SSoT 非接触(fixture 追加もなし)。bash で SSoT repo 名と `>` を同時に含めない(検証は python3 / 変数分割で)。

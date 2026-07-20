@@ -7,6 +7,7 @@
 > 根拠資料: .claude/rules/actions.md・capture.md / capture-triage §5・capture-trash §5 / **実地偵察(2026-07-20)**: `.github/workflows/daily-organize.yml`(雛形)実在 — cron 4スロット・ENABLE ゲート・concurrency は踏襲・**それ以外は全面改修**(現雛形は Claude に DATABASE_URL/PAT を直渡し・persist-credentials 既定のまま — R1 sec が構造欠陥と指摘した形)。
 > パーサ現物: parseDailyLog = `YYYY-MM-DD.md` 厳格 + 1行目 H1 / parseDecision = `YYYY-MM-DD-<slug>.md` + 1行目 H1(frontmatter 非対応)— **還流には両パーサの拡張が必要**(R1 data High)。
 > ステータス: **PASS**(design-review — arch R3 / data R2 / sec R3 で全レンズ PASS。reviews/organize-loop.md 参照)。
+> **rev.9(2026-07-20)**: 本文の条件番号参照を撤去(§5 縮退の副作用で詳細 §4 の別条件に着地していた — R7 D-2)。
 > **rev.8(2026-07-20)**: 本文の数値を直接修正(正誤表方式を廃止)+ **§5(受け入れ条件)を詳細 §4 への参照に縮退**(3ラウンド連続で追随漏れが出た方式そのものを廃止 — R6 arch L-8)。
 > **rev.6(2026-07-20・詳細設計 R4 との再調停 — arch)**: **生成ファイル名から自由語 slug を廃止**(下記 §1-C-3)— livelock の発火源除去のため詳細 rev.4 で確定。**命名・受け入れ条件の正典は詳細設計 §2.6 / §4**。
 > **rev.5(2026-07-20・詳細設計 R2 との調停 — arch G-3)**: 詳細設計が構造を強化した2点を本書に反映 — (1) **integrity ステップを廃止し 3-job 分離に置換**(Claude の job に checkout・node_modules・.git・secrets が存在しない = 検査すべき同居物が無い)(2) **frontmatter の date/tags 補完を撤回**(run-sync が tags を無条件上書きする現物のため死んだ経路 — 剥離は body のみ)。**判定役が見る受け入れ条件の正典は詳細設計 §4**。
@@ -18,7 +19,7 @@
 いずれも **Claude Action(CI)の PR 経由・許可パス限定・追加のみ・削除禁止・main 直接 push 禁止**のまま。手元(開発セッション・executor)からの書き込みは引き続き完全禁止。
 
 - 許可パス(改定後): ai-war-room の `docs/logs/`・`docs/decisions/` + **cc-sier-organization の `.companies/<org>/docs/decisions/`・`.companies/<org>/docs/todos/`**。
-- 改定の反映(主セッション・条件5 でピン): **CLAUDE.md(黄金ルール1 + 冒頭段落の「ai-war-room の MD に書き戻す」も両 repo 表現へ)** / .claude/rules/actions.md(許可パス — cc-sier 2パスの grep -F はこのファイルを対象・「消費行数 = 更新行数」条件を「**分割一致 + repo 単位 mark**」へ更新)/ .claude/rules/capture.md(消費契約 + **帰属の決着**)。
+- 改定の反映(主セッション・**詳細 §4 の契約更新条件**でピン): **CLAUDE.md(黄金ルール1 + 冒頭段落の「ai-war-room の MD に書き戻す」も両 repo 表現へ)** / .claude/rules/actions.md(許可パス — cc-sier 2パスの grep -F はこのファイルを対象・「消費行数 = 更新行数」条件を「**分割一致 + repo 単位 mark**」へ更新)/ .claude/rules/capture.md(消費契約 + **帰属の決着**)。
 
 ## 1. 目的 / スコープ
 
@@ -60,10 +61,10 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 ## 2. アーキテクチャ上の位置づけ
 
 - **第4の面 = CI**。App とは Neon 本番 DB だけを共有。防御の実体(rev.3):
-  1. **秘密の分離**: DATABASE_URL = fetch/mark のみ・PAT = pr のみ・**generate に workflow secrets を渡さない**(静的ピン: generate ステップに DATABASE_URL / WARROOM_PAT / ORGREPO_PAT が無い — 条件3。**Claude 自身の OAuth トークン(action 入力)は generate に存在する** — これは被覆範囲外の前提として宣言)。
+  1. **秘密の分離**: DATABASE_URL = fetch/mark のみ・PAT = pr のみ・**generate に workflow secrets を渡さない**(静的ピン: generate ステップに DATABASE_URL / WARROOM_PAT / ORGREPO_PAT が無い — **詳細 §4 の workflow 静的ピン条件**。**Claude 自身の OAuth トークン(action 入力)は generate に存在する** — これは被覆範囲外の前提として宣言)。
   2. **時間的分離**: 書き戻し先 checkout は verify 通過後(Claude 実行時に存在しない)。
   3. **空間的分離 + ツール制限**: cockpit/(スクリプト実体)と out/(Claude 作業域)の物理分離・generate の allowed_tools = **Read + `Write(out/**)`**(パススコープ・Bash / ネットワークなし — 静的ピン)+ **※ rev.5: integrity 検査に代えて 3-job 分離**(generate job にはスクリプト実体・node_modules・`.git` が存在しない — パススコープの表現可否に依存しない構造的な二段目)。
-  4. **機械 judge(verify)**: 宛先の許可パス正規化・ソースの out/md/ 限定・分割一致・追加のみ。**被覆範囲の宣言(rev.5)**: verify が検知するのは生成物マニフェストの逸脱まで(スクリプト改ざんは 3-job 分離が構造的に排除)— **ランナー上で Read 可能な内容(例: action 入力トークン)を MD 本文に書いて持ち出す経路は機械検知の外**(到達先は private repo の PR に限られ(ネットワーク遮断)、**人間レビュー依存の受容**)。最終防御 = PR 人間レビュー + repo 側 branch protection(条件7 で確認)。
+  4. **機械 judge(verify)**: 宛先の許可パス正規化・ソースの out/md/ 限定・分割一致・追加のみ。**被覆範囲の宣言(rev.5)**: verify が検知するのは生成物マニフェストの逸脱まで(スクリプト改ざんは 3-job 分離が構造的に排除)— **ランナー上で Read 可能な内容(例: action 入力トークン)を MD 本文に書いて持ち出す経路は機械検知の外**(到達先は private repo の PR に限られ(ネットワーク遮断)、**人間レビュー依存の受容**)。最終防御 = PR 人間レビュー + repo 側 branch protection(**詳細 §4 の CI 実機条件**で確認)。
   5. **DB 専用ロール(organize_bot: SELECT + 3列 UPDATE 限定)は詳細設計で必須決着**(問い#1 を条件化 — 採否と GRANT 設計を詳細設計の必須セクションにする)。
 - 還流: cc-sier decisions/(ORG_DECISIONS_RE 実在)・war-room decisions/logs は §1-C の拡張後に ok 行として取込まれる。capture_inbox と timeline は別テーブル — 再整理の循環なし。
 - capture-spar §7 の申し送り(spar_conclusion = LLM 生成物・kind のみで信頼しない・PR ゲート最終防御)を §1-B-3 の振り分けとパイプライン防御に反映。
