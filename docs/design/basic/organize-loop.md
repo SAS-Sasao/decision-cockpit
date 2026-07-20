@@ -43,7 +43,7 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 5. **checkout(書き戻し先 2 repo・`persist-credentials: false`)+ 配置(script)**: マニフェストどおり copy(**追加のみ — 既存パスに衝突したら fail**)。
 6. **pr(script)**: repo ごとに `organize/<date>-<slot>` ブランチ・commit・push・PR 作成。**commit 対象は検証済みマニフェストのパス列挙のみ(`git add <paths>` — `-A` 禁止)**。**PAT の参照は checkout(2 repo・step 5)と本ステップのみ**(WARROOM_PAT / ORGREPO_PAT — repo 単位最小・いずれも generate 後)。**PR タイトル・本文は script の固定テンプレート**(件数・パス列挙のみ — Claude 出力を含めない)。git 操作は hooks 無効(`-c core.hooksPath=`)。
 7. **mark(script)**: PR 作成成功した repo のファイルごとに UPDATE(§1-A-2)。片 repo 失敗時は成功分のみ mark(残りは次スロット再消費)。
-- **冪等**: mark 前失敗 → 再消費。**同 slot 再実行の衝突は fail-closed**(place の宛先既存 exit 1 / push の non-fast-forward reject)で受け、**未 mark 行は次スロット(別 slot 名)で自動回復**する(**※ rev.5: `-r2` 自動リネームは撤回** — ファイル名を決める job B と衝突を知る job C が時系列で逆のため。詳細 §2.3・条件8 の復旧手順)。マージ済みブランチの削除は GitHub 設定/人間(「削除禁止」は SSoT ファイルの話でブランチは対象外)。
+- **冪等**: mark 前失敗 → 再消費。**同 slot 再実行の衝突は fail-closed**(place の宛先既存 exit 1 / push の non-fast-forward reject)で受け、**未 mark 行は次スロット(別 slot 名)で自動回復**する(**※ rev.5: `-r2` 自動リネームは撤回** — ファイル名を決める job B と衝突を知る job C が時系列で逆のため。詳細 §2.3・**詳細 §4 の CI 実機条件**の復旧手順)。マージ済みブランチの削除は GitHub 設定/人間(「削除禁止」は SSoT ファイルの話でブランチは対象外)。
 - workflow の `permissions: contents: read` 維持・ENABLE_DAILY_ORGANIZE ゲート・concurrency 単一・cron 4スロットは雛形踏襲。
 
 ### 1-C. 還流の成立(パーサ拡張 — R1 data High の決着・M5-A スコープ)
