@@ -7,8 +7,8 @@
 > 根拠資料: .claude/rules/actions.md・capture.md / capture-triage §5・capture-trash §5 / **実地偵察(2026-07-20)**: `.github/workflows/daily-organize.yml`(雛形)実在 — cron 4スロット・ENABLE ゲート・concurrency は踏襲・**それ以外は全面改修**(現雛形は Claude に DATABASE_URL/PAT を直渡し・persist-credentials 既定のまま — R1 sec が構造欠陥と指摘した形)。
 > パーサ現物: parseDailyLog = `YYYY-MM-DD.md` 厳格 + 1行目 H1 / parseDecision = `YYYY-MM-DD-<slug>.md` + 1行目 H1(frontmatter 非対応)— **還流には両パーサの拡張が必要**(R1 data High)。
 > ステータス: **PASS**(design-review — arch R3 / data R2 / sec R3 で全レンズ PASS。reviews/organize-loop.md 参照)。
-> **rev.7(2026-07-20)**: 本文の数値・ステップ表記を詳細 rev.6 に直接追随(正誤表方式をやめる — R5 arch L-1)。
-> **rev.6(2026-07-20・詳細設計 R4 との再調停 — arch)**: **生成ファイル名から自由語 slug を廃止**(下記 §1-C-3)— livelock の発火源除去のため詳細 rev.4 で確定。**命名・受け入れ条件の正典は詳細設計 §2.6 / §4**。§3 の `persist-credentials ×3` は **4本**(3-job の checkout 数)。
+> **rev.8(2026-07-20)**: 本文の数値を直接修正(正誤表方式を廃止)+ **§5(受け入れ条件)を詳細 §4 への参照に縮退**(3ラウンド連続で追随漏れが出た方式そのものを廃止 — R6 arch L-8)。
+> **rev.6(2026-07-20・詳細設計 R4 との再調停 — arch)**: **生成ファイル名から自由語 slug を廃止**(下記 §1-C-3)— livelock の発火源除去のため詳細 rev.4 で確定。**命名・受け入れ条件の正典は詳細設計 §2.6 / §4**。
 > **rev.5(2026-07-20・詳細設計 R2 との調停 — arch G-3)**: 詳細設計が構造を強化した2点を本書に反映 — (1) **integrity ステップを廃止し 3-job 分離に置換**(Claude の job に checkout・node_modules・.git・secrets が存在しない = 検査すべき同居物が無い)(2) **frontmatter の date/tags 補完を撤回**(run-sync が tags を無条件上書きする現物のため死んだ経路 — 剥離は body のみ)。**判定役が見る受け入れ条件の正典は詳細設計 §4**。
 > 作成: 2026-07-20(主セッション執筆)
 
@@ -91,15 +91,16 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 5. **パーサ拡張の回帰リスク**: 凍結例外は追加ケースのみの diff ピン + 既存 fixture 全緑で抑える。
 6. CI 実機は Vercel 展開後(0行 skip 空振り確認は展開前でも可)。
 
-## 5. 受け入れ条件(機械判定 — 実行形は詳細設計で確定)
+## 5. 受け入れ条件(機械判定)
 
-1. **0008**: up/down 存在・partial WHERE 完全形 grep・破壊 SQL 否定・ローカル適用 + Neon ブランチ検証(主セッション)。
-2. **scripts**: fetch SELECT 完全形 / mark UPDATE 完全形(3列・ガード)/ `UPDATE capture_inbox` は scripts 配下 count=1(mark.ts)/ verify 純関数ユニット(**宛先**の許可パス境界(`../`・絶対パス・許可外)+ **ソース `file` の out/md/ 境界(`../` 抜け・絶対パス・域外)**・frontmatter 必須キー・**分割一致(欠落・捏造・重複それぞれ fail)**・ファイル名規約)/ place の衝突 fail テスト。
-3. **workflow 静的ピン**(**※ rev.5: 実行形の正典は詳細設計 §4 条件3**): **3-job(fetch / generate / publish)の存在と順序**・**generate job に checkout / secrets / env / 素の `run:` が無い(否定 grep)**・allowed_tools 行の **`Write(out/**)`**(+ Bash・WebFetch 系の否定)・`persist-credentials: false`(**checkout 4本すべて**・count 母集団も固定)・**PAT 参照が checkout(2 repo)と pr のみ**・`permissions:` contents: read(**昇格側の否定**)・ENABLE ゲート・concurrency・固定文言4本・slot サニタイズ・**verify の基準集合が `state/ids.json`**・pr の `git add` マニフェスト列挙形・artifact の `retention-days: 1`。**integrity ステップのピンは廃止**(3-job 分離に置換 — §1-B-4)。
-4. **パーサ拡張**: 生成物 fixture(創作・両形式)→ parseDecision / parseDailyLog で **status ok** のユニット + 既存 parser テスト無変更部分の緑(凍結例外 = 追加のみ diff ピン)。
-5. **契約更新**: `grep -q "organize-loop"` を CLAUDE.md / actions.md / capture.md 各 exit 0 + cc-sier 許可パス2つ(actions.md への grep -F)+ 帰属決着の文言(capture.md)。
-6. **テスト・凍結・閉包・回帰**: `env -u`(6変数)npm test exit 0・FROZEN(全列挙は詳細設計 — **scripts/organize/ と parsers 例外2ファイルを除く**)・広域凍結 diff + 閉包判定(CT-2 形・scripts/organize を許容に追加)・build・/login 200・未認証 /capture 307。
-7. **CI 実機(手動チェックリスト)**: Secrets 4本 + ENABLE 登録(ユーザー)→ workflow_dispatch → 0行 green skip → (Vercel 展開後)実 capture で両 repo PR・frontmatter・mark・**次回同期で ok 行として還流**・**両 repo の branch protection(main 直 push 禁止)確認**。
+> **rev.8: 本節は詳細設計への参照に縮退した。**
+> **受け入れ条件の正典は `docs/design/detail/organize-loop.md` §4(条件1〜8)**。
+> 基本設計側に数値・ファイル列挙を二重に持つ方式は、詳細設計の改訂に追随し損ねる事故を3ラウンド連続で起こしたため廃止する
+> (R6 arch L-8)。/goal の達成状態・acceptance-judge の判定基準はすべて詳細 §4 / §5 を参照すること。
+>
+> 本設計が要求する検証の**方向性**(実行形は詳細 §4):
+> 1. 0008 + DB 専用ロール(organize_bot)/ 2. scripts の SQL・安全ピン / 3. workflow の静的ピン(3-job・秘密分離・許可リスト)/
+> 4. テスト(新設 + ケース名の抜き取り)/ 5. 凍結例外の diff ピン / 6. 契約更新4ファイル / 7. 凍結・閉包・回帰 / 8. CI 実機(手動)。
 
 ## 6. 未解決の問い
 
