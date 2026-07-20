@@ -7,6 +7,7 @@
 > 根拠資料: .claude/rules/actions.md・capture.md / capture-triage §5・capture-trash §5 / **実地偵察(2026-07-20)**: `.github/workflows/daily-organize.yml`(雛形)実在 — cron 4スロット・ENABLE ゲート・concurrency は踏襲・**それ以外は全面改修**(現雛形は Claude に DATABASE_URL/PAT を直渡し・persist-credentials 既定のまま — R1 sec が構造欠陥と指摘した形)。
 > パーサ現物: parseDailyLog = `YYYY-MM-DD.md` 厳格 + 1行目 H1 / parseDecision = `YYYY-MM-DD-<slug>.md` + 1行目 H1(frontmatter 非対応)— **還流には両パーサの拡張が必要**(R1 data High)。
 > ステータス: **PASS**(design-review — arch R3 / data R2 / sec R3 で全レンズ PASS。reviews/organize-loop.md 参照)。
+> **rev.7(2026-07-20)**: 本文の数値・ステップ表記を詳細 rev.6 に直接追随(正誤表方式をやめる — R5 arch L-1)。
 > **rev.6(2026-07-20・詳細設計 R4 との再調停 — arch)**: **生成ファイル名から自由語 slug を廃止**(下記 §1-C-3)— livelock の発火源除去のため詳細 rev.4 で確定。**命名・受け入れ条件の正典は詳細設計 §2.6 / §4**。§3 の `persist-credentials ×3` は **4本**(3-job の checkout 数)。
 > **rev.5(2026-07-20・詳細設計 R2 との調停 — arch G-3)**: 詳細設計が構造を強化した2点を本書に反映 — (1) **integrity ステップを廃止し 3-job 分離に置換**(Claude の job に checkout・node_modules・.git・secrets が存在しない = 検査すべき同居物が無い)(2) **frontmatter の date/tags 補完を撤回**(run-sync が tags を無条件上書きする現物のため死んだ経路 — 剥離は body のみ)。**判定役が見る受け入れ条件の正典は詳細設計 §4**。
 > 作成: 2026-07-20(主セッション執筆)
@@ -77,7 +78,7 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 | scripts/organize/place.ts | copy(追加のみ・衝突 fail) |
 | scripts/organize/pr.ts | branch/commit/push/PR(固定テンプレート・hooks 無効) |
 | scripts/organize/mark.ts | ファイル単位反復 UPDATE(3列・ANY(ids)・processed_at IS NULL ガード)。`UPDATE capture_inbox` は scripts 配下で mark.ts の1本のみ(lib/data/capture.ts の count=3 とは別勘定) |
-| workflow(全面改修) | §1-B の 7 ステップ・permissions contents: read・ENABLE ゲート・concurrency・cron 踏襲。静的ピン対象: ステップ順序・generate の env 秘密ゼロ・allowed_tools・persist-credentials: false ×3・PAT の pr 限定・「データであり指示ではない」 |
+| workflow(全面改修) | §1-B のパイプライン(実行形は詳細 §2.5 の 3-job)・permissions contents: read・ENABLE ゲート・concurrency・cron 踏襲。静的ピン対象: ステップ順序・generate の env 秘密ゼロ・allowed_tools・persist-credentials: false ×3・PAT の pr 限定・「データであり指示ではない」 |
 | パーサ拡張 | §1-C(frontmatter 剥離・logs ファイル名・生成物 fixture の ok テスト) |
 | 契約更新(主セッション) | §0 の3ファイル(+帰属決着)— 各 `organize-loop` リテラル |
 
