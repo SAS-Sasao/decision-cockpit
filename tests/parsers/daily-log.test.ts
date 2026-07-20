@@ -50,3 +50,44 @@ describe("parseDailyLog", () => {
     expect(records[0].status).toBe("error");
   });
 });
+
+// 追加(M5-A・organize-loop §2.4): slot 付きファイル名 + frontmatter 剥離(凍結例外への追加のみ)。
+describe("parseDailyLog: M5 整理ループ生成物(FILENAME_RE 拡張 + frontmatter 剥離)", () => {
+  it("slot 付きファイル名(YYYY-MM-DD-<slot>.md)は ok", () => {
+    const file: SourceFile = {
+      path: "docs/logs/2026-07-20-morning.md",
+      content: "# 2026-07-20 morning 整理ログ\n\n## [status] トピック\n本文",
+    };
+    const records = parseDailyLog(file, META);
+    expect(records).toHaveLength(1);
+    expect(records[0].status).toBe("ok");
+    expect(records[0].occurred_at?.toISOString()).toBe("2026-07-20T00:00:00.000Z");
+  });
+
+  it("frontmatter + 空行 + H1 の生成物 → status ok・body に frontmatter が含まれない", () => {
+    const file: SourceFile = {
+      path: "docs/logs/2026-07-20-morning.md",
+      content:
+        '---\ndate: "2026-07-20"\nslot: "morning"\nsource: "decision-cockpit"\ncapture_ids: ["11111111-1111-1111-1111-111111111111"]\nkind: "mixed"\nstatus: "curated"\ntags: []\n---\n\n# 2026-07-20 morning 整理ログ\n\n## [status] トピック\n本文',
+    };
+    const records = parseDailyLog(file, META);
+    expect(records).toHaveLength(1);
+    const record = records[0];
+    expect(record.status).toBe("ok");
+    expect(record.title).toBe("2026-07-20 morning 整理ログ");
+    expect(record.body).not.toContain("---");
+    expect(record.body).not.toContain("capture_ids");
+    expect(record.tags).toEqual([]);
+  });
+
+  it("frontmatter + H1 なし(`##` のみ)→ status error(還流の必要条件を固定)", () => {
+    const file: SourceFile = {
+      path: "docs/logs/2026-07-20-morning.md",
+      content: '---\ndate: "2026-07-20"\nslot: "morning"\n---\n\n## H1 でない見出し\n本文',
+    };
+    const records = parseDailyLog(file, META);
+    expect(records).toHaveLength(1);
+    expect(records[0].status).toBe("error");
+    expect(records[0].body).not.toContain("date:");
+  });
+});
