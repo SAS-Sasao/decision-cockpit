@@ -68,8 +68,27 @@ org-docs-ingestion 設計時の必須論点:
 | いつ | やること |
 |---|---|
 | **M4**(capture + 壁打ち) | SC-06 実装(capture_inbox 契約 = .claude/rules/capture.md 準拠・user_id 所有・kind 4語彙)。SC-07 ユーザー管理の配置判断もここで |
-| **M5**(自動整理) | `claude setup-token` → GitHub Secrets(`CLAUDE_CODE_OAUTH_TOKEN` / `WARROOM_PAT` / `DATABASE_URL`)+ Variables `ENABLE_DAILY_ORGANIZE=true` |
+| **M5**(自動整理・**実装完了**) | 有効化手順は下記「🤖 整理ループの有効化」を参照 |
 | Vercel 展開時 | **手順書あり: [`vercel-deploy.md`](./vercel-deploy.md)**(事前条件・環境変数・Cron・初回同期・トラブルシュートまで記載。現時点でデプロイ不要) |
+
+## 🤖 整理ループ(M5 organize-loop)の有効化 — あなたの操作
+
+**実装は完了済み**(M5-A / M5-B・judge PASS)。以下はすべて**ユーザー操作**で、Vercel 展開(本番 DB に capture が入る)後に実施する。
+それまでは workflow_dispatch で手動実行しても **0行 green skip** で安全。
+
+1. **専用 DB ロールの作成**: `docs/setup/organize-role.sql` を Neon 本番で実行(パスワードは Neon 側で設定)。
+   作成後、**capture_inbox 以外に到達できないこと**を確認(被害上限 = 3列 UPDATE の前提)。
+2. **GitHub Secrets**(repo Settings → Secrets):
+   - `CLAUDE_CODE_OAUTH_TOKEN`(ローカルで `claude setup-token`)
+   - `DATABASE_URL` — **organize_bot の接続文字列**(所有者ロールではない)
+   - `WARROOM_PAT`(ai-war-room 用: contents:write + pull_requests:write のみ)
+   - `ORGREPO_PAT`(cc-sier-organization 用: 同上)— **どちらも admin 権限・マージ権を与えない**
+3. **GitHub Variables**: `ENABLE_DAILY_ORGANIZE=true`(+ 任意で `ORGANIZE_ALLOWED_ORGS`。既定 `domain-tech-collection`)
+4. **両 repo の branch protection**: main へのレビュー必須 / force push 無効 / ブランチ削除保護 / **PAT に自分の PR をマージさせない**
+5. **手動実行で確認**: workflow_dispatch → 0行なら generate/publish がスキップされ green。
+6. **実データでの確認**(展開後): 両 repo に PR が立つ / frontmatter と H1 が正しい / mark で INBOX が「完了・整理済み」になる /
+   **次回同期で ok 行として還流**(error 行が増えない)/ **morning スロットの生成日付が JST 当日**(設計 §4 条件8)。
+7. 詰まった場合の復旧: PR をクローズ + `organize/<date>-<slot>` ブランチを削除して再実行(マージ済みなら次スロットを待つ)。
 
 ## 🧹 細かい積み残し(任意)
 
