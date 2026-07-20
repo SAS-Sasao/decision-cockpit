@@ -7,6 +7,7 @@
 > 根拠資料: .claude/rules/actions.md・capture.md / capture-triage §5・capture-trash §5 / **実地偵察(2026-07-20)**: `.github/workflows/daily-organize.yml`(雛形)実在 — cron 4スロット・ENABLE ゲート・concurrency は踏襲・**それ以外は全面改修**(現雛形は Claude に DATABASE_URL/PAT を直渡し・persist-credentials 既定のまま — R1 sec が構造欠陥と指摘した形)。
 > パーサ現物: parseDailyLog = `YYYY-MM-DD.md` 厳格 + 1行目 H1 / parseDecision = `YYYY-MM-DD-<slug>.md` + 1行目 H1(frontmatter 非対応)— **還流には両パーサの拡張が必要**(R1 data High)。
 > ステータス: **PASS**(design-review — arch R3 / data R2 / sec R3 で全レンズ PASS。reviews/organize-loop.md 参照)。
+> **rev.6(2026-07-20・詳細設計 R4 との再調停 — arch)**: **生成ファイル名から自由語 slug を廃止**(下記 §1-C-3)— livelock の発火源除去のため詳細 rev.4 で確定。**命名・受け入れ条件の正典は詳細設計 §2.6 / §4**。§3 の `persist-credentials ×3` は **4本**(3-job の checkout 数)。
 > **rev.5(2026-07-20・詳細設計 R2 との調停 — arch G-3)**: 詳細設計が構造を強化した2点を本書に反映 — (1) **integrity ステップを廃止し 3-job 分離に置換**(Claude の job に checkout・node_modules・.git・secrets が存在しない = 検査すべき同居物が無い)(2) **frontmatter の date/tags 補完を撤回**(run-sync が tags を無条件上書きする現物のため死んだ経路 — 剥離は body のみ)。**判定役が見る受け入れ条件の正典は詳細設計 §4**。
 > 作成: 2026-07-20(主セッション執筆)
 
@@ -47,7 +48,7 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 生成 MD は frontmatter 先頭・logs は slot 付きファイル名 — **現行パーサでは全て error 行化するため、同期側を拡張して還流を閉じる**:
 1. **frontmatter 剥離**: parseDecision / parseDailyLog は「先頭に frontmatter があれば剥がしてから従来判定(1行目 H1 等)」に拡張。**※ rev.5(詳細 R2 の調停)**: 当初あった「tags/date は frontmatter 優先で補完」は **撤回**(run-sync.ts が upsert 直前に `applyTags` で tags を無条件上書きする現物のため、パーサ tags は索引に届かない死んだ経路だった)。**剥離は body のみ**・frontmatter の中身は解釈しない。タグ結合は applyTags 語彙に一本化(索引化は M6)。
 2. **parseDailyLog のファイル名**: `/^(\d{4}-\d{2}-\d{2})(-[a-z0-9-]+)?\.md$/` に拡張(slot 接尾辞許容 — 日付キーは従来どおり)。
-3. **生成側の規約**: decisions(両 repo)= `YYYY-MM-DD-<slug>.md`・frontmatter + H1(parseDecision 適合)/ logs = `YYYY-MM-DD-<slot>.md`(拡張後 parseDailyLog 適合)/ todos(cc-sier)= 現行 allowlist 外 = **還流しない置き場**(既知・問い#6)。
+3. **生成側の規約(rev.6 — 決定的命名・自由語 slug は使わない)**: logs = `<date>-<slot>.md`(1 run 1ファイル)/ decisions(両 repo)= `<date>-<slot>-d<nn>.md` / todos(cc-sier)= `<date>-<slot>-t<nn>.md`(nn = 01 からの連番)。いずれも frontmatter + H1(parseDecision / 拡張後 parseDailyLog 適合)。**タイトルは frontmatter と H1 に書く**(ファイル名に出さない — denylist 衝突による livelock の構造的回避)。todos は現行 allowlist 外 = **還流しない置き場**(既知・問い#6)。**正典は詳細 §2.6**。
 4. **凍結例外(宣言)**: lib/ingestion/parsers/(daily-log.ts・decision.ts)と tests/parsers/ の該当2テスト(+ **frontmatter 剥離を共通ヘルパにする場合はその置き場(normalize.ts 等)— 詳細設計の FROZEN 全列挙で確定**)は M5-A の変更対象(**追加ケースのみ・既存 assert 不変の diff ピン** — 前例: M3 run-sync.test)。**機械判定: 生成物 fixture(創作)を両パーサに通し status ok になるユニットテスト**(還流の設計主張をテストで担保)。
 5. **剥離の意味論(詳細設計で確定 — rev.5)**: (a) **body は剥離後の本文**(ok 行・error 行とも)(b) **frontmatter からは何も読まない**(date/tags/status いずれもマップしない — 名前衝突と死んだ経路の同時解消)(c) **occurred_at = ファイル名日付**(従来契約・不変)(d) 剥離は閉じ `---` とその改行・続く空行まで消費(パーサの1行目判定と噛み合わせる)。
 
@@ -93,7 +94,7 @@ UI で溜めた capture を、1日4回の整理ループが SSoT 側の Markdown
 
 1. **0008**: up/down 存在・partial WHERE 完全形 grep・破壊 SQL 否定・ローカル適用 + Neon ブランチ検証(主セッション)。
 2. **scripts**: fetch SELECT 完全形 / mark UPDATE 完全形(3列・ガード)/ `UPDATE capture_inbox` は scripts 配下 count=1(mark.ts)/ verify 純関数ユニット(**宛先**の許可パス境界(`../`・絶対パス・許可外)+ **ソース `file` の out/md/ 境界(`../` 抜け・絶対パス・域外)**・frontmatter 必須キー・**分割一致(欠落・捏造・重複それぞれ fail)**・ファイル名規約)/ place の衝突 fail テスト。
-3. **workflow 静的ピン**(**※ rev.5: 実行形の正典は詳細設計 §4 条件3**): **3-job(fetch / generate / publish)の存在と順序**・**generate job に checkout / secrets / env / 素の `run:` が無い(否定 grep)**・allowed_tools 行の **`Write(out/**)`**(+ Bash・WebFetch 系の否定)・`persist-credentials: false`(**checkout 4本すべて**)・**PAT 参照が checkout(2 repo)と pr のみ**・`permissions:` contents: read(**昇格側の否定**)・ENABLE ゲート・concurrency・固定文言4本・slot サニタイズ・**verify の基準集合が `state/ids.json`**・pr の `git add` マニフェスト列挙形・artifact の `retention-days: 1`。**integrity ステップのピンは廃止**(3-job 分離に置換 — §1-B-4)。
+3. **workflow 静的ピン**(**※ rev.5: 実行形の正典は詳細設計 §4 条件3**): **3-job(fetch / generate / publish)の存在と順序**・**generate job に checkout / secrets / env / 素の `run:` が無い(否定 grep)**・allowed_tools 行の **`Write(out/**)`**(+ Bash・WebFetch 系の否定)・`persist-credentials: false`(**checkout 4本すべて**・count 母集団も固定)・**PAT 参照が checkout(2 repo)と pr のみ**・`permissions:` contents: read(**昇格側の否定**)・ENABLE ゲート・concurrency・固定文言4本・slot サニタイズ・**verify の基準集合が `state/ids.json`**・pr の `git add` マニフェスト列挙形・artifact の `retention-days: 1`。**integrity ステップのピンは廃止**(3-job 分離に置換 — §1-B-4)。
 4. **パーサ拡張**: 生成物 fixture(創作・両形式)→ parseDecision / parseDailyLog で **status ok** のユニット + 既存 parser テスト無変更部分の緑(凍結例外 = 追加のみ diff ピン)。
 5. **契約更新**: `grep -q "organize-loop"` を CLAUDE.md / actions.md / capture.md 各 exit 0 + cc-sier 許可パス2つ(actions.md への grep -F)+ 帰属決着の文言(capture.md)。
 6. **テスト・凍結・閉包・回帰**: `env -u`(6変数)npm test exit 0・FROZEN(全列挙は詳細設計 — **scripts/organize/ と parsers 例外2ファイルを除く**)・広域凍結 diff + 閉包判定(CT-2 形・scripts/organize を許容に追加)・build・/login 200・未認証 /capture 307。

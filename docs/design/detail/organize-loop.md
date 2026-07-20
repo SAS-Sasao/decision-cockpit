@@ -1,7 +1,8 @@
 # 詳細設計: organize-loop(M5 自動整理ループ)
 
 > 対象基本設計: docs/design/basic/organize-loop.md(design-review 3ラウンド全レンズ PASS・**rev.5**(詳細と調停済み))
-> ステータス: rev.4(詳細 R3: sec PASS / arch・data FAIL 反映 — §0-D。**ファイル名の決定化(slug 廃止)+ `state/run.json` による date/slot/org のアンカー化**で livelock・時間軸汚染・org 幽霊を構造から解消)
+> ステータス: rev.5(詳細 R4: arch・data FAIL 反映 — §0-E。**date/slot の権威を workflow step 0 に一本化 + JST/env/重複/契約の機械ピン化**。基本設計も rev.6 に再調停(命名規約))
+> (rev.4: 詳細 R3: sec PASS / arch・data FAIL 反映 — §0-D。**ファイル名の決定化(slug 廃止)+ `state/run.json` による date/slot/org のアンカー化**で livelock・時間軸汚染・org 幽霊を構造から解消)
 > (rev.3: 詳細 R2 全レンズ FAIL 反映 — §0-C の12件。**基本設計も rev.5 に調停**(integrity 廃止・frontmatter 補完撤回を基本 §1-B/§1-C/§5 に反映))
 > (rev.2: 詳細 R1 全レンズ FAIL 反映 — **3-job 分離**(Claude の job にスクリプト・.git・node_modules・secrets が存在しない構造)/ 還流の H1 決着 / tags 経路の撤回 / 機械ピンの全面強化 → 再レビュー待ち)
 > 作成: 2026-07-20(主セッション執筆)
@@ -12,7 +13,7 @@
 
 | # | 申し送り | 決着 |
 |---|---|---|
-| 1 | DB 専用ロール | **採用**。`docs/setup/organize-role.sql`(テンプレ・実値なし)。列限定 GRANT(SELECT 9列 / UPDATE 3列)+ `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`・`GRANT CONNECT`/`USAGE ON SCHEMA public` を明示(既定依存の解消 — R1 Low)。**マイグレーションにしない**(password は秘密・ロールは運用資産)— 適用は人間 |
+| 1 | DB 専用ロール | **採用**。`docs/setup/organize-role.sql`(テンプレ・実値なし)。列限定 GRANT(SELECT 10列(user_id はガード用) / UPDATE 3列)+ `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`・`GRANT CONNECT`/`USAGE ON SCHEMA public` を明示(既定依存の解消 — R1 Low)。**マイグレーションにしない**(password は秘密・ロールは運用資産)— 適用は人間 |
 | 2 | 剥離の意味論 | (a) **レコード body = 剥離後本文**(ok 行・**error 行とも** — パーサは剥離後 file を errorRecord に渡す。R1 G-6)(b) **frontmatter からは何も読まない**(下記 0-B-2 で tags 経路を撤回)(c) occurred_at = ファイル名日付(従来契約・不変) |
 | 3 | 剥離ヘルパの置き場 | 新設 `lib/ingestion/parsers/frontmatter.ts`(`stripFrontmatter(content): string` — **body のみ返す**)。normalize.ts は凍結維持 |
 | 4 | `Write(out/**)` の表現 | `claude_args: --allowedTools "Read,Write(out/**)"`。**3-job 分離により一段目の実効性への依存度が下がる**(job B にはスクリプトも秘密も存在しない)。効き確認は手動チェックリスト |
@@ -80,6 +81,21 @@
 | 12 | **R-8/R-9(sec・Low)** | `--name-status` の**行数 = マニフェスト件数**を要求(空出力の空振り防止)/ action のバージョンはメジャータグ運用(現行踏襲)と §4-R に明記 |
 | 13 | **arch C 群(Low)** | 詳細ヘッダの版ポインタを rev.5 に更新 / §0-B-16 の「lib/data 6本」→ **5本** / 基本 §3 の `persist-credentials ×3`・「7 ステップ」を rev.5 表現に修正 / §4-R-1 の精密化(上記8)/ `mcp__` 静的否定(上記10 に包含)/ DENY_WORDS 複製の理由(server-only 境界 — 上記4)を明記 / **CLAUDE.md の両 repo 化を grep -F でピン**(条件6) |
 
+### 0-E. 詳細 R4 の決着(arch・data FAIL — 構造は受理・配線と機械ピン)
+
+| # | R4 指摘 | 決着 |
+|---|---|---|
+| 1 | **data G-1/G-2/G-3(ブロッカー): `run.date` の供給主体が二重**(§2.1 の fetch 算出 vs §2.5 step 0 の env)**+ JST の機械ピンゼロ**(runner 既定 UTC で素直に実装すると morning スロットだけ1日ずれ、run.json と自己整合するため全条件が緑)**+ env 受け渡しが未ピン**(欠落で恒久 run-fail) | **権威を workflow step 0 に一本化**: step 0 が `TZ: Asia/Tokyo` の下で date/slot を算出し `$GITHUB_OUTPUT` へ。**fetch.ts は env(`ORGANIZE_DATE` / `ORGANIZE_SLOT` / `ORGANIZE_ALLOWED_ORGS`)を受け取るだけ**(自分で日付を計算しない — `new Date()` を使わない)。**機械ピン**: 条件3 に `TZ: Asia/Tokyo` と env 3種の受け渡し・条件2 に **fetch.ts の `new Date(` 否定 grep** + env 必須(未設定なら fail)。 |
+| 2 | **arch G-1: `pr.ts` の date/slot 供給元がない**(env に ORGANIZE_STATE がなく run.json を読めない = 第2の真実源を発明させる) | **pr.ts も `state/run.json` を読む**(§2.5 step 9 の env に `ORGANIZE_STATE` を追加・条件2 に `run.json` ピン)。ブランチ名・PR タイトルの date/slot は run.json 由来に統一 |
+| 3 | **arch G-3: server-only 否定 grep が構文的に発火しない**(`from` 必須だが `import "server-only";` は from なし) | **許可リスト形に転換**: **scripts/organize が import してよい `lib/` は `parsers/frontmatter` のみ**(`grep -RIn "lib/" scripts/organize \| grep -v 'parsers/frontmatter'` が空)+ `server-only` リテラルの否定(from 非依存) |
+| 4 | **arch G-2: SSoT の「読み取りは GitHub API 経由のみ」(CLAUDE.md 黄金ルール1 第2文・ingestion.md)と publish job の checkout が未調停** | **§2.7 の契約更新に `.claude/rules/ingestion.md` を追加**(4ファイルに): 「clone 禁止は**索引の取得経路**に対する規約であり、**CI の書き戻し経路(PR 作成のための checkout)は本例外の対象**」と明記。条件6 に grep 追加 |
+| 5 | **data G-8: 多ユーザーガードが capture.md の「全ユーザー一括消費」と矛盾**(ルール文は一括、実装は停止) | capture.md の更新項目に **「単一ユーザー前提・2人目検知で停止」** を追加(§2.7)+ 条件6 に grep(`単一ユーザー`) |
+| 6 | **data G-5: verify に (repo, path) 重複検査がない**(「1 run 1 logs」「連番の非重複」が散文の約束・place まで検知が遅れ系統的重複なら毎 run fail) | **`checkUniquePaths(manifest)` を verify に追加**(同一 (repo, path) の重複 fail・logs は repo ごと最大1件)。§2.2 IF・§3 テスト・条件2 のピン |
+| 7 | **data G-9: §3 の必須ケースが条件4 で機械判定不能**(`test -f` + `npm test` では中身を見ない — rev.4 の新規防御が全部この階層) | 条件4 に**ケース名の grep ピン**を追加(前例: M3 の抜き取り確認): 空行/CRLF・run.json 不一致・allowed_orgs 外・ids.json 基準・重複 path・多ユーザーガードの各テスト名リテラル |
+| 8 | **data G-4/G-10: midnight スロットの意味論・head-of-line 問題が未宣言** | §4-R に追記: **JST 24:00 の midnight スロットは JST 翌日の日付**(整理対象日と occurred_at が1日ずれる — 意図した挙動)/ **head-of-line**(先頭 LIMIT 50 に verify を落とし続ける行があると後続も滞留。行単位隔離・試行回数・dead-letter は v1 になし — 監視は Actions 通知) |
+| 9 | **data G-6/G-7/G-11〜G-16 / arch G-4/G-5/G-6(記述精度・ピン漏れ)** | `checkFrontmatter` の**必須7キーを §2.2 に列挙**(date, slot, source, capture_ids, kind, status, tags)・kind/status の値域も定義 / **allowed_orgs は env 定数**(SSoT 実体から導出しない — org 追加時は env 更新が必要。§4-R に明記)+ 条件2 に `checkOrg`/`allowed_orgs` ピン / §4-R-1 を「決定的命名により**機械判別可能な署名**(`<date>-<slot>[-d<nn>]`)を持つ」に修正 / topic が `fileSlug` 由来で無意味値になる点を §4-R に明記 / DENY_WORDS 複製のドリフト検知なしを §4-R に明記 / §0-A-1 の「9列」→ **10列** / 多ユーザーガードの非トランザクション性を明記 / **条件2 の user_id ピンをコメント許容形に緩和**(`grep -RIn "user_id" fetch.ts | grep -v '^\s*//' | grep -Fv 'count(DISTINCT user_id)'`) / **job 級 `env:` の否定を条件3 に追加** / CLAUDE.md ピンを**改定後にしか現れないリテラル**に変更(`docs/decisions/`)/ 基本 §3 の `×3` を rev.6 で修正 |
+| 10 | **arch: 基本 §1-C-3 の `YYYY-MM-DD-<slug>.md` が rev.4 の slug 廃止と方針衝突**(基本は PASS 済み文書で M5-B のプロンプト執筆時に参照され得る = livelock 発火源の再導入経路) | **基本設計を rev.6 に再調停**(§1-C-3 の命名を決定的規約に差し替え + 「**命名の正典は詳細 §2.6**」を明記 + §3 の `persist-credentials ×3` を 4本に修正) |
+
 ## 1. スキーマ DDL・DB 資産
 
 **0008_organize_consume.up.sql**(Write ツールで作成):
@@ -114,7 +130,7 @@ GRANT UPDATE (processed_at, curated_ref, status) ON capture_inbox TO organize_bo
 - 出力3点:
   - `$ORGANIZE_OUT/rows.json` — 行配列 + `{ date, slot }`(job B へ artifact)。
   - `$ORGANIZE_STATE/ids.json` — ID 配列(**分割一致の信頼アンカー**)。
-  - `$ORGANIZE_STATE/run.json` — **`{ date, slot, allowed_orgs }`**(**時間軸・org のアンカー** — R3 D-6/D-7)。`date` は **JST 基準**(`TZ=Asia/Tokyo`)・`slot` は workflow から env で受領・`allowed_orgs` は env `ORGANIZE_ALLOWED_ORGS`(既定 `domain-tech-collection`)。
+  - `$ORGANIZE_STATE/run.json` — **`{ date, slot, allowed_orgs }`**(**時間軸・org のアンカー** — R3 D-6/D-7)。**3値とも env をそのまま書き写すだけ**(`ORGANIZE_DATE` / `ORGANIZE_SLOT` / `ORGANIZE_ALLOWED_ORGS`)。**fetch.ts は日付を計算しない**(`new Date(` を書かない — 権威は workflow step 0 の `TZ: Asia/Tokyo` 算出。R4 data G-1/G-2)。**3 env のいずれかが未設定なら run を fail**(欠落による恒久 run-fail を fetch 時点で明示検知 — R4 data G-3)。`allowed_orgs` の既定は `domain-tech-collection`(**env 定数 — SSoT の実体からは導出しない**。org 追加時は env 更新が必要 — §4-R-9)。
   - **`state/` は job B に渡さない**(artifact `organize-state` は publish のみが download)。
 - 0件なら `empty=true` を `$GITHUB_OUTPUT` へ。
 
@@ -129,7 +145,12 @@ export const ALLOWED: Record<string, RegExp[]> = {
 export const DENY_WORDS = ["profile", "personality", "minefield", "memory", "agents", "claude", ".active", ".interaction-log", "agent-memory"];
 export function isAllowedDest(repo: string, path: string): boolean;      // 正規化(../・絶対・\ 拒否)→ ALLOWED 照合 → DENY_WORDS 非含有
 export function isAllowedSource(file: string): boolean;                  // 正規化 → out/md/ 配下限定
-export function checkFrontmatter(md: string, path: string, run: RunMeta): string[]; // 必須7キー欠落 + source==='decision-cockpit' + **date == run.date**(自己整合でなく run 値との一致 — R3 D-6)の違反列挙
+// 必須7キー = date, slot, source, capture_ids, kind, status, tags(R4 data G-6)
+//   date  = run.date と一致 / slot = run.slot と一致 / source = 'decision-cockpit' 固定
+//   kind  = logs は 'mixed' / decisions・todos は capture の kind(status|issue|next_move|spar_conclusion)
+//   status= 'curated' 固定 / capture_ids = UUID 配列(非空)/ tags = 文字列配列(空可)
+export function checkFrontmatter(md: string, path: string, run: RunMeta): string[]; // 上記の違反を列挙
+export function checkUniquePaths(manifest: ManifestEntry[]): string[];    // 同一 (repo, path) の重複 / logs が repo ごと2件以上(R4 data G-5 — place まで検知を遅らせない)
 export function checkH1(md: string): boolean;                            // **parsers/frontmatter.ts の stripFrontmatter を import して**剥離した結果の1行目が /^#\s+/(パーサと同一関数 = 乖離による false-green の遮断 — R2 D-2)
 export function checkPartition(baseIds: string[], manifest: ManifestEntry[]): { missing: string[]; unknown: string[]; dup: string[] };
 export function checkFilename(repo: string, path: string, run: RunMeta): boolean;
@@ -143,7 +164,7 @@ export function checkOrg(path: string, run: RunMeta): boolean;           // cc-s
 
 ### 2.3 place.ts / pr.ts / mark.ts(job C)
 - **place**: マニフェストの (repo, path, file) を copy。**宛先が既存なら exit 1**(追加のみ)。削除・移動 API を使わない。
-- **pr**: repo ごとに `organize/<date>-<slot>` ブランチ。git 実行は**配列引数の spawn** に固定:
+- **pr**: repo ごとに `organize/<date>-<slot>` ブランチ(**date/slot は `state/run.json` から読む** — 第2の真実源を作らない。R4 arch G-1)。git 実行は**配列引数の spawn** に固定:
   - `["-c", "core.hooksPath=", "add", "--", ...manifestPaths]`(**`-A`/`--all`/`.` を使わない**・hooks 無効)
   - **`["diff", "--cached", "--name-status"]` を `add` 直後・commit 前に実行**し、全行が `A` で始まることを検査(違反 exit 1 — 追加のみの実体保証。**commit 後だと index と HEAD が一致して常に空 = 空振りになる** — R2 B-2)
   - commit(固定メッセージ・hooks 無効)
@@ -164,7 +185,8 @@ export function checkOrg(path: string, run: RunMeta): boolean;           // cc-s
 job fetch:      (id: fetch)
   1 actions/checkout        path: cockpit, persist-credentials: false
   2 npm ci                  working-directory: cockpit
-  0 slot 解決(run): JST 日付と slot を決め $GITHUB_OUTPUT へ(cron 時刻 or slot_override・`^[a-z0-9-]+$` サニタイズ)
+  0 slot 解決(run・**date/slot の唯一の権威**): `env: TZ: Asia/Tokyo` の下で **JST 日付**と slot を決め
+                            `$GITHUB_OUTPUT` へ(cron 時刻 or slot_override・`^[a-z0-9-]+$` サニタイズ)
   3 npx tsx scripts/organize/fetch.ts   working-directory: cockpit
                             env: DATABASE_URL(secrets), ORGANIZE_OUT, ORGANIZE_STATE,
                                  ORGANIZE_DATE, ORGANIZE_SLOT, ORGANIZE_ALLOWED_ORGS
@@ -197,7 +219,9 @@ job publish:    needs: [fetch, generate] / if: needs.fetch.outputs.empty != 'tru
   6 actions/checkout        repository: SAS-Sasao/ai-war-room,          path: warroom, token: WARROOM_PAT, persist-credentials: false
   7 actions/checkout        repository: SAS-Sasao/cc-sier-organization, path: orgrepo, token: ORGREPO_PAT, persist-credentials: false
   8 npx tsx scripts/organize/place.ts   working-directory: cockpit  env: ORGANIZE_OUT
-  9 npx tsx scripts/organize/pr.ts      working-directory: cockpit  env: ORGANIZE_OUT, WARROOM_PAT, ORGREPO_PAT, GH_TOKEN は repo 別に切替
+  9 npx tsx scripts/organize/pr.ts      working-directory: cockpit
+                            env: ORGANIZE_OUT, **ORGANIZE_STATE**(run.json から date/slot — R4 arch G-1),
+                                 WARROOM_PAT, ORGREPO_PAT, GH_TOKEN は repo 別に切替
  10 npx tsx scripts/organize/mark.ts    working-directory: cockpit  env: ORGANIZE_OUT, DATABASE_URL(secrets)
 ```
 - **workflow 級・job 級 `env:` ブロックを置かない**(env は step 級のみ — 条件3 でピン)。**job 級 `permissions:` も置かない**(workflow 級 `contents: read` のみ — 昇格の否定 grep を条件3 に)。**artifact はすべて `retention-days: 1`**。
@@ -221,7 +245,8 @@ job publish:    needs: [fetch, generate] / if: needs.fetch.outputs.empty != 'tru
 ### 2.7 契約更新(M5-B・主セッション)
 - CLAUDE.md: 冒頭段落 + 黄金ルール1(両 repo・PR 経由・許可パス — `organize-loop` リテラル)。
 - .claude/rules/actions.md: 許可パスに cc-sier 2パス追加・受け入れ条件を「分割一致 + repo 単位 mark」に更新・**force push / main 直 push 禁止**を明記。
-- .claude/rules/capture.md: 消費契約(消費述語・done 揃え・curated_ref 形式・**帰属は書かない**)。
+- .claude/rules/capture.md: 消費契約(消費述語・done 揃え・curated_ref 形式・**帰属は書かない**・**単一ユーザー前提**(2人目を検知したら整理ループは停止し M5 を再設計する — R4 data G-8。現行の「全ユーザー一括消費」文の限定))。
+- **.claude/rules/ingestion.md(R4 arch G-2)**: 「取得は GitHub API 経由の読み取りのみ・元 repo を clone して書き込むことは禁止」は**索引の取得経路に対する規約**であり、**CI の書き戻し経路(PR 作成のための checkout → 追加 → PR)は §0 の例外の対象**であることを明記。
 
 ## 3. テスト観点
 
@@ -230,10 +255,10 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
 | ファイル(新設) | ケース |
 |---|---|
 | `tests/organize-verify.test.ts` | isAllowedDest(許可4パス ok / `../`・絶対パス・`\`・許可外 repo/パス・**denylist 語入り slug** fail)/ isAllowedSource(out/md/ 配下 ok・域外 fail)/ checkFrontmatter(7キー欠落・source 不正・**date とファイル名日付の不一致** を検出)/ **checkH1(H1 あり ok・`##` 始まり fail・frontmatter 直後の H1 を剥離後基準で判定)**/ checkPartition(欠落・捏造・重複それぞれ検出)/ checkFilename |
-| `tests/organize-sql.test.ts` | fetch: SQL 完全形(**列リスト + WHERE + ORDER BY**)・**SELECT 列に user_id を含まない**・params [limit]・クランプ / **多ユーザーガード**(`count(DISTINCT user_id)` が 2 以上 → run fail・1 なら継続・値は取得しない — R3 R-11)/ mark: SQL 完全形(3列・`AND processed_at IS NULL AND deleted_at IS NULL`)・params [ref, ids]・ファイル単位反復・**rowCount < ids で警告(throw しない)** |
+| `tests/organize-sql.test.ts` | fetch: SQL 完全形(**列リスト + WHERE + ORDER BY**)・**SELECT 列に user_id を含まない**・params [limit]・クランプ / **`"多ユーザーガード"`**(`count(DISTINCT user_id)` が 2 以上 → run fail・1 なら継続・値は取得しない — R3 R-11・条件4 の grep ピン対象)/ mark: SQL 完全形(3列・`AND processed_at IS NULL AND deleted_at IS NULL`)・params [ref, ids]・ファイル単位反復・**rowCount < ids で警告(throw しない)** |
 | `tests/organize-pr.test.ts` | pr の git 引数生成(純関数): add が `["add","--",...paths]` 形(`-A`/`.` を含まない)/ push 引数が `HEAD:refs/heads/organize/...` で **force フラグを含まない・main を含まない** / **`--name-status` の呼び出しが `add` の後・`commit` の前**(呼び出し順を記録するモックで assert — R2 B-2)/ 出力が `A` 以外を含むとき exit 1 相当 / slot 不正で拒否 / `core.hooksPath=` を含む |
-| `tests/organize-verify-cli.test.ts`(**新設** — R2 G-2) | **verify CLI の配線契約**(モック fs): 正常なマニフェスト1件 → exit 0 / **H1 なし → exit 1** / 許可外パス → exit 1 / 分割不一致(欠落・捏造・重複)→ exit 1 / ソース域外 → exit 1 / **run.json と異なる date・slot のファイル名 → exit 1** / **allowed_orgs 外の org → exit 1** / **ids.json と食い違う rows.json を置いても ids.json 基準で判定する**(R3 B-1)/ 連番形式外(`-dx.md` 等)→ exit 1 |
-| `tests/parsers/frontmatter.test.ts` | stripFrontmatter: 剥離 / 閉じ無しは非剥離 / frontmatter なしは原文 / **中身を解釈しない** / **空行スキップ必須ケース**(閉じ `---` の後に空行1つ・空白のみ行・CRLF — R3 D-9)/ **import 文ゼロの純モジュールであること**(依存ゼロ — R3 A-1 は条件2 の grep で機械判定) |
+| `tests/organize-verify-cli.test.ts`(**新設** — R2 G-2) | **verify CLI の配線契約**(モック fs)。**it 名は条件4 の grep ピン対象**(R4 data G-7): 正常 → exit 0 / `"H1 なし"` → exit 1 / 許可外パス → exit 1 / 分割不一致(欠落・捏造・重複)→ exit 1 / ソース域外 → exit 1 / **`"run.json 不一致"`**(date・slot がファイル名と違う)→ exit 1 / **`"allowed_orgs 外"`** → exit 1 / **`"ids.json 基準"`**(食い違う rows.json を置いても ids.json で判定)→ exit 1 / **`"重複 path"`**(同一 (repo,path) / logs 2件)→ exit 1 / 連番形式外 → exit 1 |
+| `tests/parsers/frontmatter.test.ts` | stripFrontmatter: 剥離 / 閉じ無しは非剥離 / frontmatter なしは原文 / **中身を解釈しない** / **`"空行スキップ"` 必須ケース**(閉じ `---` の後に空行1つ・空白のみ行・**`"CRLF"`** — R3 D-9・条件4 の grep ピン対象)/ **import 文ゼロの純モジュールであること**(依存ゼロ — R3 A-1 は条件2 の grep で機械判定) |
 | `tests/parsers/daily-log.test.ts`(**凍結例外**・追加のみ) | 追加: slot 付きファイル名 ok / **frontmatter + H1 の生成物 → status ok・body に frontmatter 非含有** / **frontmatter + H1 なし(`##` のみ)→ status error**(還流の必要条件をテストで固定) |
 | `tests/parsers/decision.test.ts`(**凍結例外**・追加のみ) | 追加: frontmatter + 分岐1 H1 → ok・occurred_at = ファイル名日付・body 剥離済み / **error 行の body にも frontmatter が残らない** |
 | 既存テスト | 上記2本の**追加以外は1文字も変えない**(条件5)。他は全凍結 |
@@ -262,7 +287,7 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    fail=0
    for f in fetch verify place pr mark; do test -f "scripts/organize/$f.ts" || fail=1; done
    grep -Fq 'SELECT id, kind, topic, tags, body, status, created_at FROM capture_inbox WHERE processed_at IS NULL AND deleted_at IS NULL ORDER BY created_at ASC, id ASC LIMIT $1' scripts/organize/fetch.ts || fail=1
-   grep -RIn 'user_id' scripts/organize/fetch.ts | grep -Fv 'count(DISTINCT user_id)' | grep -q . && fail=1
+   grep -RIn 'user_id' scripts/organize/fetch.ts | grep -vE ':[[:space:]]*(//|\*)' | grep -Fv 'count(DISTINCT user_id)' | grep -q . && fail=1
    grep -RIn 'user_id' scripts/organize/verify.ts scripts/organize/place.ts scripts/organize/pr.ts scripts/organize/mark.ts; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -Fq "SET processed_at = now(), status = 'done', curated_ref = \$1 WHERE id = ANY(\$2) AND processed_at IS NULL AND deleted_at IS NULL" scripts/organize/mark.ts || fail=1
    [ "$(grep -rl 'UPDATE capture_inbox' scripts/organize/ | wc -l)" = "1" ] || fail=1
@@ -270,10 +295,17 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    grep -Fq 'run.json' scripts/organize/fetch.ts || fail=1
    grep -Fq 'ids.json' scripts/organize/verify.ts || fail=1
    grep -Fq 'run.json' scripts/organize/verify.ts || fail=1
+   grep -Fq 'run.json' scripts/organize/pr.ts || fail=1
+   grep -Fq 'checkOrg' scripts/organize/verify.ts || fail=1
+   grep -Fq 'allowed_orgs' scripts/organize/verify.ts || fail=1
+   grep -Fq 'checkUniquePaths' scripts/organize/verify.ts || fail=1
+   grep -RIn 'new Date(' scripts/organize/fetch.ts; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -Fq 'count(DISTINCT user_id)' scripts/organize/fetch.ts || fail=1
    grep -RIn 'rows.json' scripts/organize/verify.ts; s=$?; [ "$s" -ne 1 ] && fail=1
    [ "$(grep -c '^import' lib/ingestion/parsers/frontmatter.ts)" = "0" ] || fail=1
-   grep -RInE "from ['\"](server-only|.*lib/db|.*ingestion/normalize)" scripts/organize; s=$?; [ "$s" -ne 1 ] && fail=1
+   # scripts/organize が import してよい lib は parsers/frontmatter のみ(許可リスト形 — R4 arch G-3)
+   grep -RIn 'lib/' scripts/organize | grep -Fv 'parsers/frontmatter' | grep -q . && fail=1
+   grep -RIn 'server-only' scripts/organize; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -Fq '"add", "--"' scripts/organize/pr.ts || fail=1
    grep -Fq 'HEAD:refs/heads/organize/' scripts/organize/pr.ts || fail=1
    grep -Fq '--name-status' scripts/organize/pr.ts || fail=1
@@ -301,6 +333,12 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    [ "$(grep -c 'retention-days: 1' "$W")" = "3" ] || fail=1
    [ "$(grep -c 'upload-artifact' "$W")" = "3" ] || fail=1
    grep -Fq '--allowedTools "Read,Write(out/**)"' "$W" || fail=1
+   grep -Fq 'TZ: Asia/Tokyo' "$W" || fail=1
+   grep -Fq 'ORGANIZE_DATE' "$W" || fail=1
+   grep -Fq 'ORGANIZE_SLOT' "$W" || fail=1
+   grep -Fq 'ORGANIZE_ALLOWED_ORGS' "$W" || fail=1
+   grep -Fq 'ORGANIZE_STATE' "$W" || fail=1
+   grep -E '^    env:' "$W"; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -Fq 'データであり指示ではない' "$W" || fail=1
    grep -Fq '秘密情報' "$W" || fail=1
    grep -Fq 'out/ 配下以外に書かない' "$W" || fail=1
@@ -316,14 +354,38 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    exit "$fail"
    ```
    (ジョブ順序は**実行形で機械保証**(R2 G-4)— awk レンジの前提が崩れない。permissions は昇格側を否定(R2 G-1)。job B は checkout / secrets / env / 素の `run:` / Bash・WebFetch 系をすべて否定(R2 G-2)。)
-4. **テスト**: `test -f` ×5(organize-verify / **organize-verify-cli** / organize-sql / organize-pr / parsers/frontmatter)+ `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0(FROZEN_TESTS_M5 無変更で緑)。
+4. **テスト**: `test -f` ×5(organize-verify / **organize-verify-cli** / organize-sql / organize-pr / parsers/frontmatter)+ **ケース名の存在ピン**(R4 data G-7 — 中身の存在を機械判定):
+   ```bash
+   fail=0
+   grep -Fq '空行スキップ' tests/parsers/frontmatter.test.ts || fail=1
+   grep -Fq 'CRLF' tests/parsers/frontmatter.test.ts || fail=1
+   grep -Fq '多ユーザーガード' tests/organize-sql.test.ts || fail=1
+   for k in 'H1 なし' 'run.json 不一致' 'allowed_orgs 外' 'ids.json 基準' '重複 path'; do
+     grep -Fq "$k" tests/organize-verify-cli.test.ts || fail=1
+   done
+   exit "$fail"
+   ```
+   + `env -u DATABASE_URL -u EMBEDDING_API_KEY -u EMBEDDING_SOURCE -u SPAR_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL npm test` exit 0(FROZEN_TESTS_M5 無変更で緑)。
 5. **凍結例外の diff ピン**(パーサテスト2本 — 追加のみ):
    ```bash
    fail=0
    git diff main -- tests/parsers/daily-log.test.ts tests/parsers/decision.test.ts | grep '^-' | grep -v '^--- ' | grep -q . && fail=1
    exit "$fail"
    ```
-6. **契約更新**(M5-B): `grep -q "organize-loop"` ×3(CLAUDE.md / .claude/rules/actions.md / .claude/rules/capture.md)+ **`grep -Fq 'cc-sier-organization' CLAUDE.md` の出現が黄金ルール1 の書き戻し文脈にあること**(両 repo 化 — 実体は人間レビュー)+ `grep -Fq '.companies/<org>/docs/decisions/' .claude/rules/actions.md` + `grep -Fq 'force' .claude/rules/actions.md` + `grep -Fq '帰属' .claude/rules/capture.md`。
+6. **契約更新**(M5-B):
+   ```bash
+   fail=0
+   for f in CLAUDE.md .claude/rules/actions.md .claude/rules/capture.md .claude/rules/ingestion.md; do
+     grep -q "organize-loop" "$f" || fail=1
+   done
+   grep -Fq '.companies/<org>/docs/decisions/' CLAUDE.md || fail=1          # 改定後にしか現れないリテラル(R4 arch G-4)
+   grep -Fq '.companies/<org>/docs/decisions/' .claude/rules/actions.md || fail=1
+   grep -Fq 'force' .claude/rules/actions.md || fail=1
+   grep -Fq '帰属' .claude/rules/capture.md || fail=1
+   grep -Fq '単一ユーザー' .claude/rules/capture.md || fail=1               # 多ユーザーガードの契約化(R4 data G-8)
+   grep -Fq '書き戻し' .claude/rules/ingestion.md || fail=1                 # clone 例外の明記(R4 arch G-2)
+   exit "$fail"
+   ```
 7. **凍結・閉包・回帰**:
    ```bash
    fail=0
@@ -364,14 +426,18 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
 
 ## 4-R. 既知の制限・受容リスク(R2 の決着 — 機械判定外)
 
-1. **索引側に provenance が残らない**(R2 D-3 / R3 D-10): frontmatter は剥離されて body に入らず、パーサも解釈しないため、`source: decision-cockpit` / `capture_ids` / `kind` / `status` は **timeline_records に到達しない**。手がかりは **ファイル名の slot 接尾**(`<date>-<slot>...`)のみで、**人間執筆物と同一ディレクトリ・同一命名規則に見える**(区別は実質不可能)。ただし **`curated_ref = '<repo>:<path>'` は `(source, file_path)` と同形**のため **capture → 生成物の順方向は辿れる**(逆方向は不可)。**provenance の索引化は M6**。
+1. **索引側に provenance が残らない**(R2 D-3 / R3 D-10 / R4 G-11): frontmatter は剥離されて body に入らず、パーサも解釈しないため、`source: decision-cockpit` / `capture_ids` / `kind` / `status` は **timeline_records に到達しない**。ただし決定的命名により生成物は **`<date>-<slot>[-d<nn>|-t<nn>].md` という機械判別可能な署名**を持つ(file_path のパターンで抽出は可能 — 索引列としては持たない)。**`curated_ref = '<repo>:<path>'` は `(source, file_path)` と同形**なので **capture → 生成物の順方向は辿れる**(逆方向は不可)。**provenance の索引列化は M6**。
 2. **タグ付与に機械的な床がない**(R2 G-5): 生成 MD のタグは applyTags(tag_synonyms 語彙の本文マッチ)に依存し、語彙語を含まない生成物は `tags = []` で索引される。§2.6 のプロンプトが本文にトピック語を含めるよう要求するが**検査はしない**。tags メタフィルタでの到達性は保証されない — **床の導入は M6**。
 3. **daily_log 行が1日最大4件増える**(4スロット): `/retro`・`/`(概観)の型別件数の母数が変わる。lib/data/review.ts・overview.ts は凍結のため M5 では吸収しない(表示上の意味変化を受容)。
 4. **todos に振られた capture は索引に還流しない**(R2 D-4 / R3 D-11): `docs/todos/` は同期 allowlist 外。**「処理済み(done)だが索引には現れない」**状態になり、その行の **`curated_ref` は索引に存在しないキーを指す dangling 参照**になる(SSoT のファイル自体は存在するので人間は辿れる)。落ちる割合に上限はない — **還流を閉じるなら allowlist 追加(M6)**。v1 で todos を残すのは、next_move(組織タスク)の置き場として SSoT 側の既存構造に合流させるため。
 5. **capture 本文が CI 側に一時複製される**(R2 B-3): rows / out artifact に生データと生成物が載る(`retention-days: 1`・private repo・`actions: read` 権限者が取得可能)。DB 外への複製面が増えることを受容する。
 6. **同 slot 再実行の衝突は fail-closed**(R2 D-1): 自動リネームはせず place / push で落とす。未 mark 行は次スロットで自動回復。手動 dispatch の詰まりのみ手動復旧(条件8)。
 7. **verify クラスの失敗は run 全体を止める**(R3 D-5): 行単位の隔離はしない。**ただしファイル名を決定的規約にしたことで、denylist・命名の逸脱で毎回同じ入力が落ち続ける livelock の発火源は構造的に除去**した。残る失敗は Claude 出力の逸脱(分割一致・H1 欠落等)で、これは次スロットの再生成で回復し得る。**連続失敗の監視は GitHub Actions の失敗通知に依存**(専用の可視化は M6)。
-8. **action のバージョンはメジャータグ運用**(R3 R-9): `actions/checkout@v4` / `upload-artifact@v4` / `claude-code-action@v1`。SHA 固定はしない(現行踏襲)— job A/C は secrets を持つため、上流侵害時の影響は受容範囲外に出る点を認識のうえ、更新時は挙動確認を行う。
+8. **midnight スロットの日付**(R4 data G-4): JST 24:00 = JST 翌日 00:00 のため、深夜スロットの整理ログは **対象日の翌日の日付**で記録される(`occurred_at` も翌日)。意図した挙動として受容(日付境界を跨ぐ整理の性質上避けられない)。
+9. **head-of-line 問題**(R4 data G-10): verify クラスの失敗は run 全体を落とすため、**先頭 LIMIT 50 に verify を落とし続ける行が1件あると後続も滞留**する。**行単位の隔離・試行回数・dead-letter は v1 になし**(監視は GitHub Actions の失敗通知。専用の可視化・隔離は M6)。ただし §4-R-7 のとおり決定的命名により**決定的に失敗し続ける発火源は除去済み**。
+10. **allowed_orgs は env 定数**(R4 data G-7): SSoT の `.companies/*` 実体からは導出しない。**org の追加・改名時は `ORGANIZE_ALLOWED_ORGS` の更新が必要**(未更新だと正当な org が verify で拒否され run fail = 気づける方向の失敗)。
+11. **その他の受容**(R4 G-12〜G-16): 生成 decisions の `topic` は `fileSlug` 由来で `2026-07-20-morning-d01` の無意味値になる(現状 topic を読む経路がないため実害なし)/ verify の `DENY_WORDS` は normalize.ts の `DENY_PATTERNS` の手動複製で**ドリフト検知手段がない**(server-only 境界の代償 — §0-D-4)/ 多ユーザーガードと本体 SELECT は**別クエリ**(非トランザクション・個人環境で受容)。
+12. **action のバージョンはメジャータグ運用**(R3 R-9): `actions/checkout@v4` / `upload-artifact@v4` / `claude-code-action@v1`。SHA 固定はしない(現行踏襲)— job A/C は secrets を持つため、上流侵害時の影響は受容範囲外に出る点を認識のうえ、更新時は挙動確認を行う。
 
 ## 5. 実装の分割(/goal 単位)と禁止事項
 
