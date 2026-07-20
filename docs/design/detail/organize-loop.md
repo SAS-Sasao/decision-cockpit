@@ -356,7 +356,7 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    grep -RIn 'server-only' scripts/organize; s=$?; [ "$s" -ne 1 ] && fail=1
    grep -Fq '"add", "--"' scripts/organize/pr.ts || fail=1
    grep -Fq 'HEAD:refs/heads/organize/' scripts/organize/pr.ts || fail=1
-   grep -Fq '--name-status' scripts/organize/pr.ts || fail=1
+   grep -Fq -- '--name-status' scripts/organize/pr.ts || fail=1   # `--` 区切り必須(grep 実装によっては先頭 -- をオプション誤認 — M5-A 実機で確認)
    grep -Fq 'core.hooksPath=' scripts/organize/pr.ts || fail=1
    grep -Fq 'stripFrontmatter' scripts/organize/verify.ts || fail=1
    grep -RInE '\-\-force|force-with-lease|HEAD:main|refs/heads/main|"-A"|"--all"|"-a"|"rm"' scripts/organize; s=$?; [ "$s" -ne 1 ] && fail=1
