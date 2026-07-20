@@ -135,6 +135,12 @@
 | 2 | **D-2(Low): 基本 §5 縮退の副作用 — 基本本文の条件番号が詳細 §4 の別条件に着地**(例: 基本の「条件5 でピン」は実際には詳細 条件6(契約更新)) | **基本本文から条件番号参照を撤去**(rev.9): 「条件5 でピン」→「**詳細 §4 の契約更新条件でピン**」等、番号を持たない語での参照に統一 |
 | 3 | **D-3(Low): §0-E/§0-F に「`id: run` step」が残存・版ポインタが rev.5 のまま** | 決着表本文の「`id: run` step」→ **`id: run` step** に統一 / 版ポインタを **rev.8** に更新 |
 
+### 0-I. M5-B 実装時に発見した設計不整合(主セッション・2026-07-20)
+
+| # | 事象 | 決着 |
+|---|---|---|
+| 1 | **条件3 の generate job の `uses:` 許可リストが2本(download-artifact / claude-code-action)だが、§2.5 の job generate は生成物を渡すため `upload-artifact` が必須** — 忠実な実装が必ず条件3 で落ちる(M5-A の R2 B-1 と同型のピン不整合) | **許可リストに `upload-artifact` を追加**(3本)。セキュリティ上の含意: job B が上げられるのは自分が生成した `out/` のみで、`retention-days: 1` の母集団固定ピン(`upload-artifact` 数 = `retention-days: 1` 数 = 3)が併存するため、追加の攻撃面は生じない |
+
 ## 1. スキーマ DDL・DB 資産
 
 **0008_organize_consume.up.sql**(Write ツールで作成):
@@ -405,7 +411,7 @@ vitest・実 DB / 実ネットワークなし(pg・fs はモック)。fixture �
    grep -E 'contents:[[:space:]]*write|write-all|packages:[[:space:]]*write|pull-requests:[[:space:]]*write' "$W"; s=$?; [ "$s" -ne 1 ] && fail=1
    # job B(generate)は「許可された 2 つの uses 以外を持たない」— 字下げ非依存(R3 R-9)
    awk '/^  generate:/,/^  publish:/' "$W" | grep -E '^[[:space:]]*(-[[:space:]]*)?run:'; s=$?; [ "$s" -ne 1 ] && fail=1
-   awk '/^  generate:/,/^  publish:/' "$W" | grep -E '^[[:space:]]*(-[[:space:]]*)?uses:' | grep -vE 'download-artifact|claude-code-action' | grep -q . && fail=1
+   awk '/^  generate:/,/^  publish:/' "$W" | grep -E '^[[:space:]]*(-[[:space:]]*)?uses:' | grep -vE 'download-artifact|upload-artifact|claude-code-action' | grep -q . && fail=1
    awk '/^  generate:/,/^  publish:/' "$W" | grep -E '^[[:space:]]*env:|permissions:|organize-state|actions/checkout|Bash|WebFetch|WebSearch|mcp__|Edit'; s=$?; [ "$s" -ne 1 ] && fail=1
    awk '/^  generate:/,/^  publish:/' "$W" | grep -F 'secrets.' | grep -Fv 'secrets.CLAUDE_CODE_OAUTH_TOKEN' | grep -q . && fail=1
    lf=$(grep -n '^  fetch:' "$W" | cut -d: -f1); lg=$(grep -n '^  generate:' "$W" | cut -d: -f1); lp=$(grep -n '^  publish:' "$W" | cut -d: -f1)
