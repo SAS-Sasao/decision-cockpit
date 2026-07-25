@@ -113,15 +113,15 @@ function totalCount(bucket: Bucket): number {
 }
 
 const th = {
-  border: "1px solid #ddd",
+  border: "1px solid var(--line)",
   padding: "6px 8px",
   textAlign: "left" as const,
-  background: "#f7f7f7",
+  background: "var(--panel-row)",
   whiteSpace: "nowrap" as const,
 };
 
 const td = {
-  border: "1px solid #ddd",
+  border: "1px solid var(--line)",
   padding: "6px 8px",
   textAlign: "right" as const,
   whiteSpace: "nowrap" as const,
@@ -282,7 +282,7 @@ export default async function RetroPage({
                 <li
                   key={i}
                   style={{
-                    borderBottom: "1px solid #eee",
+                    borderBottom: "1px solid var(--line-faint)",
                     padding: "8px 0",
                     display: "flex",
                     gap: 8,
