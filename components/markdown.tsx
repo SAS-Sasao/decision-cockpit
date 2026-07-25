@@ -121,7 +121,7 @@ function renderBlock(block: Block, key: number) {
                     key={i}
                     style={{
                       fontWeight: 600,
-                      background: "var(--panel-row)",
+                      background: "var(--line-row)",
                       border: "1px solid var(--line)",
                       padding: "6px 10px",
                       textAlign: "left",
