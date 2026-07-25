@@ -21,3 +21,8 @@
 
 # TypeScript incremental キャッシュ(古いキャッシュが削除済みファイルを参照して幻の型エラーを出す)
 tsconfig.tsbuildinfo
+e2e/.auth/
+e2e/screenshots/
+e2e/test-results/
+playwright-report/
+test-results/

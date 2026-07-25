@@ -97,3 +97,22 @@ export function qgBreakdown(
   const fail = total - pass;
   return { pass, fail };
 }
+
+/**
+ * X 軸ラベルの間引き間隔(front-check 設計 §3)。
+ * SSR ではラベル実幅を測れないため、推定幅 = maxLabelChars × fontSize × 0.62(半角基準の保守値)に
+ * 15% のマージンを足し、隣接ラベル中心の間隔(plotWidth / (n-1))で割って必要間隔 k を決定的に返す。
+ * k=1 なら全表示。n<=1 や plotWidth<=0 でも 1 を返す(0 除算・負値なし)。
+ */
+export function xLabelStep(
+  n: number,
+  plotWidth: number,
+  maxLabelChars: number,
+  fontSize: number
+): number {
+  if (n <= 1 || plotWidth <= 0) return 1;
+  const spacing = plotWidth / (n - 1);
+  if (spacing <= 0) return 1;
+  const estimatedWidth = maxLabelChars * fontSize * 0.62 * 1.15;
+  return Math.max(1, Math.ceil(estimatedWidth / spacing));
+}

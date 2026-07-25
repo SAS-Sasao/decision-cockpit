@@ -2,7 +2,7 @@
 //
 // 横断タイムライン用の複数系列折れ線チャート。水平グリッド5本 + y目盛(Mono)+
 // hollow ドット + 凡例(SVG 外)。null は splitSegments でセグメント分割して描画する。
-import { areaPath, linePath, scaleLinear, splitSegments } from "../../lib/ui/chart";
+import { areaPath, linePath, scaleLinear, splitSegments, xLabelStep } from "../../lib/ui/chart";
 import type { TokenColor } from "../../lib/ui/chart";
 
 type Series = {
@@ -24,8 +24,11 @@ type LineChartProps = {
 const GRID_LINES = 5;
 const PAD_TOP = 34;
 const PAD_RIGHT = 8;
-const PAD_BOTTOM = 8;
+// X ラベル帯(fontSize 9・y = height-2)をプロット領域の外に出す(front-check 設計 §1-6:
+// PAD_BOTTOM 8 では最下段 y 目盛りと X ラベルが干渉していた — e2e で検出)。
+const PAD_BOTTOM = 20;
 const PAD_LEFT = 34;
+const X_LABEL_FONT_SIZE = 9;
 
 function defaultFormatTick(v: number): string {
   return v.toFixed(2);
@@ -65,6 +68,7 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         width={width}
         height={height}
+        style={{ maxWidth: "100%", height: "auto" }}
         role="img"
         aria-label="横断タイムライン"
       >
@@ -135,19 +139,26 @@ export function LineChart({
             </g>
           );
         })}
-        {xLabels.map((label, i) => (
-          <text
-            key={`x-${i}`}
-            x={xScale(i)}
-            y={height - 2}
-            textAnchor="middle"
-            fontFamily="var(--font-mono)"
-            fontSize={9}
-            fill="var(--text-sub)"
-          >
-            {label}
-          </text>
-        ))}
+        {(() => {
+          // 密集時は間引く(front-check 設計 §3 — 推定幅ベースの決定的な間隔)
+          const maxChars = xLabels.reduce((m, l) => Math.max(m, l.length), 0);
+          const step = xLabelStep(n, plotRight - plotLeft, maxChars, X_LABEL_FONT_SIZE);
+          return xLabels.map((label, i) =>
+            i % step === 0 ? (
+              <text
+                key={`x-${i}`}
+                x={xScale(i)}
+                y={height - 6}
+                textAnchor="middle"
+                fontFamily="var(--font-mono)"
+                fontSize={X_LABEL_FONT_SIZE}
+                fill="var(--text-sub)"
+              >
+                {label}
+              </text>
+            ) : null
+          );
+        })()}
       </svg>
       <div style={{ display: "flex", gap: 16, fontSize: 11.5, color: "var(--text-sub)" }}>
         {series.map((s, i) => (

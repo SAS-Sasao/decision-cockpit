@@ -1,7 +1,8 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-25 TCS-1(タグ・コールドスタート恒久修正)完了** — **M0〜M5 + TCS-1 完了**
-> (テスト **455件**緑・44ファイル)。M5(organize-loop)は M5-A / M5-B とも judge PASS 済み・**有効化待ち**(ユーザー操作)。
+> 状態スナップショット: **2026-07-25 FC-1(Playwright フロント整合性チェック)完了** — **M0〜M5 + TCS-1 + FC-1 完了**
+> (vitest **459件**緑・44ファイル + **e2e 5画面 green**)。**Vercel 本番稼働中**(初回同期 8,283行・埋め込み済み・
+> 検出されたグラフ重なり4件と横はみ出し2件も修正済み)。M5(organize-loop)は**有効化待ち**(ユーザー操作)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
@@ -41,6 +42,7 @@
 > **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/
 > **空 DB からの初回同期も1回でタグが付く(TCS-1 恒久修正済み・部分復元状態のみ対処 B)** / モデル切替時は検索が一時 0件(ガードの過渡状態)/
 > **DB ボリュームの破棄は禁止**(guard-bash.sh で遮断・復旧は [`db-recovery.md`](./db-recovery.md))/
+> **UI を触った後は `npm run e2e`**(5画面のフロント整合性チェック・state 失効時は `npm run e2e:auth` を再実行)/
 > Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536` /
 > `SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY` / `CRON_SECRET`。
 
@@ -177,6 +179,12 @@ M5-A の executor 稼働中に発生。
   run-sync の masters 優先パーティション + `mergeTagVocab` ラン内マージ(repo 横断で語彙が効く)。
   本番初回同期は**1回でタグが付く**ようになり「2回走らせる」回避策は廃止(部分復元状態のみ db-recovery.md 対処 B)。
   設計 = docs/design/basic/tag-cold-start.md(3レンズ一発 PASS)・judge 7条件 + 追加確認4点 PASS
+- **FC-1(front-check: Playwright フロント整合性チェック)完了**(2026-07-25): 目視 OK 禁止をフロント表示に拡張。
+  `npm run e2e` = 5画面の console error / 横はみ出し / **SVG テキスト重なり**を機械判定(chromium・キャプチャ全 off・
+  localhost 固定・`npm test` とは完全分離)。認証は `npm run e2e:auth` の手動ログイン1回(state は gitignore)。
+  **fail→fix→pass を実証**: 重なり4件(折れ線の目盛り×Xラベル3画面 + ゲージ中央×キャプション)と
+  横はみ出し2件(1fr グリッドの min-content 押し広げ + nowrap テーブル)を検出→修正→全 green
+  (証跡 = e2e/evidence-fc1.md)。設計 = front-check(3レンズ 2R PASS・実装中の発見3件は §8 で設計改訂)
 
 ## 関連ドキュメント
 
