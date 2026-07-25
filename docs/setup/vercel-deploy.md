@@ -34,7 +34,7 @@
 | `NEON_AUTH_COOKIE_SECRET` | `.env` | 32文字以上 |
 | `GITHUB_TOKEN` | `.env` | SSoT 読み取り用 PAT |
 | `CRON_SECRET` | `.env` | **Vercel はこの名前の env があると Cron 起動時に `Authorization: Bearer <値>` を自動付与**する(実装の GET 認可とそのまま噛み合う) |
-| `SYNC_MAX_FILES` | 任意(未設定なら実装既定 100) | serverless の時間制限対策(進行カーソルで毎時追いつく) |
+| `SYNC_MAX_FILES` | 任意(未設定なら実装既定 100) | serverless の時間制限対策(進行カーソルで次回実行時に追いつく) |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | 検索(M2)。**ローカルと同一モデル・混在禁止** |
 | `EMBEDDING_DIM` | `1536` | 同上(pgvector 次元) |
 | `OPENAI_API_KEY` | `.env` | 埋め込み生成用 |
@@ -52,7 +52,9 @@
    - ログイン(email/password)→ `/` に到達
    - `/review` → 実スコア表示(Neon 本番にデータが無ければ空状態表示)
    - もし Neon Auth のログインが失敗する場合、Neon コンソール → Auth の**許可オリジン/ドメイン設定**に Vercel の URL を追加する必要がないか確認
-3. Cron 確認: Project → Settings → **Cron Jobs** に `GET /api/sync`(毎時 `0 * * * *`・`vercel.json` 由来)が表示されているか
+3. Cron 確認: Project → Settings → **Cron Jobs** に `GET /api/sync`(**日1回 `0 21 * * *` = JST 06:00**・`vercel.json` 由来)が表示されているか。
+   **Hobby プランは cron 日1回まで**のため毎時指定はデプロイが弾かれる(2026-07-25 に実際に発生 → 日1回へ変更)。
+   Hobby の cron は指定時刻ちょうどではなく**同一時間帯のどこかで実行**される(公式仕様)。
 
 ## 4. 初回同期・バックフィル・admin 付与
 
@@ -69,7 +71,10 @@
 - **admin ロール付与**(本番 user_roles は空 — 付与しないと管理系画面に入れない):
   `neon_auth."user"` から対象ユーザーの id を確認し、`user_roles` へ INSERT(手順の実体は
   [`db-recovery.md`](./db-recovery.md) 手順5 と同一。Claude が実施可能)。
-- 以後の増分は Vercel Cron(毎時)が処理。1回で終わらない量でも `sync_state.progress`(進行カーソル)で次回に続きから処理する設計。
+- 以後の増分は Vercel Cron(**日1回・JST 06:00 頃**)が処理。1回で終わらない量でも `sync_state.progress`(進行カーソル)で次回に続きから処理する設計。
+- **日中に最新化したいとき**はローカルから手動同期(`npx tsx scripts/sync-local.ts` — `.env` が Neon を指す状態で)。
+  **毎時同期に戻したくなったら**: Pro へのアップグレード、または decision-cockpit 自身の GitHub Actions から
+  毎時 `/api/sync` を `Authorization: Bearer CRON_SECRET` で叩く workflow の追加(無料・認可は既存実装のまま噛み合う)。
 - **展開が済んだら次は「🤖 整理ループの有効化」**([`next-actions.md`](./next-actions.md) の7項目・ユーザー操作)。
 
 ## 5. トラブルシュート
