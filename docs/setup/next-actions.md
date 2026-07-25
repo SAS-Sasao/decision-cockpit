@@ -1,7 +1,7 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-20 M5(自動整理ループ / organize-loop)完了** — M5-A(0008 + scripts/organize 5本 + パーサ拡張)/
-> M5-B(3-job workflow + generate プロンプト + 契約4ファイル改定)とも judge PASS。**M0〜M5 完了**(テスト **450件**緑・44ファイル)。
+> 状態スナップショット: **2026-07-25 TCS-1(タグ・コールドスタート恒久修正)完了** — **M0〜M5 + TCS-1 完了**
+> (テスト **455件**緑・44ファイル)。M5(organize-loop)は M5-A / M5-B とも judge PASS 済み・**有効化待ち**(ユーザー操作)。
 > **⚠ 同日 DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
@@ -28,6 +28,11 @@
 > 時間軸汚染・PAT 流出経路・スクリプト改ざん経路などを実装前に構造で除去)→ **M5-A**(0008 + 消費スクリプト5本 +
 > frontmatter 剥離とパーサ拡張で**還流を実際に閉じた**)→ **M5-B**(3-job 分離 workflow + プロンプト + 契約4ファイル改定)。
 > 途中で DB 全消失事故が発生し、**復旧 + 再発防止(guard hook + ルール + runbook)まで完了**。
+>
+> **2026-07-25 の完了サマリ**: **TCS-1(tag-cold-start)** — 軽量1枚設計 → 3レンズ**一発 PASS** → 実装 → judge 全条件 PASS。
+> masters 優先の安定パーティション + `mergeTagVocab` ラン内マージ(凍結例外1件の反転 + 新規テスト5件)。
+> 副産物: tsc「2件エラー」は tsconfig.tsbuildinfo の幻と判明(.gitignore + `export {};` で再発防止)/
+> **app コンテナに git が無い**ため `npm test` 条件は**ホスト実行が正**(check-no-secrets が動かない — 設計 §5-1 に注記)。
 >
 > **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/
 > **空 DB からの初回同期も1回でタグが付く(TCS-1 恒久修正済み・部分復元状態のみ対処 B)** / モデル切替時は検索が一時 0件(ガードの過渡状態)/
@@ -164,6 +169,10 @@ M5-A の executor 稼働中に発生。
 - **capture-triage(CT-1)完了**(2026-07-19): 0006 status 列(open/in_progress/done)+ INBOX 状態ボタン + バッジ連動(user_id 完全形ピン・UPDATE 単一性ゲート)。capture.md 契約更新済み・0006 ブランチ検証済み・本番未適用
 - **capture-trash(CT-2)完了**(2026-07-20): 0007 deleted_at 論理削除 + ゴミ箱ボタン + `?trash=1` 一覧 + 復元(InboxRow 不変 + TrashRow 専用型で凍結例外ゼロ・UPDATE 3本ゲート・全5 SQL 面 user_id 二重ゲート)。capture.md 契約更新済み・0007 ブランチ検証済み・本番未適用
 - **M5(自動整理ループ / organize-loop)完了**(2026-07-20): 設計は**基本3R + 詳細8R の全レンズ PASS**(3-job 分離・決定的ファイル名で livelock 除去・state/run.json アンカー・organize_bot で被害上限を3列 UPDATE に封じ込め)。M5-A(0008 + scripts/organize 5本 + frontmatter 剥離 + パーサ拡張 = 還流の成立)・M5-B(workflow 全面改修 + プロンプト + 契約4ファイル)とも judge PASS。**有効化はユーザー操作**(下記「整理ループの有効化」)
+- **TCS-1(tag-cold-start)完了**(2026-07-25): コールドスタート時に全行 tags 空になる既存バグの恒久修正。
+  run-sync の masters 優先パーティション + `mergeTagVocab` ラン内マージ(repo 横断で語彙が効く)。
+  本番初回同期は**1回でタグが付く**ようになり「2回走らせる」回避策は廃止(部分復元状態のみ db-recovery.md 対処 B)。
+  設計 = docs/design/basic/tag-cold-start.md(3レンズ一発 PASS)・judge 7条件 + 追加確認4点 PASS
 
 ## 関連ドキュメント
 
