@@ -8,7 +8,7 @@ import "server-only";
 // SourceAdapter 経由でのみ GitHub(または FixtureSource)にアクセスする。
 
 import { applyTags, isDenied, orgFromPath } from "./normalize";
-import { buildTagVocab } from "./tag-vocab";
+import { buildTagVocab, mergeTagVocab } from "./tag-vocab";
 import { parseBoard } from "./parsers/board";
 import { parseCaseBank } from "./parsers/case-bank";
 import { parseDailyLog } from "./parsers/daily-log";
@@ -135,8 +135,11 @@ export async function runSync(
   const maxFiles = resolveMaxFiles(opts.maxFiles);
   const force = opts.force ?? false;
 
-  // 語彙 = tag_synonyms 全件をラン冒頭に一度だけロードする(このスナップショットを
-  // ラン全体で使い回す。ラン中の masters upsert は同ランの他ファイルには反映しない)。
+  // 語彙 = tag_synonyms 全件をラン冒頭に一度だけロードする。ラン中の masters upsert は
+  // mergeTagVocab でこの配列にも即時反映し、同ランの後続ファイルに反映する
+  // (コールドスタートでも初回ランからタグが付く — tag-cold-start 設計 §3)。
+  // 配列は adapters 間で参照共有され、先頭 repo(cc-sier-organization = 語彙の供給源)で
+  // 取り込んだ語彙が後続 repo にも効く(buildAdapters の順序が前提)。
   const vocab = await getAllTagSynonyms();
 
   const repos: Record<string, RepoSyncSummary> = {};
@@ -206,7 +209,15 @@ async function syncRepo(
   }
 
   const pending = filtered.filter((f) => !doneSet.has(f.path));
-  const toProcess = maxFiles === 0 ? pending : pending.slice(0, maxFiles);
+
+  // masters を先頭に安定パーティションしてからスライスする(各グループ内の相対順は維持)。
+  // 語彙の供給源を必ず先に処理することで、コールドスタートの初回バッチでも
+  // レコード処理時に語彙が揃う(tag-cold-start 設計 §3)。
+  const ordered = [
+    ...pending.filter((f) => f.match.kind === "masters"),
+    ...pending.filter((f) => f.match.kind !== "masters"),
+  ];
+  const toProcess = maxFiles === 0 ? ordered : ordered.slice(0, maxFiles);
 
   let ok = 0;
   let error = 0;
@@ -236,6 +247,7 @@ async function syncRepo(
       const entries = buildTagVocab([{ path, content }]);
       if (entries.length > 0) {
         await upsertTagSynonyms(entries);
+        mergeTagVocab(vocab, entries);
       }
       doneSet.add(path);
       continue;

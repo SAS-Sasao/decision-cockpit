@@ -13,11 +13,12 @@
 > **秘密情報は本ファイルに実値を書かない。**
 >
 > **▶ 次セッションの再開手順**(どれから始めてもよい):
-> 1. **🔧 コールドスタートのタグ空問題の恒久修正**(下記「事故と再発防止」の既存バグ)— **本番初回同期でも必ず起きる**ため
->    Vercel 展開の前に片付けるのが望ましい。`run-sync.ts` の vocab 読み込み順(masters を先に処理 or 遅延ロード)を
->    軽量1枚設計 → 3レンズ → 小 goal で1周。あわせて `npx tsc --noEmit` の2件エラー(scripts のトップレベル関数名衝突)も修正。
+> 1. ~~🔧 コールドスタートのタグ空問題の恒久修正~~ → **完了(2026-07-25 TCS-1・judge PASS)**。
+>    masters 優先パーティション + mergeTagVocab のラン内マージで**初回同期からタグが付く**(設計
+>    docs/design/basic/tag-cold-start.md・3レンズ一発 PASS)。tsc の「2件エラー」は**幻**(古い
+>    tsconfig.tsbuildinfo が原因)と判明 — .gitignore 追加 + sync-local.ts の `export {};` で再発防止。
 > 2. **🚀 Vercel 展開**: [`vercel-deploy.md`](./vercel-deploy.md) + 本番マイグレーション **0003→0008**(人間承認)+
->    env 登録(EMBEDDING_* / SPAR_* / CRON_SECRET)+ 本番初回同期(**タグ問題の回避策 = 2回走らせる**)+ 埋め込みバックフィル。
+>    env 登録(EMBEDDING_* / SPAR_* / CRON_SECRET)+ 本番初回同期(**1回でタグが付く — TCS-1 済み**)+ 埋め込みバックフィル。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
 > 4. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
@@ -29,7 +30,7 @@
 > 途中で DB 全消失事故が発生し、**復旧 + 再発防止(guard hook + ルール + runbook)まで完了**。
 >
 > **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/
-> **空 DB からの初回同期はタグが付かない(2回走らせる)** / モデル切替時は検索が一時 0件(ガードの過渡状態)/
+> **空 DB からの初回同期も1回でタグが付く(TCS-1 恒久修正済み・部分復元状態のみ対処 B)** / モデル切替時は検索が一時 0件(ガードの過渡状態)/
 > **DB ボリュームの破棄は禁止**(guard-bash.sh で遮断・復旧は [`db-recovery.md`](./db-recovery.md))/
 > Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536` /
 > `SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY` / `CRON_SECRET`。
@@ -69,13 +70,15 @@ M5-A の executor 稼働中に発生。
 2. `CLAUDE.md` 黄金ルール6 と `.claude/rules/db.md` に禁止と**復旧義務**を明記。
 3. **復旧 runbook を新設**: [`db-recovery.md`](./db-recovery.md)(実際に復旧できた手順をそのまま収録)。
 
-**あわせて判明した既存バグ(未修正)**:
-- **コールドスタートでタグが空になる**: `lib/ingestion/run-sync.ts` はタグ語彙を同期開始時に1回だけ読むため、
-  **DB が空の状態からの初回同期では全行 `tags` が空**になる(語彙を作る masters は同じ run の後半で取り込まれるため間に合わない)。
-  → **Vercel 本番の初回同期でも必ず起きる**。回避策: 初回だけ**同期を2回**走らせる(または db-recovery.md 手順3 の対処 B)。
-  恒久修正(masters を先に処理する / vocab を遅延ロードする)は別トピックで設計する。
-- `npx tsc --noEmit` が main で2件エラー(`scripts/sync-local.ts` と `embed-local.ts` のトップレベル関数名衝突)。
-  `npm run build` では検出されない。実害はないが要修正。
+**あわせて判明した既存バグ → 2026-07-25 に両方決着(TCS-1)**:
+- **コールドスタートでタグが空になる** → **恒久修正済み**。masters を優先処理する安定パーティション +
+  `mergeTagVocab` によるラン内語彙マージ(lib/ingestion/run-sync.ts / tag-vocab.ts)。凍結例外1件(旧契約
+  ピンの反転)+ 新規テスト5件(ユニット3・コールドスタート契約・クロス adapter 契約)。設計 =
+  docs/design/basic/tag-cold-start.md(3レンズ一発 PASS)。**「同期を2回」回避策は不要になった**
+  (部分復元状態のみ db-recovery.md 手順3 の対処 B が残る)。
+- `npx tsc --noEmit` の2件エラー → **幻エラーと判明**(実体は古い `tsconfig.tsbuildinfo` が削除済みの一時
+  スクリプトを参照し続けていたもの。キャッシュ削除で exit 0)。再発防止: `.gitignore` に tsbuildinfo 追加 +
+  `scripts/sync-local.ts` をモジュールスコープ化(`export {};`)。
 
 ## 🔴 最優先(持ち越し・すぐ終わる)
 

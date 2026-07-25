@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildTagVocab } from "../../lib/ingestion/tag-vocab";
+import { buildTagVocab, mergeTagVocab } from "../../lib/ingestion/tag-vocab";
 
 const REPO_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const MASTERS_DIR = join(
@@ -60,5 +60,28 @@ describe("buildTagVocab", () => {
     const a = buildTagVocab(masters);
     const b = buildTagVocab(masters);
     expect(a).toEqual(b);
+  });
+});
+
+describe("mergeTagVocab — DB upsert と同じ置換セマンティクスの in-place マージ", () => {
+  it("同 synonym は canonical を置換する", () => {
+    const vocab = [{ synonym: "営業部", canonical: "営業部" }];
+    mergeTagVocab(vocab, [{ synonym: "営業部", canonical: "セールス" }]);
+    expect(vocab).toEqual([{ synonym: "営業部", canonical: "セールス" }]);
+  });
+
+  it("新規 synonym は末尾に追加する", () => {
+    const vocab = [{ synonym: "営業部", canonical: "営業部" }];
+    mergeTagVocab(vocab, [{ synonym: "開発部", canonical: "開発部" }]);
+    expect(vocab).toEqual([
+      { synonym: "営業部", canonical: "営業部" },
+      { synonym: "開発部", canonical: "開発部" },
+    ]);
+  });
+
+  it("空 entries では vocab を変更しない", () => {
+    const vocab = [{ synonym: "営業部", canonical: "営業部" }];
+    mergeTagVocab(vocab, []);
+    expect(vocab).toEqual([{ synonym: "営業部", canonical: "営業部" }]);
   });
 });
