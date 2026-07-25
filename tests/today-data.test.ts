@@ -269,3 +269,12 @@ describe("getTodayData — weekBucketBoundaries の再利用・SQL 固定表記"
     expect(call.text).toContain("array_agg(commit ORDER BY synced_at DESC, commit DESC)");
   });
 });
+
+describe("laneOfCaptureStatus — status → レーンの全域写像(today-board-interactive §1-1)", () => {
+  it("open→todo / in_progress→doing / done→done(CaptureStatus 3値の網羅)", async () => {
+    const { laneOfCaptureStatus } = await import("../lib/data/today");
+    const statuses = ["open", "in_progress", "done"] as const;
+    const lanes = statuses.map((s) => laneOfCaptureStatus(s));
+    expect(lanes).toEqual(["todo", "doing", "done"]);
+  });
+});

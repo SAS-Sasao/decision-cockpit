@@ -28,6 +28,21 @@ export type TodayData = {
   boardEmpty: boolean; // board_items が 0 行(未同期)— 空状態表示用
 };
 
+/**
+ * capture の status → カンバンレーンのマップ(today-board-interactive §1-1)。
+ * CaptureStatus 3値の全域写像(open→todo / in_progress→doing / done→done)。純関数・ユニットテスト対象。
+ */
+export function laneOfCaptureStatus(status: "open" | "in_progress" | "done"): "todo" | "doing" | "done" {
+  switch (status) {
+    case "open":
+      return "todo";
+    case "in_progress":
+      return "doing";
+    case "done":
+      return "done";
+  }
+}
+
 // reward 平均の対象(ingestion-foundation 基本設計 §3.4 を継承・review/overview と同じ局所定数)。
 const REWARD_TYPES: readonly RecordType[] = ["task", "score"];
 
