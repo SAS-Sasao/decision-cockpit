@@ -18,7 +18,8 @@ const STATE_PATH = join(__dirname, ".auth", "state.json");
 const SCREENSHOT_DIR = join(__dirname, "screenshots");
 
 const AUTHED_PAGES: { path: string; name: string; readySelector: string }[] = [
-  { path: "/", name: "today", readySelector: "main" },
+  { path: "/", name: "overview", readySelector: "main" }, // "/" = SC-02 概観(FC-1 時の誤名 "today" を修正)
+  { path: "/today", name: "today", readySelector: "main" }, // today-board-interactive §1-8 で追加(5→6画面)
   { path: "/knowledge", name: "knowledge", readySelector: "main" },
   { path: "/retro", name: "retro", readySelector: "main" },
   { path: "/capture", name: "capture", readySelector: "main" },
@@ -71,7 +72,7 @@ test.describe("front-check: 未認証", () => {
   });
 });
 
-test.describe("front-check: 認証済み4画面", () => {
+test.describe("front-check: 認証済み5画面", () => {
   test.skip(!existsSync(STATE_PATH), "e2e/.auth/state.json 未生成 — npm run e2e:auth を先に実行");
   test.use({ storageState: STATE_PATH });
 

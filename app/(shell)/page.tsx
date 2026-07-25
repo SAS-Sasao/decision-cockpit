@@ -14,6 +14,7 @@ import type { TokenColor } from "../../lib/ui/chart";
 import { Sparkline } from "../../components/charts/sparkline";
 import { LineChart } from "../../components/charts/line-chart";
 import { Gauge } from "../../components/charts/gauge";
+import { CountUp } from "../../components/motion/count-up";
 
 export const dynamic = "force-dynamic";
 
@@ -31,17 +32,8 @@ function levelToTokenColor(level: ScoreLevel): TokenColor {
   }
 }
 
-/** reward / QG の 0-1 スコアを小数2桁で表示する。null は "—"。 */
-function formatScore(value: number | null): string {
-  if (value === null) return "—";
-  return value.toFixed(2);
-}
-
-/** 0-1 の率を小数1桁の % 表示にする。null は "—"。 */
-function formatPercent(value: number | null): string {
-  if (value === null) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-}
+// KPI 数値の表示は CountUp(components/motion/count-up.tsx)に移行(today-board-interactive §1-6。
+// null → "—" の分岐は呼び出し側で行う)。
 
 /** reward の前週差分(小数2桁・符号付き)。null は "—"。 */
 function formatScoreDelta(value: number | null): string {
@@ -181,7 +173,13 @@ export default async function OverviewPage() {
                 </span>
               </div>
               <div style={cardValueRow}>
-                <span style={{ ...cardValue, color: rewardColor }}>{formatScore(data.kpis.rewardWeekAvg)}</span>
+                <span style={{ ...cardValue, color: rewardColor }}>
+                  {data.kpis.rewardWeekAvg === null ? (
+                    "—"
+                  ) : (
+                    <CountUp value={data.kpis.rewardWeekAvg} decimals={2} />
+                  )}
+                </span>
                 <span style={cardUnit}>/1.0</span>
               </div>
               <div style={{ height: 34 }}>
@@ -197,7 +195,13 @@ export default async function OverviewPage() {
                 </span>
               </div>
               <div style={cardValueRow}>
-                <span style={{ ...cardValue, color: qgColor }}>{formatPercent(data.kpis.qgPassRate)}</span>
+                <span style={{ ...cardValue, color: qgColor }}>
+                  {data.kpis.qgPassRate === null ? (
+                    "—"
+                  ) : (
+                    <CountUp value={data.kpis.qgPassRate * 100} decimals={1} suffix="%" />
+                  )}
+                </span>
               </div>
               <div style={{ height: 34 }}>
                 <Sparkline values={qgTrend} color={qgColor} />
@@ -209,7 +213,9 @@ export default async function OverviewPage() {
                 <span style={cardLabel}>記録件数(今週・進行中)</span>
               </div>
               <div style={cardValueRow}>
-                <span style={cardValue}>{data.kpis.recordsThisWeek}</span>
+                <span style={cardValue}>
+                  <CountUp value={data.kpis.recordsThisWeek} />
+                </span>
                 <span style={cardUnit}>件</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "var(--text-sub)" }}>
@@ -228,7 +234,9 @@ export default async function OverviewPage() {
                 <span style={cardLabel}>未処理 inbox(本人)</span>
               </div>
               <div style={cardValueRow}>
-                <span style={cardValue}>{data.kpis.unprocessedInbox}</span>
+                <span style={cardValue}>
+                  <CountUp value={data.kpis.unprocessedInbox} />
+                </span>
                 <span style={cardUnit}>件</span>
               </div>
             </div>

@@ -60,6 +60,9 @@ export function Sparkline({ values, color, width = 140, height = 34 }: Sparkline
         return (
           <path
             key={`line-${i}`}
+            className="ckdraw"
+            pathLength={1}
+            strokeDasharray={1}
             d={linePath(xs, ys)}
             fill="none"
             stroke={color}

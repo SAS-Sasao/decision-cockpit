@@ -113,6 +113,9 @@ export function LineChart({
                 return (
                   <path
                     key={`line-${si}-${i}`}
+                    className="ckdraw"
+                    pathLength={1}
+                    strokeDasharray={1}
                     d={linePath(xs, ys)}
                     fill="none"
                     stroke={s.color}

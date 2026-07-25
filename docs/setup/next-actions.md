@@ -1,8 +1,8 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-25 FC-1(Playwright フロント整合性チェック)完了** — **M0〜M5 + TCS-1 + FC-1 完了**
-> (vitest **459件**緑・44ファイル + **e2e 5画面 green**)。**Vercel 本番稼働中**(初回同期 8,283行・埋め込み済み・
-> 検出されたグラフ重なり4件と横はみ出し2件も修正済み)。M5(organize-loop)は**有効化待ち**(ユーザー操作)。
+> 状態スナップショット: **2026-07-26 TBI-1(/today カンバン操作 + UI モーション)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 完了**
+> (vitest **463件**緑・44ファイル + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> M5(organize-loop)は**有効化待ち**(ユーザー操作)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
@@ -26,7 +26,7 @@
 >    リセット → `.env` 更新(ユーザーのみ)→ **Vercel の `DATABASE_URL` も差し替え + Redeploy** の3点セットで完了。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
-> 4. **🎨 ステップ2(着手中・2026-07-25 決定)**: **today-board-interactive** = 案1第1弾 + 案3 を1トピックで設計。
+> 4. ~~🎨 ステップ2: today-board-interactive~~ → **完了(2026-07-26 TBI-1・judge 判定済み)**。詳細は完了済みリスト参照。
 >    - 案1第1弾: /today にカンバン(カード = **capture の next_move / issue**・CT-1 の status を
 >      レーンにマップ・D&D で status 更新 = 既存契約のまま衝突ゼロ。WBS カードは読み取り専用チップ)。
 >    - 案3: チャート・数値のモーション(CSS/SVG ネイティブ・ライブラリ追加なし・prefers-reduced-motion 尊重・
@@ -200,6 +200,16 @@ M5-A の executor 稼働中に発生。
   **fail→fix→pass を実証**: 重なり4件(折れ線の目盛り×Xラベル3画面 + ゲージ中央×キャプション)と
   横はみ出し2件(1fr グリッドの min-content 押し広げ + nowrap テーブル)を検出→修正→全 green
   (証跡 = e2e/evidence-fc1.md)。設計 = front-check(3レンズ 2R PASS・実装中の発見3件は §8 で設計改訂)
+- **TBI-1(today-board-interactive: /today カンバン操作 + UI モーション)完了**(2026-07-26):
+  /today に capture カード(next_move/issue)が合流し、**ボタン + ネイティブ D&D で status 移動**
+  (書き込みは既存 own-row Action 1本に収斂・UPDATE 3本不変・dataTransfer は id のみ)。WBS カードは読み取り専用のまま。
+  モーション = 折れ線/弧の描画アニメ(pathLength 方式)+ バー伸長 + カード入場 + **数値カウントアップ**
+  (全て CSS/rAF ネイティブ・依存追加ゼロ・prefers-reduced-motion 尊重・総時間 ≤450ms で e2e 静定内)。
+  e2e は 6画面に拡大(/today 追加・"/" の誤名 "today"→"overview" 修正)。463テスト + e2e 6 green。
+  設計 = today-board-interactive(3レンズ 2R PASS — sec の dataTransfer 指摘を含む13点反映)。
+  **反省の記録**: 実装途中、settings 修正ブランチを goal ブランチから切って main へマージし、**TBI 途中状態が
+  main に早期着地**(force push 禁止のため巻き戻さず、検証済みの最終状態で上書き決着。以後「修正ブランチは
+  必ず main から切る」)。
 
 ## 関連ドキュメント
 
