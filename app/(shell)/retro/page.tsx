@@ -175,7 +175,7 @@ export default async function RetroPage({
             ※ 「過剰編集率」「リトライ率」は発生率です。低いほど良い指標です(他は高いほど良い)。
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: 16, marginBottom: 16 }}>
             <div className="panel">
               <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 16 }}>LLM-as-Judge 3軸トレンド</div>
               <LineChart
@@ -218,7 +218,10 @@ export default async function RetroPage({
             })}
           </div>
 
-          <table style={{ borderCollapse: "collapse", marginBottom: 24, fontSize: 13 }}>
+          {/* nowrap 12列で横幅がビューポートを超えるため、テーブル自身のコンテナ内でスクロールさせる
+              (front-check §8 — ページ全体の横はみ出しを e2e で検出)。 */}
+          <div style={{ overflowX: "auto", marginBottom: 24 }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 <th style={th}>期間</th>
@@ -272,6 +275,7 @@ export default async function RetroPage({
               ))}
             </tbody>
           </table>
+          </div>
 
           <h2 style={{ fontSize: 16 }}>同期間の判断ログ / 日報</h2>
           {entries.length === 0 ? (

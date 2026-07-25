@@ -36,9 +36,11 @@ export function Gauge({ value, color, caption, size = 118 }: GaugeProps) {
           transform={`rotate(-90 ${center} ${center})`}
         />
       )}
+      {/* 値(26px)の bbox 下端とキャプション上端が干渉していたため上下に分離
+          (front-check §8 — e2e の重なり検出で確認)。 */}
       <text
         x={center}
-        y={center - 2}
+        y={center - 6}
         textAnchor="middle"
         dominantBaseline="middle"
         fontFamily="var(--font-mono)"
@@ -50,7 +52,7 @@ export function Gauge({ value, color, caption, size = 118 }: GaugeProps) {
       </text>
       <text
         x={center}
-        y={center + 20}
+        y={center + 24}
         textAnchor="middle"
         fontFamily="var(--font-mono)"
         fontSize={9}

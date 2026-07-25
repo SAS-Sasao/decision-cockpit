@@ -9,6 +9,7 @@ import {
   normalizeLocal,
   qgBreakdown,
   splitSegments,
+  xLabelStep,
 } from "../lib/ui/chart";
 import { SIGNAL_DIRECTION } from "../lib/ui/score";
 
@@ -115,5 +116,30 @@ describe("SIGNAL_DIRECTION", () => {
   it("excessive_edits / retry_detected は high-bad", () => {
     expect(SIGNAL_DIRECTION.excessive_edits).toBe("high-bad");
     expect(SIGNAL_DIRECTION.retry_detected).toBe("high-bad");
+  });
+});
+
+describe("xLabelStep — X 軸ラベルの間引き(front-check 設計 §3)", () => {
+  it("余裕がある場合は 1(全表示)", () => {
+    // 6ラベル・598px 幅・5文字・9px → 推定幅 ~32px << 間隔 ~120px
+    expect(xLabelStep(6, 598, 5, 9)).toBe(1);
+  });
+
+  it("密集時は 2 以上に間引く", () => {
+    // 60ラベル・598px 幅 → 間隔 ~10px に対し推定幅 ~32px → k >= 3
+    const k = xLabelStep(60, 598, 5, 9);
+    expect(k).toBeGreaterThanOrEqual(3);
+    // 間引き後の実効間隔がラベル推定幅以上になっている(重ならない)
+    expect((598 / 59) * k).toBeGreaterThanOrEqual(5 * 9 * 0.62);
+  });
+
+  it("端値でも 1 を返し 0 除算しない(n<=1・plotWidth<=0)", () => {
+    expect(xLabelStep(1, 598, 5, 9)).toBe(1);
+    expect(xLabelStep(0, 598, 5, 9)).toBe(1);
+    expect(xLabelStep(10, 0, 5, 9)).toBe(1);
+  });
+
+  it("同一入力から同一出力(決定性)", () => {
+    expect(xLabelStep(24, 598, 5, 9)).toBe(xLabelStep(24, 598, 5, 9));
   });
 });

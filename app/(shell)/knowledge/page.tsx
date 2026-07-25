@@ -205,7 +205,7 @@ export default async function KnowledgePage({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, overflowWrap: "anywhere" }}>
         <div>
           <div
             style={{
@@ -363,7 +363,7 @@ export default async function KnowledgePage({
                     height={170}
                   />
                 )}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 16 }}>
                   <div style={statCardStyle}>
                     <div
                       style={{

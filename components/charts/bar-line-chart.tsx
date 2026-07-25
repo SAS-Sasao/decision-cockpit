@@ -45,6 +45,7 @@ export function BarLineChart({ bars, line, barColor, lineColor, xLabels }: BarLi
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       width={WIDTH}
       height={HEIGHT}
+      style={{ maxWidth: "100%", height: "auto" }}
       role="img"
       aria-label="報酬とQG合格率の複合チャート"
     >
