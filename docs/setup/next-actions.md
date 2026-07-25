@@ -26,7 +26,22 @@
 >    リセット → `.env` 更新(ユーザーのみ)→ **Vercel の `DATABASE_URL` も差し替え + Redeploy** の3点セットで完了。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
-> 4. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
+> 4. **🎨 ステップ2(着手中・2026-07-25 決定)**: **today-board-interactive** = 案1第1弾 + 案3 を1トピックで設計。
+>    - 案1第1弾: /today にカンバン(カード = **capture の next_move / issue**・CT-1 の status を
+>      レーンにマップ・D&D で status 更新 = 既存契約のまま衝突ゼロ。WBS カードは読み取り専用チップ)。
+>    - 案3: チャート・数値のモーション(CSS/SVG ネイティブ・ライブラリ追加なし・prefers-reduced-motion 尊重・
+>      front-check の e2e が安全網)。
+>    - 将来弾(別設計): 第2弾 = WBS カードのオーバーレイ移動(cockpit 側差分・SSoT 不変)/
+>      第3弾 = organize-loop の PR 書き戻しで WBS へ還流(許可パス拡張 = 契約改定・「todos の還流」と同枠)。
+> 5. **🤖 AI 動的フロント(案2・保留 — 狙いの確認待ち)**: 「実行時に AI がフロントのコードを書き換える」形は
+>    **不採用**(設計→レビュー→judge の統治が効かない / front-check の前提が崩れる / LLM 生成コード実行は
+>    XSS 級の攻撃面 / SPAR の封じ込め(env 固定・fail-closed・コスト上限)が崩壊)。安全な代替3形のどれが
+>    狙いに近いかユーザーに確認してから設計する:
+>    (a) レイアウト設定の DB 化(ウィジェット並び替え・表示切替 — SDK 不要の決定的カスタマイズ)
+>    (b) 開発ループでの AI 改善(現行の Claude Code フローそのもの)
+>    (c) **AI がパラメータのみ操作する SPAR 拡張**(生成物はコードではなく検索条件・期間・タグ等に限定 —
+>        SPAR と同じ封じ込めで安全。3案の中では最有力)
+> 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
 > **2026-07-20 の完了サマリ**: capture-trash(CT-2)→ **organize-loop 設計(基本3R + 詳細8R の全レンズ PASS** — livelock・
