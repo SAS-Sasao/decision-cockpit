@@ -50,7 +50,7 @@ export function HBar({ label, value, color }: HBarProps) {
         aria-label={`${label}: ${displayValue}`}
       >
         <rect x={0} y={0} width={100} height={TRACK_HEIGHT} rx={RADIUS} fill="var(--grid)" />
-        <rect x={0} y={0} width={pct * 100} height={TRACK_HEIGHT} rx={RADIUS} fill={barColor} />
+        <rect className="ckgrowx" x={0} y={0} width={pct * 100} height={TRACK_HEIGHT} rx={RADIUS} fill={barColor} />
       </svg>
     </div>
   );

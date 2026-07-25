@@ -60,6 +60,7 @@ export function BarLineChart({ bars, line, barColor, lineColor, xLabels }: BarLi
         return (
           <rect
             key={`bar-${i}`}
+            className="ckgrow"
             x={cx - barWidth / 2}
             y={y}
             width={barWidth}
@@ -73,7 +74,18 @@ export function BarLineChart({ bars, line, barColor, lineColor, xLabels }: BarLi
       {lineSegments.map((seg, i) => {
         const xs = seg.values.map((_, j) => xCenter(seg.startIndex + j));
         const ys = seg.values.map((v) => yScale(v));
-        return <path key={`line-${i}`} d={linePath(xs, ys)} fill="none" stroke={lineColor} strokeWidth={2.2} />;
+        return (
+          <path
+            key={`line-${i}`}
+            className="ckdraw"
+            pathLength={1}
+            strokeDasharray={1}
+            d={linePath(xs, ys)}
+            fill="none"
+            stroke={lineColor}
+            strokeWidth={2.2}
+          />
+        );
       })}
       {lineSegments.flatMap((seg) =>
         seg.values.map((v, j) => {

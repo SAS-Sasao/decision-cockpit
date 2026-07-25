@@ -35,6 +35,32 @@ body { background: var(--bg); color: var(--text);
   50% { opacity: 0.25; }
 }
 
+/* UI モーション(today-board-interactive §1-6/§1-7)。
+   - 非レイアウト系プロパティのみ(opacity / stroke-dashoffset / transform)。SVG text は非対象。
+   - 総時間(delay + duration)≤ 450ms(front-check の 500ms 静定待ち以内に完了)。
+   - prefers-reduced-motion: reduce ではクラス自体が未定義になり、全アニメが無効。 */
+@media (prefers-reduced-motion: no-preference) {
+  /* SVG 線描画(pathLength=1 + stroke-dasharray:1 の要素で、dashoffset 1 → 要素値(0)へ) */
+  @keyframes ckdraw {
+    from { stroke-dashoffset: 1; }
+  }
+  .ckdraw { animation: ckdraw 400ms ease-out; }
+
+  /* バーの伸長(rect — 根元を origin に scale) */
+  @keyframes ckgrow {
+    from { transform: scaleY(0); }
+  }
+  .ckgrow { transform-box: fill-box; transform-origin: center bottom; animation: ckgrow 350ms ease-out; }
+
+  @keyframes ckgrowx {
+    from { transform: scaleX(0); }
+  }
+  .ckgrowx { transform-box: fill-box; transform-origin: left center; animation: ckgrowx 350ms ease-out; }
+
+  /* カード・チップの入場フェード(既存 ckfade を再利用) */
+  .ck-card-in { animation: ckfade 300ms ease-out both; }
+}
+
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: oklch(0.32 0.014 255); border-radius: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

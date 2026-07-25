@@ -2,7 +2,8 @@
 //
 // 円形ゲージ。r=48・strokeWidth=9・-90°開始の前景弧で value(0-1)を表現する。
 // value が null の場合は中央に「—」を表示し、背景リングのみ描画する。
-import { gaugeDash } from "../../lib/ui/chart";
+// 前景弧は pathLength=1 + 比率 dasharray(today-board-interactive §1-6 — ckdraw で描画アニメ。
+// 比率は gaugeDash と同じ 0-1 クランプ・見た目の割合は不変)。
 import type { TokenColor } from "../../lib/ui/chart";
 
 type GaugeProps = {
@@ -18,20 +19,22 @@ const STROKE_WIDTH = 9;
 export function Gauge({ value, color, caption, size = 118 }: GaugeProps) {
   const center = size / 2;
   const centerLabel = value === null ? "—" : `${Math.round(value * 100)}%`;
-  const dashArray = value === null ? undefined : gaugeDash(value, RADIUS).dashArray;
+  const clamped = value === null ? 0 : Math.max(0, Math.min(1, value));
 
   return (
     <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={caption}>
       <circle cx={center} cy={center} r={RADIUS} fill="none" stroke="var(--grid)" strokeWidth={STROKE_WIDTH} />
       {value !== null && (
         <circle
+          className="ckdraw"
+          pathLength={1}
           cx={center}
           cy={center}
           r={RADIUS}
           fill="none"
           stroke={color}
           strokeWidth={STROKE_WIDTH}
-          strokeDasharray={dashArray}
+          strokeDasharray={`${clamped} 1`}
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
         />

@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ query: vi.fn() }));
 
 vi.mock("../lib/db", () => ({ query: mocks.query }));
 
-const { listInbox, listBoardCaptures } = await import("../lib/data/capture");
+const { listInbox } = await import("../lib/data/capture");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,6 +70,9 @@ describe("listInbox", () => {
     ]);
   });
 });
+
+// 追記ブロック用の import(既存行を変更しない append-only 形 — 凍結 diff 条件 §5-1 の削除行 0 を守る)
+const { listBoardCaptures } = await import("../lib/data/capture");
 
 describe("listBoardCaptures — /today カンバン用(today-board-interactive §1-4 / §5)", () => {
   it("SQL: user_id = $1・kind IN ('next_move', 'issue')・deleted_at IS NULL・created_at DESC", async () => {
