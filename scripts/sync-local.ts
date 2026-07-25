@@ -13,6 +13,8 @@
 // CLI から直接 tsx 実行される唯一のエントリポイントのため、対象モジュールを
 // import する前に require キャッシュへ空モジュールを差し込んで無害化する
 // (Next.js 経由の実行には一切影響しない・このファイル内に閉じた副作用)。
+export {}; // このファイルをモジュールスコープにする(グローバルスコープの他スクリプトとの関数名衝突を避ける)
+
 function stubServerOnlyForCli(): void {
   try {
     const resolved = require.resolve("server-only");

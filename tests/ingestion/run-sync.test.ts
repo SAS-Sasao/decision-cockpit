@@ -345,7 +345,8 @@ describe("runSync — masters 3ファイル → tag_synonyms upsert(索引レコ
     expect(store.upsertTimelineRecord).not.toHaveBeenCalled();
   });
 
-  it("語彙はラン冒頭のスナップショットを使う(同ランの masters upsert は同ランの他ファイルに反映されない)", async () => {
+  // tag-cold-start 設計 §1-4 の凍結例外: 旧契約(スナップショット非反映)の期待を反転。
+  it("語彙はラン内で成長する(同ランの masters upsert は同ランの後続ファイルに反映される)", async () => {
     const mastersPath = ".companies/demo-org/masters/departments.md";
     const taskPath = ".companies/demo-org/.task-log/20260601-090000-x.md";
     const taskContent = [
@@ -377,7 +378,67 @@ describe("runSync — masters 3ファイル → tag_synonyms upsert(索引レコ
       "cc-sier-organization|.companies/demo-org/.task-log/20260601-090000-x.md|"
     ) as { tags: string[] } | undefined;
     expect(record).toBeDefined();
-    expect(record?.tags).not.toContain("テスト部");
+    expect(record?.tags).toContain("テスト部");
+  });
+
+  it("コールドスタート: レコードが先に列挙されても masters が先に処理され、同一ランでタグが付く", async () => {
+    // tag_synonyms 空(コールドスタート)+ listPaths は [record, masters] の順。
+    // masters 優先の安定パーティション(tag-cold-start 設計 §3-(1))が無ければタグは付かない。
+    const mastersPath = ".companies/demo-org/masters/departments.md";
+    const taskPath = ".companies/demo-org/.task-log/20260601-090000-x.md";
+    const taskContent = [
+      "---",
+      'task_id: "20260601-090000-x"',
+      'org: "demo-org"',
+      'started: "2026-06-01T09:00:00+09:00"',
+      'request: "テスト部の話をするタスク"',
+      "---",
+      "",
+      "## reward",
+      "```yaml",
+      "score: 0.5",
+      "```",
+      "",
+    ].join("\n");
+
+    const adapter = new FakeAdapter("cc-sier-organization", {
+      head: async () => "sha1",
+      listPaths: async () => [taskPath, mastersPath], // レコードを先に列挙
+      fetch: async (path) => (path === mastersPath ? "# 部署\n- テスト部\n" : taskContent),
+    });
+
+    expect(fakeDb.tagSynonyms.size).toBe(0);
+    const summary = await runSync([adapter], { maxFiles: 0 });
+    expect(summary.repos["cc-sier-organization"]).toMatchObject({ ok: 1, error: 0 });
+
+    const record = fakeDb.timelineRecords.get(
+      "cc-sier-organization|.companies/demo-org/.task-log/20260601-090000-x.md|"
+    ) as { tags: string[] } | undefined;
+    expect(record?.tags).toContain("テスト部");
+  });
+
+  it("クロス adapter: 先頭 repo の masters 語彙が後続 repo のレコードにも効く", async () => {
+    // vocab 配列は adapters 間で参照共有される(tag-cold-start 設計 §2)。
+    const mastersPath = ".companies/demo-org/masters/departments.md";
+    const orgAdapter = new FakeAdapter("cc-sier-organization", {
+      head: async () => "sha1",
+      listPaths: async () => [mastersPath],
+      fetch: async () => "# 部署\n- テスト部\n",
+    });
+    const warroomAdapter = new FakeAdapter("ai-war-room", {
+      head: async () => "sha2",
+      listPaths: async () => ["docs/decisions/2026-06-01-a.md"],
+      fetch: async () => decisionContent("テスト部に関する判断"),
+    });
+
+    expect(fakeDb.tagSynonyms.size).toBe(0);
+    await runSync([orgAdapter, warroomAdapter], { maxFiles: 0 });
+
+    const record = fakeDb.timelineRecords.get(
+      "ai-war-room|docs/decisions/2026-06-01-a.md|"
+    ) as { tags: string[] } | undefined;
+    expect(record).toBeDefined();
+    expect(record?.tags).toContain("テスト部");
   });
 });
 

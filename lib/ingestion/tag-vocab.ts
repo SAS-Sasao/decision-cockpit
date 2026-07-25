@@ -26,6 +26,23 @@ function slugify(raw: string): string {
  * 見出し・箇条書き項目を抽出し、重複を除いた {synonym, canonical} 配列を返す。
  * 入力順・行順に対して決定的(同一入力→同一出力)。
  */
+/**
+ * DB の upsertTagSynonyms と同じ置換セマンティクスで vocab 配列を in-place 更新する
+ * (同 synonym は canonical を置換・新規は末尾追加)。戻り値なし・決定的。
+ * run-sync がラン内スナップショットへ masters 由来語彙を即時反映するために使う
+ * (コールドスタートでも同一ラン内の後続ファイルにタグが付く — tag-cold-start 設計 §3)。
+ */
+export function mergeTagVocab(vocab: TagVocabEntry[], entries: TagVocabEntry[]): void {
+  for (const entry of entries) {
+    const existing = vocab.find((v) => v.synonym === entry.synonym);
+    if (existing) {
+      existing.canonical = entry.canonical;
+    } else {
+      vocab.push({ synonym: entry.synonym, canonical: entry.canonical });
+    }
+  }
+}
+
 export function buildTagVocab(
   files: { path: string; content: string }[]
 ): TagVocabEntry[] {

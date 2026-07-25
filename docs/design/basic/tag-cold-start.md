@@ -107,8 +107,9 @@ if (entries.length > 0) {
 ## 5. 受け入れ条件(機械判定)
 
 ```bash
-# 1. 全テスト緑(新ケース含む)
-docker compose exec -T app env -u GITHUB_TOKEN -u DATABASE_URL -u OPENAI_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL -u SPAR_API_KEY npm test   # exit 0
+# 1. 全テスト緑(新ケース含む)— ホスト実行(既往 goal 条件の正。app コンテナには git が無く
+#    check-no-secrets.test.ts が動かないため、コンテナ内実行は不可 — TCS-1 実装中に確認)
+env -u GITHUB_TOKEN -u DATABASE_URL -u OPENAI_API_KEY -u SPAR_PROVIDER -u SPAR_MODEL -u SPAR_API_KEY npm test   # exit 0
 
 # 2. 新テストケースの存在(ケース名 grep・すべて hit)
 grep -q "コールドスタート" tests/ingestion/run-sync.test.ts
