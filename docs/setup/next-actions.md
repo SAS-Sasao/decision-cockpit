@@ -17,11 +17,12 @@
 >    masters 優先パーティション + mergeTagVocab のラン内マージで**初回同期からタグが付く**(設計
 >    docs/design/basic/tag-cold-start.md・3レンズ一発 PASS)。tsc の「2件エラー」は**幻**(古い
 >    tsconfig.tsbuildinfo が原因)と判明 — .gitignore 追加 + sync-local.ts の `export {};` で再発防止。
-> 2. **🚀 Vercel 展開**(進行中): ~~本番マイグレーション 0003→0008~~ → **適用済み(2026-07-25)**。残りは
->    (a) **Neon パスワードリセット**(ユーザー)→ `.env` 更新 (b) Vercel Import + **env 登録**([`vercel-deploy.md`](./vercel-deploy.md)
->    §2 の表 — EMBEDDING_* / OPENAI_API_KEY / SPAR_* / CRON_SECRET 含む・**リセット後の DATABASE_URL**)+ Deploy(ユーザー)
->    (c) 本番初回同期(ローカルから・**1回でタグが付く — TCS-1 済み**)+ 埋め込みバックフィル(**~$0.4 承認制**)+
->    admin 付与(Claude 実施可能)。
+> 2. ~~🚀 Vercel 展開~~ → **完了(2026-07-25)**: マイグレーション 0003→0008 適用 / Vercel Import + env 登録 + Deploy
+>    (cron は Hobby 制限で**日1回 JST 06:00** — `vercel.json` 変更済み)/ 初回同期 **8,283行**(タグ587行が
+>    **1回で付与 = TCS-1 本番実証**・error 9 は既知)/ 埋め込みバックフィル **8,283/8,283・失敗0**(~$0.4)/
+>    admin 2ユーザー付与。**env のキー名注意: 埋め込みは `EMBEDDING_API_KEY`**(OPENAI_API_KEY ではない — 手順書修正済み)。
+>    **🔴 残り1点: Neon パスワードリセット(必須)** — 2026-07-25 の作業中に接続文字列がチャットへ再露出。
+>    リセット → `.env` 更新(ユーザーのみ)→ **Vercel の `DATABASE_URL` も差し替え + Redeploy** の3点セットで完了。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
 > 4. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /

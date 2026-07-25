@@ -37,7 +37,7 @@
 | `SYNC_MAX_FILES` | 任意(未設定なら実装既定 100) | serverless の時間制限対策(進行カーソルで次回実行時に追いつく) |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | 検索(M2)。**ローカルと同一モデル・混在禁止** |
 | `EMBEDDING_DIM` | `1536` | 同上(pgvector 次元) |
-| `OPENAI_API_KEY` | `.env` | 埋め込み生成用 |
+| `EMBEDDING_API_KEY` | `.env` | 埋め込み生成用(**実装が読むのはこの名前** — `OPENAI_API_KEY` ではない。2026-07-25 に本書の誤記を修正) |
 | `SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY` | `.env` | 壁打ち(M4)。**3つとも明示必須**(未設定時は壁打ちのみ 4xx で他画面は正常 — fail-closed) |
 
 **登録してはいけないもの**:
