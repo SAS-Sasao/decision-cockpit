@@ -155,7 +155,7 @@ grep -q "xLabelStep" tests/chart.test.ts
 #    auth.setup.ts, evidence-fc1.md)/ .gitignore /
 #    components/charts/line-chart.tsx / components/charts/bar-line-chart.tsx / components/charts/gauge.tsx /
 #    lib/ui/chart.ts / tests/chart.test.ts / .claude/rules/testing.md /
-#    app/(shell)/retro/page.tsx / app/(shell)/knowledge/page.tsx(§8 の発見による追加)/
+#    app/(shell)/retro/page.tsx / app/(shell)/knowledge/page.tsx / tsconfig.json(§8 の発見による追加)/
 #    docs/design/basic/front-check.md / docs/design/reviews/front-check.md / docs/setup/next-actions.md
 #    ※ gauge.tsx は「E2E が重なりを検出した場合のみ」触る(検出されなければ無変更 — data レビュー R1 の
 #      デッドロック指摘を受け閉包に追加)→ 実際に検出されたため修正対象(§8)
@@ -206,3 +206,9 @@ grep -q "xLabelStep" tests/chart.test.ts
    → 対処に `app/(shell)/retro/page.tsx` と `app/(shell)/knowledge/page.tsx` の**レイアウト行のみ**の
    変更が必要なため、§5-6 の閉包に両ファイルを追加する(変更はグリッド定義と wrap 指定に限定 —
    データ取得・表示ロジックには触れない)。
+3. **アプリの build が e2e を型検査してしまう(judge の初回 FAIL・§5-3)**: tsconfig の include が `**/*.ts` の
+   ため Next.js の build 型チェックが `e2e/` の `@playwright/test` import を解決しようとする。コンテナの
+   node_modules は **run ごとの匿名ボリューム**で devDependency の存在が保証されない(ホストで npm install
+   しても持続しない)ため、コンテナ build が非決定的に失敗する。→ **構造的対処 = tsconfig.json の exclude に
+   `e2e` と `playwright.config.ts` を追加**(アプリの build/型検査から E2E を完全分離。e2e 側の型は Playwright
+   自身のトランスパイルとホストの実行で担保)。§5-6 の閉包に `tsconfig.json` を追加する。
