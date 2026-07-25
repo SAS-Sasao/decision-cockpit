@@ -69,6 +69,7 @@ export async function saveCapture(input: {
   }
 
   revalidatePath("/capture");
+  revalidatePath("/today"); // カンバン(today-board-interactive §1-4 — 4アクション対称)
   return { ok: true };
 }
 
@@ -126,6 +127,7 @@ export async function updateCaptureStatus(input: {
   }
 
   revalidatePath("/capture");
+  revalidatePath("/today"); // カンバン(today-board-interactive §1-4 — 4アクション対称)
   return { ok: true };
 }
 
@@ -159,6 +161,7 @@ export async function deleteCapture(input: { id: string }): Promise<DeleteCaptur
   }
 
   revalidatePath("/capture");
+  revalidatePath("/today"); // カンバン(today-board-interactive §1-4 — 4アクション対称)
   return { ok: true };
 }
 
@@ -191,5 +194,6 @@ export async function restoreCapture(input: { id: string }): Promise<RestoreCapt
   }
 
   revalidatePath("/capture");
+  revalidatePath("/today"); // カンバン(today-board-interactive §1-4 — 4アクション対称)
   return { ok: true };
 }

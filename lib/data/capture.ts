@@ -98,6 +98,56 @@ export async function listInbox(userId: string, limit?: number): Promise<InboxRo
   }));
 }
 
+/** /today カンバンに載せるカード行(列サブセット — today-board-interactive §3)。 */
+export type BoardCaptureRow = {
+  id: string;
+  kind: "next_move" | "issue";
+  topic: string | null;
+  body: string;
+  status: CaptureStatus;
+  processedAt: string | null;
+  createdAt: string;
+};
+
+// カンバンの既定表示上限(today-board-interactive §1-4 — 既定 100。listInbox の既定 50 とは意図的に別値)。
+const BOARD_DEFAULT_LIMIT = 100;
+
+/**
+ * /today カンバン用の本人 capture 行(kind = next_move / issue・生存行のみ)を新しい順で取得する
+ * (SELECT のみ — 書き込み経路は追加しない。today-board-interactive §1-4)。
+ * limit はクランプ 1..100・既定 100。
+ */
+export async function listBoardCaptures(userId: string, limit?: number): Promise<BoardCaptureRow[]> {
+  const result = await query<BoardCaptureQueryRow>(
+    `SELECT id, kind, topic, body, status, processed_at, created_at
+       FROM capture_inbox
+      WHERE user_id = $1 AND kind IN ('next_move', 'issue') AND deleted_at IS NULL
+      ORDER BY created_at DESC, id DESC
+      LIMIT $2`,
+    [userId, clampLimit(limit ?? BOARD_DEFAULT_LIMIT)]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    topic: row.topic,
+    body: row.body,
+    status: row.status,
+    processedAt: row.processed_at ? row.processed_at.toISOString() : null,
+    createdAt: row.created_at.toISOString(),
+  }));
+}
+
+type BoardCaptureQueryRow = {
+  id: string;
+  kind: "next_move" | "issue";
+  topic: string | null;
+  body: string;
+  status: CaptureStatus;
+  processed_at: Date | null;
+  created_at: Date;
+};
+
 /**
  * 本人分のゴミ箱(削除済み行)を新しい順(created_at DESC, id DESC)で取得する。
  * limit は listInbox と同型のクランプ(既定 50・1..100)。
