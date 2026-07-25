@@ -155,9 +155,10 @@ grep -q "xLabelStep" tests/chart.test.ts
 #    auth.setup.ts, evidence-fc1.md)/ .gitignore /
 #    components/charts/line-chart.tsx / components/charts/bar-line-chart.tsx / components/charts/gauge.tsx /
 #    lib/ui/chart.ts / tests/chart.test.ts / .claude/rules/testing.md /
+#    app/(shell)/retro/page.tsx / app/(shell)/knowledge/page.tsx(§8 の発見による追加)/
 #    docs/design/basic/front-check.md / docs/design/reviews/front-check.md / docs/setup/next-actions.md
 #    ※ gauge.tsx は「E2E が重なりを検出した場合のみ」触る(検出されなければ無変更 — data レビュー R1 の
-#      デッドロック指摘を受け閉包に追加)
+#      デッドロック指摘を受け閉包に追加)→ 実際に検出されたため修正対象(§8)
 ```
 
 ## 6. 実装の分割と禁止事項
@@ -184,3 +185,24 @@ grep -q "xLabelStep" tests/chart.test.ts
 
 - ピクセル回帰(スクリーンショット差分)と CI 組み込みは将来トピック(認証の非対話化が前提になるため
   M6 以降で別設計)。
+
+## 8. FC-1 実装中の発見(設計改訂・2026-07-25)
+
+ハーネス初回実行(fail 記録)で、設計時の想定(チャート内の重なり)に加えて **横はみ出し2件が
+「ページレイアウト由来」** であることが判明した(診断で原因要素を特定済み):
+
+1. **重なり(想定どおり + gauge)**: 折れ線の最下段 y 目盛りと X ラベルの干渉(/ ・/knowledge・/retro の
+   3画面)= §1-6 の PAD_BOTTOM 修正で対処。**gauge の中央値とキャプションの干渉も実際に検出**
+   (「—」fontSize 26 の bbox 下端とキャプション上端が ~2px 交差)→ y オフセット分離(値 center-6・
+   キャプション center+24)で対処。
+2. **はみ出し(想定外・レイアウト由来)**:
+   - 原因A: `1fr` グリッドは**子の最小コンテンツ幅がトラックを押し広げる**(CSS 仕様)。
+     retro:178 `"1.5fr 1fr"`・knowledge:208 `"1fr 1fr"` が該当(同リポジトリの retro:205 は既に
+     `minmax(0, 1fr)` で対策済みの前例あり)→ **`minmax(0, Nfr)` 化**。
+   - 原因B: チャート svg の**固定 width 属性**(bar-line-chart 520 等)がトラック幅より広い →
+     svg に `style={{ maxWidth: "100%", height: "auto" }}` を追加(viewBox があるため縦横比は保持)。
+   - 原因C: knowledge 詳細パネル内の**分割不能な長い code スパン**が min-content を押し広げる →
+     詳細コンテナに `overflowWrap: "anywhere"`(継承プロパティ)を指定。
+   → 対処に `app/(shell)/retro/page.tsx` と `app/(shell)/knowledge/page.tsx` の**レイアウト行のみ**の
+   変更が必要なため、§5-6 の閉包に両ファイルを追加する(変更はグリッド定義と wrap 指定に限定 —
+   データ取得・表示ロジックには触れない)。
