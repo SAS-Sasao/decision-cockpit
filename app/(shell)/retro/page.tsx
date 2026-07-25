@@ -116,7 +116,7 @@ const th = {
   border: "1px solid var(--line)",
   padding: "6px 8px",
   textAlign: "left" as const,
-  background: "var(--panel-row)",
+  background: "var(--line-row)",
   whiteSpace: "nowrap" as const,
 };
 
