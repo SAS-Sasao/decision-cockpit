@@ -5,8 +5,8 @@
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
-> **本番未適用マイグレーション: 0003 → 0004 → 0005 → 0006 → 0007 → 0008**(Vercel 展開時にこの順で人間承認のうえ適用。
-> 0008 は 0003→0008 の連鎖適用を Neon ブランチで検証済み)。
+> **本番マイグレーション: 0001〜0008 まで全適用済み**(0003→0008 は 2026-07-25 に人間承認のうえ適用・構造検証済み —
+> embedding vector(1536)/ HNSW / board_items / capture status・deleted_at / consume_idx)。本番データはまだ0行。
 > **⚠ 既知の SDK 欠陥(記録)**: @neondatabase/auth 0.4.2-beta の middleware は保護パスへの POST を常に 307 にする —
 > proxy.ts の GET 正規化ラッパーで回避中。**SDK 更新時はラッパー不要化と CSRF 前提(SameSite=strict)を再評価**。
 > **概観の「今週」KPI が空なのは正常**(週の切り替わり — 組織側 score/quality の最新が先週分。新しい記録が入れば埋まる)。
@@ -17,8 +17,11 @@
 >    masters 優先パーティション + mergeTagVocab のラン内マージで**初回同期からタグが付く**(設計
 >    docs/design/basic/tag-cold-start.md・3レンズ一発 PASS)。tsc の「2件エラー」は**幻**(古い
 >    tsconfig.tsbuildinfo が原因)と判明 — .gitignore 追加 + sync-local.ts の `export {};` で再発防止。
-> 2. **🚀 Vercel 展開**: [`vercel-deploy.md`](./vercel-deploy.md) + 本番マイグレーション **0003→0008**(人間承認)+
->    env 登録(EMBEDDING_* / SPAR_* / CRON_SECRET)+ 本番初回同期(**1回でタグが付く — TCS-1 済み**)+ 埋め込みバックフィル。
+> 2. **🚀 Vercel 展開**(進行中): ~~本番マイグレーション 0003→0008~~ → **適用済み(2026-07-25)**。残りは
+>    (a) **Neon パスワードリセット**(ユーザー)→ `.env` 更新 (b) Vercel Import + **env 登録**([`vercel-deploy.md`](./vercel-deploy.md)
+>    §2 の表 — EMBEDDING_* / OPENAI_API_KEY / SPAR_* / CRON_SECRET 含む・**リセット後の DATABASE_URL**)+ Deploy(ユーザー)
+>    (c) 本番初回同期(ローカルから・**1回でタグが付く — TCS-1 済み**)+ 埋め込みバックフィル(**~$0.4 承認制**)+
+>    admin 付与(Claude 実施可能)。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
 > 4. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
