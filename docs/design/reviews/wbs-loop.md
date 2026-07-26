@@ -36,9 +36,44 @@
 - arch が G-R2-1 の反例トレースで解消を確認。副作用(不在 superseded 後の PR マージ = modify/delete
   コンフリクトで人間判断・受容済みの族)も新たな穴なし。
 
+## 詳細設計レビュー(2026-07-26・3レンズ × 3ラウンド)
+
+### R1 — 3レンズ FAIL(機械ピン層の穴が中心・約20点)
+
+主要指摘と反映: **判定バグ**(複数ファイル grep -q の ANY 判定 → per-file ループ / 「overrides」空ピン →
+resolveOverridesAfterSync 固有名)/ **tokenStart 算出規則の未定義**(生の行の `|` 走査・先頭 `|` 分岐・
+末尾セル規則・CRLF 整合を §2.2 に明文化 + messy fixture に行頭 `|` 無し行等の反例追加)/
+**allowlist 帰属矛盾**(messy fixture・board-rewrite.test.ts を WL-1 帰属に整理)/ **M5 実行形の不履行**
+(awk step レンジ・uses 許可リスト・job 級 env 否定を実行形で復帰 — §0-8 として決着表に追加)/
+**server-only 連鎖**(scripts/wbs に sync-local 型スタブ + ピン)/ **scripts 共通規範**(配列引数 spawn のみ・
+exec 否定・hooks 中和・+refspec 否定・user_id 非漏出・ログは件数とパスのみ)/ apply の封じ込め
+(startsWith assert + lstat symlink skip)/ mark への PR 成功信号(out/pr.json)/ wbs_bot の board_items
+SELECT 削除(最小権限)/ date 権威(id: run + JST)/ 空 step 条件 / レビュー疲れ警告の機械ピン /
+board_overrides_not_noop CHECK / LATEST_BOARD_CTE(世代選出の単一定義 + 文字同一ピン)/
+board-parser.test.ts 無変更の機械ピン / db-recovery.md への復元不能クラス追記。
+
+### R2 — data PASS / sec PASS / arch FAIL(残余3点)
+
+A: uses 許可リストが M5 の字下げ非依存形より弱い → M5 形に差し替え。
+B: awk 終端アンカー(id: apply)の実在無保証 → **8 step id の実在 + 昇順の実行形ループ** + §5「step id
+削除・改名禁止」。C: user_id 非漏出ピンが恒真 → テスト側の非収録 assert ケース名ピンに置換。
+軽微: CTE 別名 generations 統一・--force リテラル禁止・RegExp.exec 禁止・wbs_bot への board_items GRANT 否定。
+
+### R3 — **全レンズ PASS**(arch が A/B/C の解消と新実行形の健全性を確認)
+
+R3 残余観察2点も反映済み: §3 に user_id 非収録観点 / awk アンカーを実在ループと同形(dash-free)に統一。
+
+## /goal WL-1 / WL-2 への申し送り(詳細)
+
+- 実装順: WL-1(0009 → board-override → walker+同値性テスト → action → 合成 UI)→ WL-2(rewrite →
+  scripts 5本 → workflow → role → run-sync 統合 → 契約4ファイル)。
+- judge は §4 を「stdout 数値比較」で実行(FC-1/TBI-1 と同運用)。§4-R の受容一覧を「実装漏れ」と誤判定しない。
+- 凍結基準 = 各 goal の分岐点 main。board-parser.test.ts は両 goal とも変更・追記禁止。
+- 修正ブランチは必ず main から切る(TBI-1 の反省)。
+
 ## 合格判定
 
-**全レンズ PASS(Round 3)** — `/detailed-design wbs-loop` へ進む。
+**基本 = 全レンズ PASS(R3)/ 詳細 = 全レンズ PASS(R3)** — `/goal WL-1` へ進む。
 
 ## 詳細設計への申し送り
 
