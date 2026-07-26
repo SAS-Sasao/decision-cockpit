@@ -1,8 +1,8 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-26 TBI-1(/today カンバン操作 + UI モーション)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 完了**
-> (vitest **463件**緑・44ファイル + **e2e 6画面 green**)。**Vercel 本番稼働中**。
-> M5(organize-loop)は**有効化待ち**(ユーザー操作)。
+> 状態スナップショット: **2026-07-26 wbs-loop(WL-1 + WL-2)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 完了**
+> (vitest **504件**緑・48ファイル + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> **有効化待ち×2(ユーザー操作)**: M5(organize-loop)と wbs-loop(WBS 書き戻し)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
@@ -43,9 +43,12 @@
 >    SSoT 不変・「PR 反映待ち」バッジ・0009 適用済み・484テスト + e2e 6画面 green)。
 >    実装中の発見1件は設計改訂済み(messy fixture は fixtures/parser-samples/ に隔離 —
 >    FixtureSource 走査で board-sync 凍結期待値を変えないため)。
->    **残り = /goal WL-2**(CI 書き戻し: board-rewrite + scripts/wbs 5本 + workflow + wbs_bot ロール +
->    run-sync 照合統合 + 契約4ファイル改定)。WL-2 完了後の有効化はユーザー操作
->    (Secrets: WBS_DATABASE_URL / ORGREPO_PAT・Variables: ENABLE_WBS_WRITEBACK・**レビュー疲れ警告**を参照)。
+>    **WL-2(CI 書き戻し)も完了(2026-07-26・judge 49ピン + 追加5点 PASS)**: board-rewrite(3バイト同長
+>    スプライス)+ scripts/wbs 5本(バイト diff 一次 verify・staged 閉包・不在 superseded)+ wbs-writeback
+>    workflow(決定的スクリプトのみ・LLM なし)+ wbs_bot 専用ロール + run-sync 照合統合 + **契約4ファイル改定
+>    (WBS 限定編集 — 黄金ルール1 第2例外)**。504テスト + e2e 6画面 green。
+>    **フルループの有効化はユーザー操作** — 下記「🔁 WBS 書き戻し(wbs-loop)の有効化」の6項目
+>    (wbs_bot 作成 → Secrets → Variables → 動作確認 → **レビュー疲れ警告の理解** → 復旧手順)。
 > 4. ~~🎨 ステップ2: today-board-interactive~~ → **完了(2026-07-26 TBI-1・judge 判定済み)**。詳細は完了済みリスト参照。
 >    - 案1第1弾: /today にカンバン(カード = **capture の next_move / issue**・CT-1 の status を
 >      レーンにマップ・D&D で status 更新 = 既存契約のまま衝突ゼロ。WBS カードは読み取り専用チップ)。
