@@ -6,8 +6,9 @@
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
-> **本番マイグレーション: 0001〜0008 まで全適用済み**(0003→0008 は 2026-07-25 に人間承認のうえ適用・構造検証済み —
-> embedding vector(1536)/ HNSW / board_items / capture status・deleted_at / consume_idx)。本番データはまだ0行。
+> **本番マイグレーション: 0001〜0009 まで全適用済み**(0003→0008 = 2026-07-25 / **0009 = 2026-07-26** —
+> WL マージ後に /today が本番でエラーになり事後適用。**教訓: スキーマ前提のコードを main へマージする前に
+> 本番マイグレーション適用を段取りする**(マージ = Vercel 自動デプロイのため))。
 > **⚠ 既知の SDK 欠陥(記録)**: @neondatabase/auth 0.4.2-beta の middleware は保護パスへの POST を常に 307 にする —
 > proxy.ts の GET 正規化ラッパーで回避中。**SDK 更新時はラッパー不要化と CSRF 前提(SameSite=strict)を再評価**。
 > **概観の「今週」KPI が空なのは正常**(週の切り替わり — 組織側 score/quality の最新が先週分。新しい記録が入れば埋まる)。
@@ -80,7 +81,8 @@
 > **運用メモ**: allowlist 拡張直後の同期は `--force` / `--force` は全量再埋め込みを招く(コスト意識)/
 > **空 DB からの初回同期も1回でタグが付く(TCS-1 恒久修正済み・部分復元状態のみ対処 B)** / モデル切替時は検索が一時 0件(ガードの過渡状態)/
 > **DB ボリュームの破棄は禁止**(guard-bash.sh で遮断・復旧は [`db-recovery.md`](./db-recovery.md))/
-> **UI を触った後は `npm run e2e`**(5画面のフロント整合性チェック・state 失効時は `npm run e2e:auth` を再実行)/
+> **UI を触った後は `npm run e2e`**(6画面のフロント整合性チェック・state 失効時は `npm run e2e:auth` を再実行)/
+> **migration を含む goal は、main マージ前に本番適用を段取り**(マージ = 自動デプロイ。0009 の教訓)/
 > Vercel 展開時 env: `EMBEDDING_MODEL=text-embedding-3-large` / `EMBEDDING_DIM=1536` /
 > `SPAR_PROVIDER` / `SPAR_MODEL` / `SPAR_API_KEY` / `CRON_SECRET`。
 
