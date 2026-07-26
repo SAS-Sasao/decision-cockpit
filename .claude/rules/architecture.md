@@ -6,7 +6,9 @@
 3. **App** — Next.js App Router。「今日 / ナレッジ検索 / 振り返り」の3画面 + 入力(capture)。
 
 原則:
-- SSoT(元 repo)は**読み取り専用**。書き戻しは Claude Action の PR のみ(直接書き込み禁止)。
+- SSoT(元 repo)は**読み取り専用**。書き戻しは CI の PR のみ(直接書き込み禁止): organize-loop の
+  追加のみ書き戻し(Claude Action)と、**WBS 限定編集**(wbs-loop — 決定的スクリプトが
+  `.companies/<org>/docs/secretary/*-wbs.md` のステータストークンのみを置換)の2経路。
 - 横断結合は**時間軸(日付)とタグ**をキーにする。
 - 重い処理(取得・解析・埋め込み)はサブエージェント/バッチに分離し、UI は索引済みデータを読む。
 - 拡張は **Hooks > Skills > MCP** の順で軽く積む。

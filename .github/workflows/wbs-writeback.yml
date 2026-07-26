@@ -1,0 +1,92 @@
+# 対象設計: docs/design/detail/wbs-loop.md §2.5(wbs-writeback — 決定的スクリプトのみ・LLM なし)
+#
+# /today の WBS カード移動(board_overrides)を cc-sier-organization の WBS へ
+# 「ステータストークンの置換のみ」の限定編集 PR として還流する(黄金ルール1 の WBS 限定編集 — 承認済み改定)。
+# - 単一 job・step 級 env のみ(workflow 級・job 級 env なし)
+# - secrets の出現 step は完全列挙(checkout-orgrepo / pr と fetch / mark — 詳細 §2.5。名前はコメントに書かない)
+# - uses は checkout アクションのみ(許可リスト — 詳細 §4 でピン。実名はコメントに書かない)
+# - step id(run〜mark の8つ)は §4 の awk レンジ・順序ピンのアンカー — 削除・改名禁止(§5)
+name: wbs-writeback
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # JST 21:00(日付権威は id: run — このスケジュール式は起動時刻のみ)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wbs-writeback
+
+jobs:
+  writeback:
+    if: ${{ vars.ENABLE_WBS_WRITEBACK == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: run
+        name: resolve date (JST authority)
+        env:
+          TZ: Asia/Tokyo
+        run: |
+          d="$(date +%F)"
+          echo "date=$d" >> "$GITHUB_OUTPUT"
+
+      - id: checkout-cockpit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - id: deps
+        name: npm ci
+        run: npm ci
+
+      - id: fetch
+        name: fetch overrides (send + audit sets)
+        env:
+          WBS_DATABASE_URL: ${{ secrets.WBS_DATABASE_URL }}
+          WBS_OUT: out
+        run: npx tsx scripts/wbs/fetch.ts
+
+      - id: checkout-orgrepo
+        if: ${{ steps.fetch.outputs.empty != 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: SAS-Sasao/cc-sier-organization
+          token: ${{ secrets.ORGREPO_PAT }}
+          path: orgrepo
+          persist-credentials: false
+
+      - id: apply
+        if: ${{ steps.fetch.outputs.empty != 'true' }}
+        name: apply token rewrites
+        env:
+          WBS_OUT: out
+          ORG_DIR: orgrepo
+        run: npx tsx scripts/wbs/apply.ts
+
+      - id: verify
+        if: ${{ steps.fetch.outputs.empty != 'true' }}
+        name: verify (byte-diff first)
+        env:
+          WBS_OUT: out
+          ORG_DIR: orgrepo
+        run: npx tsx scripts/wbs/verify.ts
+
+      - id: pr
+        if: ${{ steps.fetch.outputs.empty != 'true' }}
+        name: create limited-edit PR
+        env:
+          WBS_OUT: out
+          ORG_DIR: orgrepo
+          WBS_DATE: ${{ steps.run.outputs.date }}
+          ORGREPO_PAT: ${{ secrets.ORGREPO_PAT }}
+        run: npx tsx scripts/wbs/pr.ts
+
+      - id: mark
+        if: ${{ steps.fetch.outputs.empty != 'true' }}
+        name: mark pr_ref / absent superseded
+        env:
+          WBS_DATABASE_URL: ${{ secrets.WBS_DATABASE_URL }}
+          WBS_OUT: out
+        run: npx tsx scripts/wbs/mark.ts

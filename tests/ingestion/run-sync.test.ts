@@ -471,3 +471,25 @@ describe("runSync — no-op(head 未変化)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+
+describe("runSync — オーバーレイ照合の統合(wbs-loop §2.6)", () => {
+  it("summary に overrides(resolveOverridesAfterSync の結果)が載る・失敗は {error:true} で進行を妨げない", async () => {
+    // lib/data/board-override は lib/db(実 DB)へ到達するため、このテスト環境では
+    // 接続エラー → catch → {error:true} 経路が決定的に踏まれる(照合失敗が run を壊さない契約)。
+    const adapter = new FakeAdapter("ai-war-room", {
+      head: async () => "sha-ov",
+      listPaths: async () => [],
+    });
+    const summary = await runSync([adapter], { maxFiles: 0 });
+    expect(summary.repos["ai-war-room"]).toBeDefined();
+    expect(summary.overrides).toBeDefined();
+    // 正常時は {applied, superseded}・失敗時は {error:true} のどちらか(形の契約)
+    const ov = summary.overrides!;
+    const shapeOk =
+      "error" in ov ? ov.error === true : typeof ov.applied === "number" && typeof ov.superseded === "number";
+    expect(shapeOk).toBe(true);
+    // 進行カーソル(saveSyncState)は照合結果に関わらず完了している
+    expect(fakeDb.syncStates.get("ai-war-room")).toBeDefined();
+  });
+});
