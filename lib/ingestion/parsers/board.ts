@@ -175,12 +175,19 @@ function processRow(
 }
 
 // ---------------------------------------------------------------------------
-// parseBoard 本体
+// 共有 walker(parseBoard / locateAdoptedRows の唯一の走査 — wbs-loop 詳細 §2.2。
+// 採用・スキップの判定は processRow に一本化し、二重実装しない)
 // ---------------------------------------------------------------------------
 
-export function parseBoard(file: SourceFile): { items: BoardItem[]; skippedRows: number } {
-  const lines = file.content.split(/\r?\n/);
-  const items: BoardItem[] = [];
+type WalkedRow = {
+  item: BoardItem;
+  lineIndex: number; // lines(split(/\r?\n/))内の行番号
+  rawLine: string; // \r?\n を含まない生の行
+  stateCellIndex: number; // splitCells 基準のステータス列インデックス
+};
+
+function walkBoardTables(lines: string[]): { rows: WalkedRow[]; skippedRows: number } {
+  const rows: WalkedRow[] = [];
   let skippedRows = 0;
   // 重複判定の seen 集合は「有効行として採用した ID」のみを登録する(ファイル全体で共有)。
   const seen = new Set<string>();
@@ -213,20 +220,20 @@ export function parseBoard(file: SourceFile): { items: BoardItem[]; skippedRows:
       const map = buildColumnMap(headerCells);
       i += 2; // ヘッダ行 + 区切り行を消費(非カウント)
 
-      const dataLines: string[] = [];
+      const dataRows: { rawLine: string; lineIndex: number }[] = [];
       while (i < lines.length && isTableRowCandidate(lines[i]!)) {
-        dataLines.push(lines[i]!);
+        dataRows.push({ rawLine: lines[i]!, lineIndex: i });
         i += 1;
       }
 
       if (isTargetTable(map)) {
-        for (const rowLine of dataLines) {
-          const cells = splitCells(rowLine);
+        for (const { rawLine, lineIndex } of dataRows) {
+          const cells = splitCells(rawLine);
           const result = processRow(cells, map, section, seen);
           if ("skipped" in result) {
             skippedRows += 1;
           } else {
-            items.push(result.item);
+            rows.push({ item: result.item, lineIndex, rawLine, stateCellIndex: map.state! });
           }
         }
       }
@@ -237,5 +244,85 @@ export function parseBoard(file: SourceFile): { items: BoardItem[]; skippedRows:
     i += 1;
   }
 
-  return { items, skippedRows };
+  return { rows, skippedRows };
+}
+
+// ---------------------------------------------------------------------------
+// parseBoard 本体
+// ---------------------------------------------------------------------------
+
+export function parseBoard(file: SourceFile): { items: BoardItem[]; skippedRows: number } {
+  const lines = file.content.split(/\r?\n/);
+  const { rows, skippedRows } = walkBoardTables(lines);
+  return { items: rows.map((r) => r.item), skippedRows };
+}
+
+// ---------------------------------------------------------------------------
+// locateAdoptedRows(wbs-loop 詳細 §2.2 — 書き戻し用の絶対オフセット)
+// ---------------------------------------------------------------------------
+
+export type AdoptedRow = {
+  itemKey: string;
+  state: "todo" | "doing" | "done";
+  /** content 内の絶対オフセット: ステータスセルの trim 済みトークン(3バイト)の先頭位置。 */
+  tokenStart: number;
+};
+
+/**
+ * splitCells と同値のセル同定で、生の行内のセル生バイト範囲を返す(trim 済みセルの再構成をしない)。
+ * 規則(§2.2): 行頭空白をスキップ → 先頭 `|` なら1バイト消費 → `|` 実位置で区切る。
+ * 行末が `|` なら最後の空セグメントはセルに数えない(splitCells の trailing strip と同値)。
+ * 行末 `|` が無い場合、最終セルは行末まで。
+ */
+function cellSpansInLine(rawLine: string): { start: number; end: number }[] {
+  const trimmedRight = rawLine.replace(/\s+$/, "");
+  let idx = rawLine.length - rawLine.trimStart().length; // 行頭空白のスキップ
+  if (rawLine[idx] === "|") idx += 1; // 先頭 `|` の消費(無い行もある — isTableRowCandidate は許容)
+  const spans: { start: number; end: number }[] = [];
+  let cellStart = idx;
+  for (let p = idx; p <= rawLine.length; p += 1) {
+    if (p === rawLine.length || rawLine[p] === "|") {
+      spans.push({ start: cellStart, end: p });
+      cellStart = p + 1;
+    }
+  }
+  // 行末(右 trim 後)が `|` なら、最後の区切り以降の空白セグメントはセルではない。
+  if (trimmedRight.endsWith("|")) {
+    spans.pop();
+  }
+  return spans;
+}
+
+/**
+ * parseBoard(content).items と同数・同順・同 itemKey/state の採用行に、
+ * ステータストークン(3バイト)の絶対オフセットを付けて返す(wbs-loop 詳細 §2.2)。
+ * 行開始オフセットは split(/\r?\n/) のセグメントと 1:1(CRLF はセグメント末尾の外側)。
+ */
+export function locateAdoptedRows(content: string): AdoptedRow[] {
+  const lines = content.split(/\r?\n/);
+  // 行開始オフセット表: lineStart[i+1] = lineStart[i] + lines[i].length + EOL 長(\r\n=2 / \n=1)。
+  const lineStarts: number[] = new Array(lines.length);
+  let offset = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    lineStarts[i] = offset;
+    offset += lines[i]!.length;
+    if (content[offset] === "\r") offset += 2;
+    else if (content[offset] === "\n") offset += 1;
+  }
+
+  const { rows } = walkBoardTables(lines);
+  const adopted: AdoptedRow[] = [];
+  for (const row of rows) {
+    const spans = cellSpansInLine(row.rawLine);
+    const span = spans[row.stateCellIndex];
+    if (!span) continue; // processRow が state を採用した行では起きない(防御)
+    const cellRaw = row.rawLine.slice(span.start, span.end);
+    const leading = cellRaw.length - cellRaw.trimStart().length;
+    adopted.push({
+      itemKey: row.item.itemKey,
+      state: row.item.state,
+      tokenStart: lineStarts[row.lineIndex]! + span.start + leading,
+    });
+  }
+  return adopted;
 }
