@@ -7,7 +7,8 @@
 // 重い処理(パース・集計)はこの画面では行わない。カンバンの操作 UI は client component
 // (board.tsx)に委譲(旧「クライアントコンポーネントは使わない」契約は today-board-interactive で改訂)。
 import { requireUser } from "../../../lib/auth/user";
-import { getTodayData, laneOfCaptureStatus } from "../../../lib/data/today";
+import { applyBoardOverrides, getTodayData, laneOfCaptureStatus } from "../../../lib/data/today";
+import { listActiveOverrides } from "../../../lib/data/board-override";
 import { listBoardCaptures } from "../../../lib/data/capture";
 import { getLastSync } from "../../../lib/data/overview";
 import { scoreLevel, scoreColorVar } from "../../../lib/ui/score";
@@ -59,11 +60,15 @@ export default async function TodayPage() {
   const user = await requireUser();
   void user;
 
-  const [data, boardCaptures, lastSync] = await Promise.all([
+  const [data, boardCaptures, overrides, lastSync] = await Promise.all([
     getTodayData(),
     listBoardCaptures(user.id),
+    listActiveOverrides(),
     getLastSync(),
   ]);
+
+  // WBS カードへのオーバーレイ合成(wbs-loop §2.4 — 実効レーン + 「PR 反映待ち」バッジ)
+  const columns = applyBoardOverrides(data.columns, overrides);
 
   // capture カードのレーン分配(サーバ側 — board.tsx は分配済み props を受けるのみ。設計 §3)。
   const captureLanes: Record<"todo" | "doing" | "done", BoardCaptureCard[]> = {
@@ -151,7 +156,7 @@ export default async function TodayPage() {
               で「次の一手」か「課題」を保存すると、ここにドラッグ&ドロップとボタンで動かせるカードが並びます。
             </p>
           ) : null}
-          <TodayBoard columns={data.columns} captures={captureLanes} />
+          <TodayBoard columns={columns} captures={captureLanes} />
         </>
       )}
     </section>

@@ -1,15 +1,17 @@
 "use client";
 
 // 対象設計: docs/design/basic/today-board-interactive.md §1-2/§1-3/§3(board.tsx)
+//          docs/design/detail/wbs-loop.md §2.3/§2.4(WBS カード操作 — オーバーレイ)
 //
-// /today カンバンの client 部分。操作できるのは capture カード(本人行)のみで、
-// **ボタンが正・HTML5 ネイティブ D&D は enhancement**(ライブラリ追加なし)。
-// 更新は既存 Server Action updateCaptureStatus 1本に収斂(認可・検証はサーバ側で毎回実施)。
-// dataTransfer に載せるのは capture の id のみ(本文・topic は載せない — 設計 §1-3)。
+// /today カンバンの client 部分。**ボタンが正・HTML5 ネイティブ D&D は enhancement**(ライブラリ追加なし)。
+// - capture カード → updateCaptureStatus(dataTransfer = UUID のみ)
+// - WBS カード → updateBoardState(dataTransfer = `wbs|<filePath>|<itemKey>` — 識別子のみ・本文非搭載)
+// どちらも認可・検証はサーバ側で毎回実施。SSoT(board_items)には書かず board_overrides に差分を記録。
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { TodayCard } from "../../../lib/data/today";
 import { updateCaptureStatus } from "../capture/actions";
+import { updateBoardState } from "./actions";
 
 type Lane = "todo" | "doing" | "done";
 type CaptureStatus = "open" | "in_progress" | "done";
@@ -39,6 +41,17 @@ const STATUS_OF_LANE: Record<Lane, CaptureStatus> = {
   todo: "open",
   doing: "in_progress",
   done: "done",
+};
+
+const WBS_SOURCE = "cc-sier-organization";
+
+const prBadgeStyle = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  color: "var(--warn)",
+  background: "color-mix(in oklch, var(--warn) 10%, transparent)",
+  padding: "1px 7px",
+  borderRadius: 4,
 };
 
 const KIND_LABEL: Record<BoardCaptureCard["kind"], string> = {
@@ -153,13 +166,45 @@ function CaptureCardView({
   );
 }
 
-/** WBS カード(読み取り専用 — 操作 UI を付けない。既存 /today の表示契約を維持)。 */
-function WbsCardView({ item }: { item: TodayCard }) {
+/** WBS カード(wbs-loop WL-1 で操作可能に — 移動は board_overrides への差分記録・SSoT 不変)。 */
+function WbsCardView({
+  item,
+  lane,
+  onMoveWbs,
+  pending,
+}: {
+  item: TodayCard;
+  lane: Lane;
+  onMoveWbs: (filePath: string, itemKey: string, to: Lane) => void;
+  pending: boolean;
+}) {
   const hasMetaRow = item.assignee || item.period || item.pri;
+  const movable = typeof item.filePath === "string" && item.filePath !== "";
   return (
-    <div className="ck-card-in" style={cardStyle}>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-sub)", marginBottom: 4 }}>
-        {item.itemKey}
+    <div
+      className="ck-card-in"
+      style={cardStyle}
+      draggable={movable}
+      onDragStart={(e) => {
+        if (!movable) return;
+        // wbs-loop §1-3: dataTransfer は識別子のみ(本文・タイトルは載せない)
+        e.dataTransfer.setData("text/plain", `wbs|${item.filePath}|${item.itemKey}`);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          fontFamily: "var(--font-mono)",
+          fontSize: 10.5,
+          color: "var(--text-sub)",
+          marginBottom: 4,
+        }}
+      >
+        <span>{item.itemKey}</span>
+        {item.overridden ? <span style={prBadgeStyle}>PR 反映待ち</span> : null}
       </div>
       <div style={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.4, marginBottom: 9 }}>{item.title}</div>
       {hasMetaRow ? (
@@ -204,6 +249,24 @@ function WbsCardView({ item }: { item: TodayCard }) {
         </div>
       ) : null}
       {item.section ? <div style={{ fontSize: 10.5, color: "var(--text-sub)" }}>{item.section}</div> : null}
+      {movable ? (
+        <div style={{ display: "flex", gap: 6, marginTop: 9 }}>
+          {movesFor(lane).map((m) => {
+            const toLane: Lane = m.to === "open" ? "todo" : m.to === "in_progress" ? "doing" : "done";
+            return (
+              <button
+                key={m.to}
+                type="button"
+                style={{ ...moveButtonStyle, opacity: pending ? 0.5 : 1 }}
+                disabled={pending}
+                onClick={() => onMoveWbs(item.filePath!, item.itemKey, toLane)}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -216,6 +279,13 @@ export function TodayBoard({ columns, captures }: BoardProps) {
   const move = (id: string, to: CaptureStatus) => {
     startTransition(async () => {
       await updateCaptureStatus({ id, status: to });
+      router.refresh();
+    });
+  };
+
+  const moveWbs = (filePath: string, itemKey: string, to: Lane) => {
+    startTransition(async () => {
+      await updateBoardState({ source: WBS_SOURCE, filePath, itemKey, desired: to });
       router.refresh();
     });
   };
@@ -238,8 +308,17 @@ export function TodayBoard({ columns, captures }: BoardProps) {
             onDrop={(e) => {
               e.preventDefault();
               setDragOver(null);
-              const id = e.dataTransfer.getData("text/plain");
-              if (id) move(id, STATUS_OF_LANE[lane]);
+              const payload = e.dataTransfer.getData("text/plain");
+              if (!payload) return;
+              if (payload.startsWith("wbs|")) {
+                // wbs|<filePath>|<itemKey>(識別子のみ — wbs-loop §1-3)
+                const rest = payload.slice(4);
+                const sep = rest.indexOf("|");
+                if (sep <= 0) return;
+                moveWbs(rest.slice(0, sep), rest.slice(sep + 1), lane);
+              } else {
+                move(payload, STATUS_OF_LANE[lane]);
+              }
             }}
             style={{
               borderRadius: 12,
@@ -270,7 +349,13 @@ export function TodayBoard({ columns, captures }: BoardProps) {
                 <CaptureCardView key={card.id} card={card} lane={lane} onMove={move} pending={isPending} />
               ))}
               {col.items.map((item) => (
-                <WbsCardView key={item.itemKey} item={item} />
+                <WbsCardView
+                  key={item.itemKey}
+                  item={item}
+                  lane={lane}
+                  onMoveWbs={moveWbs}
+                  pending={isPending}
+                />
               ))}
             </div>
           </div>

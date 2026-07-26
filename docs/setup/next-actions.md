@@ -38,6 +38,14 @@
 >    (オーバーレイ WL-1 → CI 書き戻し WL-2)を設計。3レンズ×3ラウンドで PASS(R1 は全レンズ FAIL —
 >    照合の収束性・verify の死角・共有ロール露出面など13点を改訂で解消。記録 = docs/design/reviews/wbs-loop.md)。
 >    **次の一手 = `/detailed-design wbs-loop`** → `/design-review` → `/goal WL-1` → `/goal WL-2`。
+> 3.6 **🔁 wbs-loop 進捗**: 詳細設計 PASS(3R・2026-07-26)→ **WL-1(オーバーレイ)実装完了**(同日):
+>    /today の **WBS カードがボタン + D&D で動かせる**ようになった(差分は board_overrides に記録・
+>    SSoT 不変・「PR 反映待ち」バッジ・0009 適用済み・484テスト + e2e 6画面 green)。
+>    実装中の発見1件は設計改訂済み(messy fixture は fixtures/parser-samples/ に隔離 —
+>    FixtureSource 走査で board-sync 凍結期待値を変えないため)。
+>    **残り = /goal WL-2**(CI 書き戻し: board-rewrite + scripts/wbs 5本 + workflow + wbs_bot ロール +
+>    run-sync 照合統合 + 契約4ファイル改定)。WL-2 完了後の有効化はユーザー操作
+>    (Secrets: WBS_DATABASE_URL / ORGREPO_PAT・Variables: ENABLE_WBS_WRITEBACK・**レビュー疲れ警告**を参照)。
 > 4. ~~🎨 ステップ2: today-board-interactive~~ → **完了(2026-07-26 TBI-1・judge 判定済み)**。詳細は完了済みリスト参照。
 >    - 案1第1弾: /today にカンバン(カード = **capture の next_move / issue**・CT-1 の status を
 >      レーンにマップ・D&D で status 更新 = 既存契約のまま衝突ゼロ。WBS カードは読み取り専用チップ)。

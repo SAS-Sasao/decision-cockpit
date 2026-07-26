@@ -18,6 +18,9 @@ const SECRETARY_DIR = join(
   "docs",
   "secretary"
 );
+// messy fixture は FixtureSource の走査対象外(fixtures/parser-samples/)に置く —
+// board-sync 統合テストの凍結期待値(files/items/skippedRows)を変えないため(WL-1 実装中の発見)。
+const PARSER_SAMPLES_DIR = join(REPO_ROOT, "fixtures", "parser-samples");
 
 const FIXTURES = ["demo-plan-wbs.md", "demo-messy-wbs.md"] as const;
 
@@ -28,7 +31,8 @@ const TOKEN: Record<"todo" | "doing" | "done", string> = {
 };
 
 function loadFixture(name: string): string {
-  return readFileSync(join(SECRETARY_DIR, name), "utf8");
+  const dir = name === "demo-messy-wbs.md" ? PARSER_SAMPLES_DIR : SECRETARY_DIR;
+  return readFileSync(join(dir, name), "utf8");
 }
 
 describe("locateAdoptedRows — parseBoard との同値性(両 fixture)", () => {
