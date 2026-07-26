@@ -141,7 +141,18 @@ export default async function TodayPage() {
       {data.boardEmpty && boardCaptures.length === 0 ? (
         <p>WBS が未同期です(同期後に表示されます)。capture のメモ(次の一手・課題)もここに並びます。</p>
       ) : (
-        <TodayBoard columns={data.columns} captures={captureLanes} />
+        <>
+          {boardCaptures.length === 0 ? (
+            <p style={{ fontSize: 12, color: "var(--text-sub)", marginBottom: 12 }}>
+              💡 動かせるカードはまだありません — WBS カードは読み取り専用です。
+              <a href="/capture" style={{ color: "var(--accent)", marginLeft: 4 }}>
+                capture
+              </a>
+              で「次の一手」か「課題」を保存すると、ここにドラッグ&ドロップとボタンで動かせるカードが並びます。
+            </p>
+          ) : null}
+          <TodayBoard columns={data.columns} captures={captureLanes} />
+        </>
       )}
     </section>
   );
