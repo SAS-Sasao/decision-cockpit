@@ -32,6 +32,12 @@
 >    リセット → `.env` 更新(ユーザーのみ)→ **Vercel の `DATABASE_URL` も差し替え + Redeploy** の3点セットで完了。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
+> 3.5 **🔁 wbs-loop(WBS カード操作 + SSoT への限定編集 PR 還流)— 基本設計 PASS・詳細設計待ち**(2026-07-26):
+>    ユーザー承認済みの黄金ルール1 改定(WBS 限定編集 = `.companies/<org>/docs/secretary/*-wbs.md` の
+>    ステータストークン置換のみ・決定的スクリプト・PR 人間レビュー)を前提に、フルループ
+>    (オーバーレイ WL-1 → CI 書き戻し WL-2)を設計。3レンズ×3ラウンドで PASS(R1 は全レンズ FAIL —
+>    照合の収束性・verify の死角・共有ロール露出面など13点を改訂で解消。記録 = docs/design/reviews/wbs-loop.md)。
+>    **次の一手 = `/detailed-design wbs-loop`** → `/design-review` → `/goal WL-1` → `/goal WL-2`。
 > 4. ~~🎨 ステップ2: today-board-interactive~~ → **完了(2026-07-26 TBI-1・judge 判定済み)**。詳細は完了済みリスト参照。
 >    - 案1第1弾: /today にカンバン(カード = **capture の next_move / issue**・CT-1 の status を
 >      レーンにマップ・D&D で status 更新 = 既存契約のまま衝突ゼロ。WBS カードは読み取り専用チップ)。
