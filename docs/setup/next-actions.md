@@ -163,6 +163,24 @@ M5-A の executor 稼働中に発生。
 | **M5**(自動整理・**実装完了 2026-07-20**) | 有効化手順は下記「🤖 整理ループの有効化」を参照 |
 | Vercel 展開時 | **手順書あり: [`vercel-deploy.md`](./vercel-deploy.md)**(事前条件・環境変数・Cron・初回同期・トラブルシュートまで記載。現時点でデプロイ不要) |
 
+## 🔁 WBS 書き戻し(wbs-loop)の有効化 — あなたの操作
+
+**実装は完了済み**(WL-1 / WL-2)。以下はすべて**ユーザー操作**。それまでは workflow_dispatch しても
+override 0件なら green skip で安全。
+
+1. **専用 DB ロール**: `docs/setup/organize-role.sql` の **wbs_bot セクション**を Neon 本番で実行
+   (organize_bot とは別ロール — capture_inbox へ到達しないことを確認)。
+2. **GitHub Secrets**: `WBS_DATABASE_URL`(**wbs_bot の接続文字列**)。`ORGREPO_PAT` は M5 と共用可。
+3. **GitHub Variables**: `ENABLE_WBS_WRITEBACK=true`。
+4. **動作確認**: /today で WBS カードを1枚動かす → workflow_dispatch → cc-sier-organization に
+   `wbs/<date>` ブランチの PR が立つ(**ステータストークン1箇所だけの diff** であること)→ マージ →
+   次の同期後にバッジが消える(applied)。
+5. **⚠ レビュー疲れ警告**: この PR は毎日届き得る単純な置換 diff だが、**人間レビューが最終防御**
+   (依存汚染・スクリプト改ざんの場合は機械 verify が無効化される — 設計 §4-R の受容)。
+   **「変更行が PR 本文の一覧と一致していること」を毎回確認し、機械的に承認しない。**
+   一覧外の差分が1行でもあれば必ず reject して報告すること。
+6. 復旧: PR を閉じた場合は、対象カードを一度別レーンへ動かして戻す(= 再送)。
+
 ## 🤖 整理ループ(M5 organize-loop)の有効化 — あなたの操作
 
 **実装は完了済み**(M5-A / M5-B・judge PASS)。以下はすべて**ユーザー操作**で、Vercel 展開(本番 DB に capture が入る)後に実施する。

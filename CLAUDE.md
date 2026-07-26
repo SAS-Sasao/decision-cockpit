@@ -17,6 +17,10 @@ SSoT として GitHub から自動同期し、Neon(Postgres + pgvector)に索引
    索引のための読み取りは GitHub API 経由のみ。**唯一の例外 = Claude Action(CI)の PR 経由の書き戻し**(organize-loop)—
    許可パスは ai-war-room の `docs/logs/`・`docs/decisions/` と cc-sier-organization の
    `.companies/<org>/docs/decisions/`・`.companies/<org>/docs/todos/` に限定し、**追加のみ・削除禁止・main 直 push 禁止**。
+   さらに **WBS 限定編集**(wbs-loop・2026-07-26 承認)を第2の例外として許可: 対象 = cc-sier-organization の
+   `.companies/<org>/docs/secretary/*-wbs.md` のみ・変更 = **既存行のステータストークン(`[ ]`/`[~]`/`[x]`)の
+   置換のみ**(行の追加・削除・他セル変更は禁止)・生成主体 = **決定的スクリプト(LLM 不使用)**・
+   機械 verify(行単位バイト diff)→ PR 経由・自動マージなし(正典 = docs/design/detail/wbs-loop.md)。
 2. **秘密情報は直書きしない。** 接続文字列・APIキー・トークンは `.env.example` のプレースホルダのみ。
 3. **設計 → design-review(全レンズ PASS) → 実装。** /goal の対象は docs/design/ に設計があり PASS 済みのもの。
 4. **作業役と判定役を分離。** 設計は主セッション(human-in-loop)で執筆し critic には書かせない。実装は executor、

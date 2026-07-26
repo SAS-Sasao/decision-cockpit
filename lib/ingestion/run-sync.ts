@@ -42,7 +42,12 @@ export type RepoSyncSummary = {
   board: { files: number; items: number; skippedRows: number };
 };
 
-export type SyncSummary = { repos: Record<string, RepoSyncSummary> };
+export type SyncSummary = {
+  repos: Record<string, RepoSyncSummary>;
+  /** wbs-loop §2.6: オーバーレイ照合の結果(additive)。照合失敗は {error:true} に計上し、
+   *  進行カーソル(saveSyncState は各 syncRepo 内で完了済み)には影響させない。 */
+  overrides?: { applied: number; superseded: number } | { error: true };
+};
 
 export type RunSyncOptions = { maxFiles?: number; force?: boolean };
 
@@ -146,7 +151,18 @@ export async function runSync(
   for (const adapter of adapters) {
     repos[adapter.repo] = await syncRepo(adapter, { maxFiles, force, sourceKind, vocab });
   }
-  return { repos };
+
+  // wbs-loop §2.6: board upsert 後のオーバーレイ照合(applied / superseded 外部変更)。
+  // run-sync → lib/data の依存は意図的な例外(詳細 §0-10 — 更新文を1ファイルに集約するため)。
+  let overrides: SyncSummary["overrides"];
+  try {
+    const { resolveOverridesAfterSync } = await import("../data/board-override");
+    overrides = await resolveOverridesAfterSync();
+  } catch {
+    overrides = { error: true };
+  }
+
+  return { repos, overrides };
 }
 
 async function syncRepo(
