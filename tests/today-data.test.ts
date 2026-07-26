@@ -278,3 +278,59 @@ describe("laneOfCaptureStatus — status → レーンの全域写像(today-boar
     expect(lanes).toEqual(["todo", "doing", "done"]);
   });
 });
+
+describe("applyBoardOverrides — オーバーレイ合成(wbs-loop §2.4)", () => {
+  const card = (itemKey: string, filePath?: string) => ({
+    itemKey,
+    title: `t-${itemKey}`,
+    assignee: null,
+    period: null,
+    deliverable: null,
+    pri: null,
+    org: null,
+    section: null,
+    filePath,
+  });
+  const FP = ".companies/demo-org/docs/secretary/demo-plan-wbs.md";
+
+  it("一致カードを実効レーンへ移し替え、overridden フラグを立てる(移動先の末尾)", async () => {
+    const { applyBoardOverrides } = await import("../lib/data/today");
+    const columns = [
+      { state: "todo" as const, items: [card("W1", FP), card("W2", FP)] },
+      { state: "doing" as const, items: [card("W3", FP)] },
+      { state: "done" as const, items: [] },
+    ];
+    const result = applyBoardOverrides(columns, [
+      { filePath: FP, itemKey: "W1", desiredState: "doing" },
+    ]);
+    expect(result[0]!.items.map((i) => i.itemKey)).toEqual(["W2"]);
+    expect(result[1]!.items.map((i) => i.itemKey)).toEqual(["W3", "W1"]);
+    expect(result[1]!.items[1]!.overridden).toBe(true);
+    expect(result[1]!.items[0]!.overridden).toBeUndefined();
+  });
+
+  it("一致しないオーバーレイ(最新世代に無い item / filePath 不一致)は無視する", async () => {
+    const { applyBoardOverrides } = await import("../lib/data/today");
+    const columns = [
+      { state: "todo" as const, items: [card("W1", FP)] },
+      { state: "doing" as const, items: [] },
+      { state: "done" as const, items: [] },
+    ];
+    const result = applyBoardOverrides(columns, [
+      { filePath: FP, itemKey: "GONE", desiredState: "done" },
+      { filePath: ".companies/x/docs/secretary/other-wbs.md", itemKey: "W1", desiredState: "done" },
+    ]);
+    expect(result[0]!.items.map((i) => i.itemKey)).toEqual(["W1"]);
+    expect(result[2]!.items).toEqual([]);
+  });
+
+  it("オーバーレイ0件なら入力をそのまま返す(恒等)", async () => {
+    const { applyBoardOverrides } = await import("../lib/data/today");
+    const columns = [
+      { state: "todo" as const, items: [card("W1", FP)] },
+      { state: "doing" as const, items: [] },
+      { state: "done" as const, items: [] },
+    ];
+    expect(applyBoardOverrides(columns, [])).toBe(columns);
+  });
+});

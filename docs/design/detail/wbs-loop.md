@@ -205,8 +205,10 @@ summary に含めて return(**saveSyncState は各 syncRepo 内で完了済み**
 
 ## 3. テスト観点(すべて機械判定・実ネットワークなし・匿名 fixture)
 
-新規 fixture(`fixtures/cc-sier-organization/.companies/demo-org/docs/secretary/`)— **WL-1 で導入**
-(locateAdoptedRows の同値性・tokenStart 検証に必要なため。arch R1 の帰属矛盾の決着):
+新規 fixture — **WL-1 で導入**(locateAdoptedRows の同値性・tokenStart 検証に必要。arch R1 の帰属矛盾の決着)。
+**置き場所 = `fixtures/parser-samples/`(WL-1 実装中の発見・設計改訂)**: 当初の secretary/ 配下だと
+FixtureSource が走査し board-sync 統合テストの凍結期待値(files/items/skippedRows)を変えてしまうため、
+**走査対象外のパーサ単体サンプル置き場**に隔離する(凍結不変と反例母体の両立):
 - `demo-messy-wbs.md`: CRLF 行末・不均一パディング・fence 内テーブル・対象テーブル2つ・
   非対象テーブル内の同名 ID・重複 ID・状態3値外・ID 空・タイトル空・
   **行頭 `|` 無しのテーブル行・行頭インデント行・行末 `|` 無し行(ステータスセルを末尾に配置 —
@@ -350,7 +352,7 @@ verify の before は git blob 読みで symlink 非追従)/ 削除 API・exec �
 - 閉包 allowlist(WL-1): db/migrations/0009_* / lib/data/board-override.ts / lib/data/today.ts /
   lib/ingestion/parsers/board.ts / app/(shell)/today/{page,board,actions}.tsx|ts /
   tests/{board-override,board-rewrite,today-data}.test.ts /
-  **fixtures/cc-sier-organization/.companies/demo-org/docs/secretary/demo-messy-wbs.md**(§3 — WL-1 帰属)/
+  **fixtures/parser-samples/demo-messy-wbs.md**(§3 — WL-1 帰属・FixtureSource 走査対象外)/
   **docs/setup/db-recovery.md**(復元不能リスト追記)/ docs(design detail/reviews・next-actions)。
   ※ tests/board-parser.test.ts は**両 goal とも allowlist 外**(無変更が挙動不変の証明)。
 - 閉包 allowlist(WL-2): lib/ingestion/parsers/board-rewrite.ts / scripts/wbs/** /

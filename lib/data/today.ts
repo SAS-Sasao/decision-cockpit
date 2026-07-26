@@ -20,6 +20,8 @@ export type TodayCard = {
   pri: string | null;
   org: string | null;
   section: string | null;
+  filePath?: string; // wbs-loop §2.4: updateBoardState の識別子(additive)
+  overridden?: boolean; // wbs-loop §2.4: アクティブなオーバーレイ中(「PR 反映待ち」バッジ)
 };
 
 export type TodayData = {
@@ -41,6 +43,38 @@ export function laneOfCaptureStatus(status: "open" | "in_progress" | "done"): "t
     case "done":
       return "done";
   }
+}
+
+/**
+ * WBS カードへのオーバーレイ適用(wbs-loop §2.4 — 純関数・ユニットテスト対象)。
+ * アクティブなオーバーレイに一致するカード(filePath + itemKey)を実効レーン(desiredState)へ
+ * 移し替え、`overridden: true`(「PR 反映待ち」バッジ)を立てる。一致しないオーバーレイは無視
+ * (最新世代フィルタで消えた item — CI の不在出口が解消する。基本設計 §1-2)。
+ * 移動カードは移動先レーンの末尾に付ける(決定的)。
+ */
+export function applyBoardOverrides(
+  columns: { state: "todo" | "doing" | "done"; items: TodayCard[] }[],
+  overrides: { filePath: string; itemKey: string; desiredState: "todo" | "doing" | "done" }[]
+): { state: "todo" | "doing" | "done"; items: TodayCard[] }[] {
+  if (overrides.length === 0) return columns;
+
+  const byKey = new Map<string, "todo" | "doing" | "done">();
+  for (const o of overrides) {
+    byKey.set(`${o.filePath}|${o.itemKey}`, o.desiredState);
+  }
+
+  const moved: Record<"todo" | "doing" | "done", TodayCard[]> = { todo: [], doing: [], done: [] };
+  const kept = columns.map((col) => ({
+    state: col.state,
+    items: col.items.filter((item) => {
+      const desired = item.filePath ? byKey.get(`${item.filePath}|${item.itemKey}`) : undefined;
+      if (desired === undefined) return true;
+      moved[desired].push({ ...item, overridden: true });
+      return false;
+    }),
+  }));
+
+  return kept.map((col) => ({ state: col.state, items: [...col.items, ...moved[col.state]] }));
 }
 
 // reward 平均の対象(ingestion-foundation 基本設計 §3.4 を継承・review/overview と同じ局所定数)。
@@ -73,6 +107,7 @@ type BoardQueryRow = {
   org: string | null;
   section: string | null;
   state: "todo" | "doing" | "done";
+  file_path?: string; // wbs-loop §2.4(additive — 既存モック行に無くても undefined 透過)
 };
 
 function toCard(row: BoardQueryRow): TodayCard {
@@ -85,6 +120,7 @@ function toCard(row: BoardQueryRow): TodayCard {
     pri: row.pri,
     org: row.org,
     section: row.section,
+    filePath: row.file_path,
   };
 }
 
@@ -108,7 +144,7 @@ export async function getTodayData(): Promise<TodayData> {
          FROM board_items
         GROUP BY source, file_path
      )
-     SELECT b.item_key, b.title, b.assignee, b.period, b.deliverable, b.pri, b.org, b.section, b.state
+     SELECT b.item_key, b.title, b.assignee, b.period, b.deliverable, b.pri, b.org, b.section, b.state, b.file_path
        FROM board_items b
        JOIN generations g
          ON b.source = g.source AND b.file_path = g.file_path AND b.commit = g.commit`
