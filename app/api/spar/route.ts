@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { getUser } from "../../../lib/auth/user";
 import { searchKnowledge, type KnowledgeHit } from "../../../lib/data/knowledge";
 import { callChat, getSparConfig, getSparGuards, SparUpstreamError, type SparGuards } from "../../../lib/spar/llm";
+import { applyNavExtraction } from "../../../lib/spar/nav";
 import { buildSparMessages, type SparCtx } from "../../../lib/spar/prompt";
 
 export type SparRef = {
@@ -131,6 +132,9 @@ export async function POST(req: Request) {
     throw err;
   }
 
+  // spar-navigate §1-3: nav 抽出は applyNavExtraction に一任(本文契約の正はそちら — additive)
+  const { body, navs } = applyNavExtraction(reply);
+
   const refs = ctx.map(toSparRef);
-  return NextResponse.json({ reply, refs, degraded }, { status: 200 });
+  return NextResponse.json({ reply: body, refs, degraded, navs }, { status: 200 });
 }

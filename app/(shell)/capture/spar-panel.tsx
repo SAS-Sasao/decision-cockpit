@@ -10,6 +10,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveCapture } from "./actions";
 
+// spar-navigate §1-4: API 由来の検証済み提案(href は固定リテラル起点の相対パスのみ)
+type SparNavView = { label: string; href: string };
+
 type SparRefView = {
   title: string | null;
   date: string | null;
@@ -20,7 +23,7 @@ type SparRefView = {
 
 type ChatTurn =
   | { role: "user"; content: string }
-  | { role: "assistant"; content: string; refs: SparRefView[]; degraded: boolean };
+  | { role: "assistant"; content: string; refs: SparRefView[]; degraded: boolean; navs: SparNavView[] };
 
 type SparApiError = "unauthorized" | "bad_request" | "spar_not_configured" | "spar_upstream" | "network";
 
@@ -114,8 +117,16 @@ export function SparPanel() {
         return;
       }
 
-      const data = (await res.json()) as { reply: string; refs: SparRefView[]; degraded: boolean };
-      setTurns([...nextTurns, { role: "assistant", content: data.reply, refs: data.refs, degraded: data.degraded }]);
+      const data = (await res.json()) as {
+        reply: string;
+        refs: SparRefView[];
+        degraded: boolean;
+        navs?: SparNavView[];
+      };
+      setTurns([
+        ...nextTurns,
+        { role: "assistant", content: data.reply, refs: data.refs, degraded: data.degraded, navs: data.navs ?? [] },
+      ]);
     } catch {
       setSendError("network");
     } finally {
@@ -182,6 +193,26 @@ export function SparPanel() {
                 <div style={{ marginTop: 8 }}>
                   {turn.degraded ? (
                     <div style={{ fontSize: 10.5, color: "var(--warn)", marginBottom: 6 }}>文脈なし(検索が縮退しました)</div>
+                  ) : null}
+                  {turn.navs.length > 0 ? (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                      {turn.navs.map((nav, j) => (
+                        <a
+                          key={j}
+                          href={nav.href}
+                          style={{
+                            fontSize: 11,
+                            padding: "3px 10px",
+                            borderRadius: 8,
+                            border: "1px solid color-mix(in oklch, var(--accent-spar) 40%, var(--line))",
+                            color: "var(--accent-spar)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {nav.label}
+                        </a>
+                      ))}
+                    </div>
                   ) : null}
                   {turn.refs.length > 0 ? (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
