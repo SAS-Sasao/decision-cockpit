@@ -46,6 +46,28 @@ export function laneOfCaptureStatus(status: "open" | "in_progress" | "done"): "t
 }
 
 /**
+ * レーン件数の集計(today-summary-sync §1 — 純関数・ユニットテスト対象)。
+ * 各レーンの件数 = columns(applyBoardOverrides 適用後)の items 数 + captureLanes の件数。
+ * 盤面に見えているカード数と定義上一致する(要素の中身は数えない — unknown[])。
+ * columns に該当レーンが無い場合は captureLanes のみの件数。
+ * **レーン件数の正典はこの関数**(board.tsx のレーンバッジは同型式の表示実装 — 乖離時はこちらに合わせる)。
+ */
+export function laneCounts(
+  columns: { state: "todo" | "doing" | "done"; items: unknown[] }[],
+  captureLanes: Record<"todo" | "doing" | "done", unknown[]>
+): { todo: number; doing: number; done: number } {
+  const counts = {
+    todo: captureLanes.todo.length,
+    doing: captureLanes.doing.length,
+    done: captureLanes.done.length,
+  };
+  for (const col of columns) {
+    counts[col.state] += col.items.length;
+  }
+  return counts;
+}
+
+/**
  * WBS カードへのオーバーレイ適用(wbs-loop §2.4 — 純関数・ユニットテスト対象)。
  * アクティブなオーバーレイに一致するカード(filePath + itemKey)を実効レーン(desiredState)へ
  * 移し替え、`overridden: true`(「PR 反映待ち」バッジ)を立てる。一致しないオーバーレイは無視

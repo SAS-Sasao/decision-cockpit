@@ -334,3 +334,32 @@ describe("applyBoardOverrides — オーバーレイ合成(wbs-loop §2.4)", () 
     expect(applyBoardOverrides(columns, [])).toBe(columns);
   });
 });
+
+
+describe("laneCounts — 盤面カード数の集計(today-summary-sync §1)", () => {
+  const cols = (todo: number, doing: number, done: number) => [
+    { state: "todo" as const, items: new Array(todo).fill({}) },
+    { state: "doing" as const, items: new Array(doing).fill({}) },
+    { state: "done" as const, items: new Array(done).fill({}) },
+  ];
+
+  it("合成後 columns + capture 合算(各レーンの和)", async () => {
+    const { laneCounts } = await import("../lib/data/today");
+    const counts = laneCounts(cols(2, 1, 3), { todo: [{}], doing: [{}, {}], done: [] });
+    expect(counts).toEqual({ todo: 3, doing: 3, done: 3 });
+  });
+
+  it("空 columns・空 captureLanes は全レーン 0", async () => {
+    const { laneCounts } = await import("../lib/data/today");
+    expect(laneCounts([], { todo: [], doing: [], done: [] })).toEqual({ todo: 0, doing: 0, done: 0 });
+  });
+
+  it("columns に欠落レーンがある場合は captureLanes のみの件数", async () => {
+    const { laneCounts } = await import("../lib/data/today");
+    const counts = laneCounts(
+      [{ state: "todo" as const, items: [{}] }], // doing/done レーン欠落
+      { todo: [], doing: [{}], done: [{}, {}] }
+    );
+    expect(counts).toEqual({ todo: 1, doing: 1, done: 2 });
+  });
+});

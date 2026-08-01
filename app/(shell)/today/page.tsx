@@ -7,7 +7,7 @@
 // 重い処理(パース・集計)はこの画面では行わない。カンバンの操作 UI は client component
 // (board.tsx)に委譲(旧「クライアントコンポーネントは使わない」契約は today-board-interactive で改訂)。
 import { requireUser } from "../../../lib/auth/user";
-import { applyBoardOverrides, getTodayData, laneOfCaptureStatus } from "../../../lib/data/today";
+import { applyBoardOverrides, getTodayData, laneCounts, laneOfCaptureStatus } from "../../../lib/data/today";
 import { listActiveOverrides } from "../../../lib/data/board-override";
 import { listBoardCaptures } from "../../../lib/data/capture";
 import { getLastSync } from "../../../lib/data/overview";
@@ -88,9 +88,12 @@ export default async function TodayPage() {
   }
   captureLanes.done = captureLanes.done.slice(0, CAPTURE_DONE_LIMIT);
 
+  // チップの件数 = 盤面のカード数(合成後 columns + 表示中の captureLanes — today-summary-sync §1)
+  const counts = laneCounts(columns, captureLanes);
+
   const summaryChips: { label: string; value: number; decimals: number; suffix: string; color: string }[] = [
-    { label: "オープン", value: data.summary.open, decimals: 0, suffix: "", color: "var(--text)" },
-    { label: "着手中", value: data.summary.doing, decimals: 0, suffix: "", color: "var(--text)" },
+    { label: "オープン", value: counts.todo, decimals: 0, suffix: "", color: "var(--text)" },
+    { label: "着手中", value: counts.doing, decimals: 0, suffix: "", color: "var(--text)" },
     {
       label: "手戻り率(今週)",
       value: data.summary.retryRate === null ? Number.NaN : data.summary.retryRate * 100,
@@ -130,7 +133,7 @@ export default async function TodayPage() {
       </div>
 
       <p style={{ fontSize: 12, color: "var(--text-sub)", marginBottom: 4 }}>
-        ※ 「手戻り率」は発生率です(低いほど良い指標です)。「オープン」「着手中」は現在の WBS 世代の件数です。
+        ※ 「手戻り率」は発生率です(低いほど良い指標です)。「オープン」「着手中」は盤面のカード数(WBS の実効状態 + capture)です。
       </p>
 
       <p style={{ fontSize: 12, color: "var(--text-sub)", marginBottom: 18 }}>
