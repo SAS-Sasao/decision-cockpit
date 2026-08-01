@@ -1,7 +1,7 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-07-26 wbs-loop(WL-1 + WL-2)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 完了**
-> (vitest **504件**緑・48ファイル + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> 状態スナップショット: **2026-08-01 TSS-1 + SN-1 完了・codex-ops 基本設計 PASS** — **M0〜M5 + TCS-1 + FC-1 +
+> TBI-1 + WL-1/2 + TSS-1 + SN-1 完了**(vitest **521件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
 > **有効化待ち×2(ユーザー操作)**: M5(organize-loop)と wbs-loop(WBS 書き戻し)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -14,14 +14,24 @@
 > **概観の「今週」KPI が空なのは正常**(週の切り替わり — 組織側 score/quality の最新が先週分。新しい記録が入れば埋まる)。
 > **秘密情報は本ファイルに実値を書かない。**
 >
+> **▶ 次セッションの再開ポイント = `/goal CO-1`(codex-ops 実装)** — ブランチ `goal/co-1-codex-ops` に
+> 基本設計 + レビュー記録がコミット済み(3レンズ PASS)。成果物 = scripts/codex/review.sh + AGENTS.md +
+> .claude/rules/codex.md + docs/setup/codex-setup.md + CLAUDE.md 1行 + guard-bash の codex deny
+> (アプリコード非接触・申し送りは docs/design/reviews/codex-ops.md 末尾)。
+>
 > **▶ 次セッションの再開手順**(どれから始めてもよい):
 > 0. ~~🐛 /today のサマリーチップがカード移動に追随しない~~ → **解決(2026-08-01 TSS-1・judge 判定)**。
 >    チップ「オープン」「着手中」を純関数 `laneCounts`(盤面 = 合成後 columns + capture レーンの件数・
 >    正典)に置換 + 注記文更新。507テスト + e2e 6画面 green。設計 = today-summary-sync(3レンズ一発 PASS)。
 > 0.5 ~~🤖 codex の運用検討~~ → **方向確定(2026-08-01 壁打ち)**: (a) **使い道2 = spar-navigate として実装**
 >    (壁打ちが検証済みパラメータの提案リンクを返す — SN-1・下記完了済み参照) (b) **使い道1 = Codex 並走は
->    「読取専用のセカンドオピニオン」から**(次の一手 = AGENTS.md(Codex 用憲法)+ 運用ルールを
->    /basic-design codex-ops で設計 → sec レンズ重点。編集権限の拡大はその後)。
+>    「読取専用のセカンドオピニオン」から** → **基本設計 PASS(2026-08-01)**: docs/design/basic/codex-ops.md。
+>    R1 で sec/data FAIL(AGENTS.md は強制ではない・サンドボックスの読取範囲は保証されない・作業ツリーには
+>    .env 以外にも e2e/.auth / e2e/screenshots の秘密がある)→ **クリーンコピー隔離に方式転換**
+>    (レビューは scripts/codex/review.sh 経由のみ — `git archive HEAD` を一時 dir に展開 = 追跡ファイルのみ・
+>    秘密は構造的に不在)→ R2/R3 全レンズ PASS(記録 = docs/design/reviews/codex-ops.md)。
+>    **次の一手 = `/goal CO-1`**(上記再開ポイント参照)。実装後の**有効化はユーザー操作**
+>    (codex-setup.md の初回受け入れ検査 (a)〜(e) がゲート — fail = 導入中止)。
 > 1. ~~🔧 コールドスタートのタグ空問題の恒久修正~~ → **完了(2026-07-25 TCS-1・judge PASS)**。
 >    masters 優先パーティション + mergeTagVocab のラン内マージで**初回同期からタグが付く**(設計
 >    docs/design/basic/tag-cold-start.md・3レンズ一発 PASS)。tsc の「2件エラー」は**幻**(古い
@@ -254,6 +264,14 @@ override 0件なら green skip で安全。
   **反省の記録**: 実装途中、settings 修正ブランチを goal ブランチから切って main へマージし、**TBI 途中状態が
   main に早期着地**(force push 禁止のため巻き戻さず、検証済みの最終状態で上書き決着。以後「修正ブランチは
   必ず main から切る」)。
+- **TSS-1(today-summary-sync)完了**(2026-08-01): /today のサマリーチップ「オープン」「着手中」が
+  カード移動に追随しないバグを修正。純関数 `laneCounts`(合成後 columns + capture レーンの件数 = 盤面が正典)
+  に置換 + 注記文更新。設計 = today-summary-sync(3レンズ一発 PASS)・judge PASS。507テスト + e2e 6画面 green
+- **SN-1(spar-navigate)完了**(2026-08-01): 壁打ちの返答末尾に**検証済みパラメータの提案リンク**
+  (ナレッジ検索 q/type・振り返り g)を最大3件表示。モデル出力は ```nav フェンスの JSON のみ・サーバ側
+  ホワイトリスト検証(href は固定リテラル起点 + encodeURIComponent・ラベルはサーバテンプレート)・
+  **無効 nav 全滅時はフェンスを除去せず本文復元**(偽フェンスによる本文隠蔽を構造的に不可能に)。
+  設計 = spar-navigate(3レンズ 2R PASS)・judge PASS。521テスト + e2e 6画面 green
 
 ## 関連ドキュメント
 
