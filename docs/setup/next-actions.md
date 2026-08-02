@@ -1,7 +1,8 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-08-01 TSS-1 + SN-1 完了・codex-ops 基本設計 PASS** — **M0〜M5 + TCS-1 + FC-1 +
-> TBI-1 + WL-1/2 + TSS-1 + SN-1 完了**(vitest **521件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> 状態スナップショット: **2026-08-02 CO-1(codex-ops v1)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 +
+> TSS-1 + SN-1 + CO-1 完了**(vitest **521件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> **有効化待ち×3(ユーザー操作)**: M5(organize-loop)/ wbs-loop / **codex(初回受け入れ検査ゲート)**。
 > **有効化待ち×2(ユーザー操作)**: M5(organize-loop)と wbs-loop(WBS 書き戻し)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -14,10 +15,11 @@
 > **概観の「今週」KPI が空なのは正常**(週の切り替わり — 組織側 score/quality の最新が先週分。新しい記録が入れば埋まる)。
 > **秘密情報は本ファイルに実値を書かない。**
 >
-> **▶ 次セッションの再開ポイント = `/goal CO-1`(codex-ops 実装)** — ブランチ `goal/co-1-codex-ops` に
-> 基本設計 + レビュー記録がコミット済み(3レンズ PASS)。成果物 = scripts/codex/review.sh + AGENTS.md +
-> .claude/rules/codex.md + docs/setup/codex-setup.md + CLAUDE.md 1行 + guard-bash の codex deny
-> (アプリコード非接触・申し送りは docs/design/reviews/codex-ops.md 末尾)。
+> **▶ 次の再開ポイント = Codex の有効化(あなたの操作)** — 実装は完了済み(CO-1・judge PASS)。
+> [`codex-setup.md`](./codex-setup.md) の手順1〜3を実施: インストール + 認証(キーは貼らない)→
+> データ保持・学習設定の確認記録 → review.sh の `CODEX_ARGS` を実フラグに確定 →
+> **初回受け入れ検査 (a)〜(e) = ゲート**(全 PASS まで運用開始しない・fail = 導入中止して設計改訂)。
+> 以後のレビュー起動は**人間の端末から** `scripts/codex/review.sh "<依頼>"`(Claude セッションからは guard が遮断)。
 >
 > **▶ 次セッションの再開手順**(どれから始めてもよい):
 > 0. ~~🐛 /today のサマリーチップがカード移動に追随しない~~ → **解決(2026-08-01 TSS-1・judge 判定)**。
@@ -30,8 +32,8 @@
 >    .env 以外にも e2e/.auth / e2e/screenshots の秘密がある)→ **クリーンコピー隔離に方式転換**
 >    (レビューは scripts/codex/review.sh 経由のみ — `git archive HEAD` を一時 dir に展開 = 追跡ファイルのみ・
 >    秘密は構造的に不在)→ R2/R3 全レンズ PASS(記録 = docs/design/reviews/codex-ops.md)。
->    **次の一手 = `/goal CO-1`**(上記再開ポイント参照)。実装後の**有効化はユーザー操作**
->    (codex-setup.md の初回受け入れ検査 (a)〜(e) がゲート — fail = 導入中止)。
+>    **CO-1 実装完了(2026-08-02・judge PASS)** — 詳細は完了済みリスト参照。残タスク = **有効化
+>    (ユーザー操作)**: codex-setup.md の手順1〜3 + 初回受け入れ検査 (a)〜(e) ゲート(上記再開ポイント)。
 > 1. ~~🔧 コールドスタートのタグ空問題の恒久修正~~ → **完了(2026-07-25 TCS-1・judge PASS)**。
 >    masters 優先パーティション + mergeTagVocab のラン内マージで**初回同期からタグが付く**(設計
 >    docs/design/basic/tag-cold-start.md・3レンズ一発 PASS)。tsc の「2件エラー」は**幻**(古い
@@ -272,6 +274,14 @@ override 0件なら green skip で安全。
   ホワイトリスト検証(href は固定リテラル起点 + encodeURIComponent・ラベルはサーバテンプレート)・
   **無効 nav 全滅時はフェンスを除去せず本文復元**(偽フェンスによる本文隠蔽を構造的に不可能に)。
   設計 = spar-navigate(3レンズ 2R PASS)・judge PASS。521テスト + e2e 6画面 green
+- **CO-1(codex-ops v1: Codex 読取専用セカンドオピニオン)完了**(2026-08-02・judge PASS): レビューの
+  唯一の入口 = `scripts/codex/review.sh`(**クリーンコピー隔離** — mktemp に git archive HEAD 展開 =
+  追跡ファイルのみ・.env / e2e/.auth / e2e/screenshots は構造的に不在・起動前 assert 毎回・trap で
+  異常終了時も破棄・終了時に元 repo の status 表示)+ AGENTS.md(Codex 憲法)+ .claude/rules/codex.md
+  (参考意見・コピペ実行禁止・judge 代替禁止)+ docs/setup/codex-setup.md(初回受け入れ検査ゲート +
+  ローテーション一覧)+ CLAUDE.md 参照追記 + **guard-bash に codex 起動 deny**(先頭トークン一致のみ・
+  パイプテスト 14ケース検証済み)。アプリコード非接触(521テスト不変)。設計 = codex-ops
+  (R1 sec/data FAIL → クリーンコピー隔離へ方式転換 → R2/R3 全レンズ PASS)。**有効化はユーザー操作**
 
 ## 関連ドキュメント
 
