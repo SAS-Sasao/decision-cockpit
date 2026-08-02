@@ -12,7 +12,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Codex } from "@openai/codex-sdk";
+import type { Codex } from "@openai/codex-sdk";
 import { buildChildEnv, checkAdmission, checkPreflight, corsHeaders, validateQuestion } from "./serve-lib";
 
 const PORT = 8788;
@@ -24,8 +24,9 @@ const repoRoot = execSync("git rev-parse --show-toplevel").toString().trim();
 // 事後検知の基準(§1 やる-1 — review.sh とパリティ。検知範囲は本 repo のみ)
 const statusAtStart = execSync("git status --porcelain", { cwd: repoRoot }).toString();
 
-// env は allowlist の全量置換(SDK は env 指定時に process.env を継承しない)
-const codex = new Codex({ env: buildChildEnv(process.env) });
+// SDK は ESM 専用(exports に import 条件のみ・require 不可)のため、CJS 実行(tsx)からは
+// main() の dynamic import で読み込む。インスタンスは listen 前に必ず代入される。
+let codex: Codex;
 
 let busy = false;
 let served = 0;
@@ -192,7 +193,17 @@ function shutdown(): void {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-server.listen(PORT, BIND_ADDR, () => {
-  console.log(`codex-spar ランナー起動: http://${BIND_ADDR}:${PORT}(壁打ち Codex モード用・LAN 非公開)`);
-  console.log("アプリは http://localhost:3000 で開くこと(Origin 検証)。停止は Ctrl-C。");
+async function main(): Promise<void> {
+  const sdk = await import("@openai/codex-sdk");
+  // env は allowlist の全量置換(SDK は env 指定時に process.env を継承しない)
+  codex = new sdk.Codex({ env: buildChildEnv(process.env) });
+  server.listen(PORT, BIND_ADDR, () => {
+    console.log(`codex-spar ランナー起動: http://${BIND_ADDR}:${PORT}(壁打ち Codex モード用・LAN 非公開)`);
+    console.log("アプリは http://localhost:3000 で開くこと(Origin 検証)。停止は Ctrl-C。");
+  });
+}
+
+main().catch((err) => {
+  console.error("起動失敗:", err);
+  process.exit(1);
 });
