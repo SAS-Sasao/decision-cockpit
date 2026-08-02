@@ -1,8 +1,8 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-08-02 CO-1(codex-ops v1)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 +
-> TSS-1 + SN-1 + CO-1 完了**(vitest **521件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
-> **有効化待ち×3(ユーザー操作)**: M5(organize-loop)/ wbs-loop / **codex(初回受け入れ検査ゲート)**。
+> 状態スナップショット: **2026-08-02 CO-1 + CS-1(codex-spar)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 +
+> WL-1/2 + TSS-1 + SN-1 + CO-1 + CS-1 完了**(vitest **547件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> **有効化待ち×3(ユーザー操作)**: M5(organize-loop)/ wbs-loop / **codex(端末レビュー + 壁打ち Codex モード)**。
 > **有効化待ち×2(ユーザー操作)**: M5(organize-loop)と wbs-loop(WBS 書き戻し)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -15,11 +15,15 @@
 > **概観の「今週」KPI が空なのは正常**(週の切り替わり — 組織側 score/quality の最新が先週分。新しい記録が入れば埋まる)。
 > **秘密情報は本ファイルに実値を書かない。**
 >
-> **▶ 次の再開ポイント = Codex の有効化(あなたの操作)** — 実装は完了済み(CO-1・judge PASS)。
-> [`codex-setup.md`](./codex-setup.md) の手順1〜3を実施: インストール + 認証(キーは貼らない)→
-> データ保持・学習設定の確認記録 → review.sh の `CODEX_ARGS` を実フラグに確定 →
-> **初回受け入れ検査 (a)〜(e) = ゲート**(全 PASS まで運用開始しない・fail = 導入中止して設計改訂)。
-> 以後のレビュー起動は**人間の端末から** `scripts/codex/review.sh "<依頼>"`(Claude セッションからは guard が遮断)。
+> **▶ 次の再開ポイント = Codex の有効化(あなたの操作)** — 実装は完了済み(CO-1 + CS-1・とも judge PASS)。
+> [`codex-setup.md`](./codex-setup.md) を実施(インストール・認証は両モード共通):
+> 1. 手順1〜2: インストール + 認証(キーは貼らない)→ データ保持・学習設定の確認記録 →
+>    `codex --help` は確認済み(2026-08-02 — `--sandbox read-only` / `--ask-for-approval` 実在)。
+> 2. **端末レビュー(CO-1)のゲート**: 初回受け入れ検査 (a)〜(e)(codex-setup.md §3)。
+> 3. **壁打ち Codex モード(CS-1)のゲート**: `.env` に `NEXT_PUBLIC_CODEX_SPAR=1` → compose 再起動 →
+>    人間の端末で `npm run codex:serve` → **初回受け入れ検査 (a)〜(h)**(codex-setup.md §6 /
+>    正 = codex-spar 設計 §5)。**アプリは必ず http://localhost:3000 で開く**(Origin 検証)。
+> いずれも全 PASS まで運用開始しない・fail = 導入中止して設計改訂。Claude セッションからの起動は guard が遮断。
 >
 > **▶ 次セッションの再開手順**(どれから始めてもよい):
 > 0. ~~🐛 /today のサマリーチップがカード移動に追随しない~~ → **解決(2026-08-01 TSS-1・judge 判定)**。
@@ -274,6 +278,16 @@ override 0件なら green skip で安全。
   ホワイトリスト検証(href は固定リテラル起点 + encodeURIComponent・ラベルはサーバテンプレート)・
   **無効 nav 全滅時はフェンスを除去せず本文復元**(偽フェンスによる本文隠蔽を構造的に不可能に)。
   設計 = spar-navigate(3レンズ 2R PASS)・judge PASS。521テスト + e2e 6画面 green
+- **CS-1(codex-spar: 壁打ちに Codex モード)完了**(2026-08-02・judge PASS): SPAR パネルに
+  「SPAR / Codex」チップ(`NEXT_PUBLIC_CODEX_SPAR=1` のときのみ表示 — 本番は構造的に非表示)。
+  Codex はホスト側 dev ランナー(`npm run codex:serve`・127.0.0.1:8788・**受理3検証 = Origin 完全一致 +
+  Content-Type JSON 必須 + Host 完全一致**で CSRF/DNS rebinding を構造遮断・直列1件・10分上限)が
+  クリーンコピー(git archive HEAD)上で実行(SDK 実引数で read-only / approvalPolicy=never /
+  network 無効を固定・子 env は allowlist 全量置換)。**Codex 応答は結論保存(spar_conclusion)から
+  構造的に除外**(latestSparConclusion)+ SPAR への history からも除外(sparHistory)= SSoT への
+  合流と逆方向クロス送信の両遮断。新規テスト26件(547件)・e2e 6画面 green・/api/spar 非接触。
+  設計 = codex-spar(R1 sec/data FAIL → 受理3検証 + 保存除外で R2 PASS)。**有効化はユーザー操作**
+  (ゲート (a)〜(h) — codex-setup.md §6)
 - **CO-1(codex-ops v1: Codex 読取専用セカンドオピニオン)完了**(2026-08-02・judge PASS): レビューの
   唯一の入口 = `scripts/codex/review.sh`(**クリーンコピー隔離** — mktemp に git archive HEAD 展開 =
   追跡ファイルのみ・.env / e2e/.auth / e2e/screenshots は構造的に不在・起動前 assert 毎回・trap で
