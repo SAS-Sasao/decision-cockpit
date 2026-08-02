@@ -26,6 +26,8 @@ SSoT として GitHub から自動同期し、Neon(Postgres + pgvector)に索引
 4. **作業役と判定役を分離。** 設計は主セッション(human-in-loop)で執筆し critic には書かせない。実装は executor、
    検証は acceptance-judge / `/goal`。
 5. **拡張は Hooks > Skills > MCP の順で軽く。** 重い実装/調査はサブエージェントに委譲し、要約で受け取る。
+   Codex は**読取専用のセカンドオピニオン**(正典 = .claude/rules/codex.md・起動は人間の端末から
+   scripts/codex/review.sh 経由のみ)。判定役・実装役の分離(ルール4)は不変。
 6. **破壊的操作は禁止。** 生 DROP/TRUNCATE/DELETE・`git push --force`・本番ブランチ破壊はしない。
    **ローカル DB ボリューム(`cockpit-db-data`)の破棄も禁止** — `docker compose down -v` / `docker volume rm` /
    `docker volume prune` / `docker system prune` は使わない(コンテナを落とすなら `docker compose stop`)。
@@ -47,3 +49,4 @@ SSoT として GitHub から自動同期し、Neon(Postgres + pgvector)に索引
 - @.claude/rules/design.md — 設計 → review → 実装の順序・critic は書かない
 - @.claude/rules/capture.md — capture_inbox 契約・kind 語彙・processed_at 冪等
 - @.claude/rules/actions.md — Claude Action(CI)制約・許可パス・PR ゲート
+- @.claude/rules/codex.md — Codex 並走(読取専用セカンドオピニオン・review.sh 経由・judge 代替禁止)
