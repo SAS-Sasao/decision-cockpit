@@ -85,6 +85,19 @@
 >    (b) 開発ループでの AI 改善(現行の Claude Code フローそのもの)
 >    (c) **AI がパラメータのみ操作する SPAR 拡張**(生成物はコードではなく検索条件・期間・タグ等に限定 —
 >        SPAR と同じ封じ込めで安全。3案の中では最有力)
+> 5.5 **🤖 codex-prod(本番からの Codex/AI レビュー — 方向確定 2026-08-02・実作業は未着手)**:
+>    Vercel 単体は**実質不可**と調査で判定済み(サンドボックス不成立・300秒上限・バイナリサイズ —
+>    根拠 = [`docs/research/codex-on-vercel-feasibility.md`](../research/codex-on-vercel-feasibility.md))。
+>    **採用方針 = 案1: GitHub Actions 経由**(アプリ → workflow_dispatch → CI 上で read-only 実行 →
+>    結果を DB or PR で還流。organize-loop / wbs-loop の統治パターン(CI が信頼できる実行者・
+>    3-job 分離・PR ゲート)を流用。非同期 UI・数分)。
+>    **設計時の主論点**: (a) **実行エンジンの選定 — openai/codex-action か claude-code-action か**
+>    (ユーザー所見: この構想なら Claude Code でも可能。既に organize-loop で CI 実績があるのは
+>    claude-code-action・コストはサブスク内。codex は公式 action + read-only sandbox 実績 +
+>    CODEX_API_KEY 従量。比較して決める) (b) トリガー認可(誰が UI から実行できるか — admin 限定等)
+>    (c) コスト上限(従量キーの場合) (d) 結果の還流先(capture_inbox? PR? 専用テーブル?)
+>    (e) secrets 非露出の job 分離(actions.md 方針の踏襲)。
+>    **次の一手 = 壁打ちで (a)〜(d) を決めてから `/basic-design codex-prod`**。
 > 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
