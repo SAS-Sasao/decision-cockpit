@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test --project=check",
-    "e2e:auth": "playwright test --project=auth --headed"
+    "e2e:auth": "playwright test --project=auth --headed",
+    "codex:serve": "tsx scripts/codex/serve.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.2.7",
@@ -24,6 +25,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@openai/codex-sdk": "^0.146.0",
     "@playwright/test": "^1.62.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "20.14.10",

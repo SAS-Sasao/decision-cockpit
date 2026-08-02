@@ -1,6 +1,7 @@
 # Codex 並走(読取専用セカンドオピニオン)
 
-正典 = docs/design/basic/codex-ops.md(3レンズ PASS)。v1 = 読取専用。
+正典 = docs/design/basic/codex-ops.md + docs/design/basic/codex-spar.md(いずれも3レンズ PASS)。
+v1 = 読取専用。起動経路は2つ(端末レビュー / 壁打ち Codex モード)。
 
 ## 使う場面 / 使わない場面
 
@@ -11,12 +12,18 @@
 
 ## 起動
 
-- **起動は `scripts/codex/review.sh` のみ**(クリーンコピー隔離 — git archive HEAD 展開 = 追跡ファイルのみ)。
-  直接 `codex` を repo で起動しない。
+- **起動は次の2つのみ**(いずれもクリーンコピー隔離 — git archive HEAD 展開 = 追跡ファイルのみ):
+  (1) `scripts/codex/review.sh`(端末レビュー) (2) `npm run codex:serve`(壁打ち Codex モードの
+  dev ランナー — codex-spar)。直接 `codex` を repo で起動しない。
 - **Claude Code セッション内からの起動は guard-bash.sh が機械遮断**(deny は実行コマンドの
   先頭トークンのみに一致 — 引数・パス中の文字列には一致させない)。**人間の端末が正規経路**。
-- **レビュー対象はコミット済み内容のみ**(archive = HEAD の帰結)。未コミット diff・秘密の
-  **プロンプト手貼りは禁止**(隔離の迂回になる)。
+  **Claude セッションから 127.0.0.1:8788(ランナー)を HTTP で叩くことも禁止**(規律 —
+  ランナーの Origin 必須検証が素の curl を 403 にする)。
+- **レビュー対象はコミット済み内容のみ**(archive = HEAD の帰結 — **UI 経路(壁打ち Codex モード)も
+  同様**で、未コミットの作業中コードは見えない)。未コミット diff・秘密の**プロンプト手貼り・
+  質問文貼りは禁止**(隔離の迂回になる)。
+- **Codex 応答を「結論として保存」(spar_conclusion)に乗せない**(capture_inbox → organize-loop →
+  SSoT 書き戻しへの合流を遮断 — パネルは構造的に除外済み。手動コピペでも行わない)。
 - `git status` 表示による事後検知の範囲は本 repo のみ(SSoT clone・DB への逸脱は映らない)。
 
 ## 結果の扱い

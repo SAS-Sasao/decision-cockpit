@@ -44,11 +44,11 @@ case "$cmd" in
     esac ;;
 esac
 
-# --- codex の起動(codex-ops): Claude セッションからは禁止 — 人間の端末から review.sh 経由が正規経路 ---
+# --- codex の起動(codex-ops / codex-spar): Claude セッションからは禁止 — 人間の端末が正規経路 ---
 # 一致は「実行コマンドの先頭トークン」のみ(引数・パス・grep 対象文字列の codex には一致させない —
-# 受け入れ判定の grep/bash -n/test -f を誤爆させないため)。
-if printf '%s' "$cmd" | grep -qE '(^|[;&|]|\$\()[[:space:]]*((npx[[:space:]]+)?codex([[:space:]]|$)|(bash|sh)[[:space:]]+(\./)?scripts/codex/review\.sh|(\./)?scripts/codex/review\.sh)'; then
-  deny "codex の起動は Claude セッションからは禁止(人間の端末から scripts/codex/review.sh 経由のみ — .claude/rules/codex.md)"
+# 受け入れ判定の grep/bash -n/test -f を誤爆させないため)。ランナー(serve.ts)の起動形も対象。
+if printf '%s' "$cmd" | grep -qE '(^|[;&|]|\$\()[[:space:]]*((npx[[:space:]]+)?codex([[:space:]]|$)|(bash|sh)[[:space:]]+(\./)?scripts/codex/review\.sh|(\./)?scripts/codex/review\.sh|npm[[:space:]]+run[[:space:]]+codex:serve|(npx[[:space:]]+)?(tsx|node)[[:space:]]+(\./)?scripts/codex/serve)'; then
+  deny "codex の起動は Claude セッションからは禁止(人間の端末から review.sh / npm run codex:serve のみ — .claude/rules/codex.md)"
 fi
 
 # --- 元 repo(SSoT)への書き込み兆候 ---

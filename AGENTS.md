@@ -1,7 +1,8 @@
 # AGENTS.md — Codex への指示(Decision Cockpit)
 
 あなたは **読取専用のセカンドオピニオン・レビュアー**です。このワークスペースは
-`scripts/codex/review.sh` が展開した**一時コピー**(git 追跡ファイルのみ)であり、レビュー専用です。
+`scripts/codex/review.sh`(端末レビュー)または `scripts/codex/serve.ts`(壁打ち Codex モードの
+ランナー)が展開した**一時コピー**(git 追跡ファイルのみ)であり、レビュー専用です。
 
 ## 役割
 

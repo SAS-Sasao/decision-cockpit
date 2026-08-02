@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveCapture } from "./actions";
+import { latestSparConclusion, sparHistory, type SparMode } from "./spar-panel-lib";
 
 // spar-navigate §1-4: API 由来の検証済み提案(href は固定リテラル起点の相対パスのみ)
 type SparNavView = { label: string; href: string };
@@ -21,11 +22,22 @@ type SparRefView = {
   filePath: string;
 };
 
+// codex-spar §3: mode を持たせ、結論保存・SPAR history から codex ターンを除外する
 type ChatTurn =
-  | { role: "user"; content: string }
-  | { role: "assistant"; content: string; refs: SparRefView[]; degraded: boolean; navs: SparNavView[] };
+  | { role: "user"; content: string; mode: SparMode }
+  | { role: "assistant"; content: string; mode: SparMode; refs: SparRefView[]; degraded: boolean; navs: SparNavView[] };
 
-type SparApiError = "unauthorized" | "bad_request" | "spar_not_configured" | "spar_upstream" | "network";
+type SparApiError =
+  | "unauthorized"
+  | "bad_request"
+  | "spar_not_configured"
+  | "spar_upstream"
+  | "network"
+  | "codex_down"
+  | "codex_busy"
+  | "codex_timeout"
+  | "codex_forbidden"
+  | "codex_failed";
 
 function errorText(error: SparApiError): string {
   switch (error) {
@@ -37,6 +49,16 @@ function errorText(error: SparApiError): string {
       return "入力を確認してください(空・上限超過・形式不正)。";
     case "spar_upstream":
       return "壁打ちの応答取得に失敗しました。しばらくして再試行してください。";
+    case "codex_down":
+      return "Codex ランナー未起動(npm run codex:serve で起動。アプリは localhost:3000 で開くこと)。";
+    case "codex_busy":
+      return "Codex は実行中です(同時1件)。完了を待って再送してください。";
+    case "codex_timeout":
+      return "Codex の実行が時間上限を超えました。質問を絞って再試行してください。";
+    case "codex_forbidden":
+      return "アクセスが拒否されました。アプリを http://localhost:3000 で開いているか確認してください。";
+    case "codex_failed":
+      return "Codex の実行に失敗しました。ランナーのログを確認してください。";
     case "network":
     default:
       return "通信に失敗しました。ネットワークを確認してください。";
@@ -85,7 +107,12 @@ export function SparPanel() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
 
-  const lastAssistant = [...turns].reverse().find((t): t is Extract<ChatTurn, { role: "assistant" }> => t.role === "assistant");
+  // codex-spar §1 やる-2: フラグ未設定(本番)ではチップごと非表示(fail-closed)
+  const codexEnabled = process.env.NEXT_PUBLIC_CODEX_SPAR === "1";
+  const [mode, setMode] = useState<SparMode>("spar");
+
+  // codex-spar §1 やる-2: 結論保存の対象は SPAR 応答のみ(codex ターンはスキップ・無ければボタン非表示)
+  const lastSparAssistant = latestSparConclusion(turns);
 
   async function handleSend() {
     const trimmed = message.trim();
@@ -94,12 +121,43 @@ export function SparPanel() {
     setSending(true);
     setSendError(null);
 
-    const history = turns.map((t) => ({ role: t.role, content: t.content }));
-    const nextTurns: ChatTurn[] = [...turns, { role: "user", content: trimmed }];
+    // codex-spar §1 やる-2: SPAR へ送る history は SPAR ターンのみ(codex ターンを外部 API へ送らない)
+    const history = sparHistory(turns);
+    const nextTurns: ChatTurn[] = [...turns, { role: "user", content: trimmed, mode }];
     setTurns(nextTurns);
     setMessage("");
 
     try {
+      if (mode === "codex") {
+        // codex-spar §1 やる-2: 127.0.0.1 のホストランナーへ直接 fetch(/api/spar は経由しない)
+        const res = await fetch("http://127.0.0.1:8788/review", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ question: trimmed }),
+        });
+
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          setSendError(
+            payload.error === "busy"
+              ? "codex_busy"
+              : payload.error === "timeout"
+                ? "codex_timeout"
+                : payload.error === "forbidden"
+                  ? "codex_forbidden"
+                  : "codex_failed"
+          );
+          return;
+        }
+
+        const data = (await res.json()) as { reply: string };
+        setTurns([
+          ...nextTurns,
+          { role: "assistant", content: data.reply, mode: "codex", refs: [], degraded: false, navs: [] },
+        ]);
+        return;
+      }
+
       const res = await fetch("/api/spar", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -125,19 +183,19 @@ export function SparPanel() {
       };
       setTurns([
         ...nextTurns,
-        { role: "assistant", content: data.reply, refs: data.refs, degraded: data.degraded, navs: data.navs ?? [] },
+        { role: "assistant", content: data.reply, mode: "spar", refs: data.refs, degraded: data.degraded, navs: data.navs ?? [] },
       ]);
     } catch {
-      setSendError("network");
+      setSendError(mode === "codex" ? "codex_down" : "network");
     } finally {
       setSending(false);
     }
   }
 
   function openConclusionEditor() {
-    if (!lastAssistant) return;
+    if (!lastSparAssistant) return;
     setConclusionTopic("");
-    setConclusionBody(lastAssistant.content);
+    setConclusionBody(lastSparAssistant.content);
     setConclusionOpen(true);
     setSaveError(null);
     setSaveOk(false);
@@ -166,8 +224,32 @@ export function SparPanel() {
   return (
     <div className="panel" style={{ marginTop: 20 }}>
       <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>壁打ち</div>
+      {codexEnabled ? (
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          {(["spar", "codex"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              disabled={sending}
+              style={{
+                ...buttonStyle,
+                padding: "4px 12px",
+                fontSize: 11,
+                background: mode === m ? "var(--accent-spar)" : "var(--panel-row)",
+                color: mode === m ? "var(--bg)" : "var(--text-sub)",
+                border: "1px solid var(--line)",
+              }}
+            >
+              {m === "spar" ? "SPAR" : "Codex"}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <p style={{ fontSize: 11, color: "var(--text-sub)", marginTop: 0, marginBottom: 14 }}>
-        壁打ちの入力は外部 API に送信されます。機微情報(実名・秘密情報)は書かないでください。
+        {mode === "codex"
+          ? "Codex モードでは repo の追跡ファイル全文が外部(OpenAI)に送信されます。対象はコミット済み(HEAD)の内容のみ。質問に秘密・未コミット diff を貼らないでください。"
+          : "壁打ちの入力は外部 API に送信されます。機微情報(実名・秘密情報)は書かないでください。"}
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
@@ -186,6 +268,9 @@ export function SparPanel() {
                 padding: "9px 12px",
               }}
             >
+              {turn.role === "assistant" && turn.mode === "codex" ? (
+                <div style={{ fontSize: 10, color: "var(--text-sub)", marginBottom: 4 }}>Codex(参考意見)</div>
+              ) : null}
               <div style={{ fontSize: 12.5, color: "var(--text)", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
                 {turn.content}
               </div>
@@ -270,7 +355,7 @@ export function SparPanel() {
         </button>
       </div>
 
-      {lastAssistant ? (
+      {lastSparAssistant ? (
         <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
           {!conclusionOpen ? (
             <button
