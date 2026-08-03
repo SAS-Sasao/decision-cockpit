@@ -18,3 +18,14 @@ GRANT CONNECT ON DATABASE neondb TO wbs_bot;
 GRANT USAGE ON SCHEMA public TO wbs_bot;
 GRANT SELECT (source, file_path, item_key, desired_state, base_state, user_id, pr_ref, resolved_at) ON board_overrides TO wbs_bot;
 GRANT UPDATE (pr_ref, resolved_at, resolution) ON board_overrides TO wbs_bot;
+
+-- review_bot: review-loop(本番 UI からの CI レビュー)専用ロール(docs/design/detail/review-loop.md §1)。
+-- organize_bot / wbs_bot とは分離する(共有すると review workflow の侵害で capture_inbox 本文まで
+-- 読めるため)。到達できるのは review_requests のみ。
+-- 依頼者の帰属列は SELECT にも含めない(user 帰属を CI に出さない — organize-loop と同思想)。
+-- 質問・帰属・作成時刻は UPDATE 不可(履歴改ざん・注入踏み台・日次カウント汚染の遮断)。
+CREATE ROLE review_bot LOGIN PASSWORD '__set_me__' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+GRANT CONNECT ON DATABASE neondb TO review_bot;
+GRANT USAGE ON SCHEMA public TO review_bot;
+GRANT SELECT (id, status, question, created_at, started_at) ON review_requests TO review_bot;
+GRANT UPDATE (status, started_at, completed_at, result, result_truncated, error_kind, run_ref) ON review_requests TO review_bot;
