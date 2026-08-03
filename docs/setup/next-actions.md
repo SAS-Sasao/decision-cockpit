@@ -1,9 +1,10 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-08-02 CO-1 + CS-1(codex-spar)完了** — **M0〜M5 + TCS-1 + FC-1 + TBI-1 +
-> WL-1/2 + TSS-1 + SN-1 + CO-1 + CS-1 完了**(vitest **547件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
-> **有効化待ち×3(ユーザー操作)**: M5(organize-loop)/ wbs-loop / **codex(端末レビュー + 壁打ち Codex モード)**。
-> **有効化待ち×2(ユーザー操作)**: M5(organize-loop)と wbs-loop(WBS 書き戻し)。
+> 状態スナップショット: **2026-08-03 review-loop(RL-1 + RL-2)完了・main マージ済み** —
+> **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 + TSS-1 + SN-1 + CO-1 + CS-1 + RL-1/2 完了**
+> (vitest **570件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> **有効化待ち×3(ユーザー操作)**: M5(organize-loop)/ wbs-loop / **review-loop(CI レビュー)**。
+> codex はローカル2経路とも稼働中(端末 review.sh / 壁打ち Codex モード)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
@@ -29,7 +30,15 @@
 > 外部送信しない)。デザイン等は**コードを読ませる**プロンプトで依頼する。
 > 端末レビュー(CO-1・review.sh)のゲート (a)〜(e) は未実施(使う時に codex-setup.md §3)。
 >
-> **▶ 次セッションの再開手順**(どれから始めてもよい):
+> **▶ 次セッションの再開ポイント(2026-08-03 終業時点)**:
+> 1. **🔴 review-loop の有効化(あなたの操作・実装は完了済み)** — [`review-loop-setup.md`](./review-loop-setup.md)
+>    手順2〜5: review_bot 作成 → fine-grained PAT を Vercel `REVIEW_DISPATCH_PAT` へ →
+>    Secrets `REVIEW_DATABASE_URL` + Variables `ENABLE_CI_REVIEW=true` → ゲート (a)〜(h)。
+>    **未設定のうちは UI から押しても 503・dispatch しても全 job skip で安全**(急がなくてよい)。
+> 2. 🔴 **Neon パスワードリセット**(持ち越し・チャット露出の後始末)= リセット → `.env` → Vercel 差し替え。
+> 3. 開発を進めるなら **M6 候補の選定**(下記 6)から `/basic-design` で1周。
+>
+> **▶ 過去の再開手順(履歴)**:
 > 0. ~~🐛 /today のサマリーチップがカード移動に追随しない~~ → **解決(2026-08-01 TSS-1・judge 判定)**。
 >    チップ「オープン」「着手中」を純関数 `laneCounts`(盤面 = 合成後 columns + capture レーンの件数・
 >    正典)に置換 + 注記文更新。507テスト + e2e 6画面 green。設計 = today-summary-sync(3レンズ一発 PASS)。
@@ -311,6 +320,21 @@ override 0件なら green skip で安全。
   ホワイトリスト検証(href は固定リテラル起点 + encodeURIComponent・ラベルはサーバテンプレート)・
   **無効 nav 全滅時はフェンスを除去せず本文復元**(偽フェンスによる本文隠蔽を構造的に不可能に)。
   設計 = spar-navigate(3レンズ 2R PASS)・judge PASS。521テスト + e2e 6画面 green
+- **RL-1 + RL-2(review-loop: 本番 UI から CI レビュー)完了**(2026-08-03・judge PASS / 16/16 PASS):
+  壁打ちパネルの第3モード「CI レビュー」(admin 限定)から `workflow_dispatch` で GitHub Actions を
+  起動し、**CI 上の Claude(Max サブスク認証)が自 repo を読んでレビュー**して結果を DB へ還流する
+  非同期ループ。Vercel 単体では実行不可(調査 = docs/research/codex-on-vercel-feasibility.md)という
+  結論から「実行は CI・アプリはトリガーと表示のみ」に決着。
+  **状態機械 = 全書き手 CAS + 先勝ち**(claim/writeback/sweep すべて WHERE に現在 status・後着は no-op)/
+  **3-job 分離**(Claude が動く job に DB secrets を渡さない)/ **機械層の防御**(allowedTools 完全一致で
+  Bash・ネットワーク系なし・persist-credentials: false・artifact 保持1日・**LLM 起動前に repo 側の
+  エージェント設定を除去 + 不在 assert**・質問はファイル渡しで式展開ゼロ)/ **review_bot は列限定 GRANT**
+  (依頼者の帰属列は SELECT にも含めない)。0010 は**本番適用済み**。570テスト + e2e 6画面 green。
+  設計 = review-loop(基本 3レンズ R1 全 FAIL → R3 PASS / 詳細 3レンズ R1 全 FAIL → R5 PASS)。
+  **教訓の記録**: 受け入れ条件のピン自体が「正しい実装を落とす」較正欠陥を3度持ち込み(awk レンジが
+  1行に潰れる / job 数ピンが on: 配下を拾う / uses 等式がコメントを拾う)、そのつど**実在ファイルに対する
+  実測**で是正した。ピンが落ちたときは**実装を直す**(ピンを緩めない)= 作業役と判定役の分離。
+  **有効化はユーザー操作**(review-loop-setup.md 手順2〜5)
 - **CS-1(codex-spar: 壁打ちに Codex モード)完了**(2026-08-02・judge PASS): SPAR パネルに
   「SPAR / Codex」チップ(`NEXT_PUBLIC_CODEX_SPAR=1` のときのみ表示 — 本番は構造的に非表示)。
   Codex はホスト側 dev ランナー(`npm run codex:serve`・127.0.0.1:8788・**受理3検証 = Origin 完全一致 +
