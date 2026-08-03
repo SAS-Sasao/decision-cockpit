@@ -91,13 +91,18 @@
 >    **採用方針 = 案1: GitHub Actions 経由**(アプリ → workflow_dispatch → CI 上で read-only 実行 →
 >    結果を DB or PR で還流。organize-loop / wbs-loop の統治パターン(CI が信頼できる実行者・
 >    3-job 分離・PR ゲート)を流用。非同期 UI・数分)。
->    **設計時の主論点**: (a) **実行エンジンの選定 — openai/codex-action か claude-code-action か**
->    (ユーザー所見: この構想なら Claude Code でも可能。既に organize-loop で CI 実績があるのは
->    claude-code-action・コストはサブスク内。codex は公式 action + read-only sandbox 実績 +
->    CODEX_API_KEY 従量。比較して決める) (b) トリガー認可(誰が UI から実行できるか — admin 限定等)
->    (c) コスト上限(従量キーの場合) (d) 結果の還流先(capture_inbox? PR? 専用テーブル?)
->    (e) secrets 非露出の job 分離(actions.md 方針の踏襲)。
->    **次の一手 = 壁打ちで (a)〜(d) を決めてから `/basic-design codex-prod`**。
+>    **壁打ち決着(2026-08-03)— トピック名 = review-loop**:
+>    (a) エンジン = **claude-code-action + Max サブスク認証(CLAUDE_CODE_OAUTH_TOKEN — organize-loop
+>    と同方式・従量課金なし)**。ユーザーの実績参照 = cc-sier-organization の daily-todo-sync.yml。
+>    (b) 認可 = **admin ロール限定**。 (c) 上限 = 同時1件 + 日次上限 + 質問文字数上限(アプリ +
+>    workflow concurrency の二重)。 (d) 還流先 = **専用テーブル review_requests(0010)+ 専用ロール
+>    review_bot**(capture_inbox 相乗りは契約違反のため不採用)。UI はステータスポーリング表示。
+>    (e) トリガー = **workflow_dispatch**(Vercel に decision-cockpit 限定 fine-grained PAT
+>    (actions:write のみ)を1本追加)。 (f) UI = **壁打ちパネルの第3モード「CI レビュー」**
+>    (本番でも表示・admin のみ・非同期プレースホルダ + 履歴)。
+>    統治 = 3-job 分離(DB secrets を Claude ジョブに渡さない)・repo 書き込みなし(読取レビューのみ)・
+>    対象 = decision-cockpit repo のみ(SSoT 2 repo 対象外)。
+>    **次の一手 = `/basic-design review-loop`**。
 > 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
