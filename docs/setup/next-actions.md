@@ -7,7 +7,8 @@
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
 > タグ 564行 / **capture_inbox 0行(事故で消失・復元不能)** / admin ロール2ユーザー再付与済み。
-> **本番マイグレーション: 0001〜0009 まで全適用済み**(0003→0008 = 2026-07-25 / **0009 = 2026-07-26** —
+> **本番マイグレーション: 0001〜0010 まで全適用済み**(**0010 = 2026-08-03**・review_requests /
+> 0003→0008 = 2026-07-25 / **0009 = 2026-07-26** —
 > WL マージ後に /today が本番でエラーになり事後適用。**教訓: スキーマ前提のコードを main へマージする前に
 > 本番マイグレーション適用を段取りする**(マージ = Vercel 自動デプロイのため))。
 > **⚠ 既知の SDK 欠陥(記録)**: @neondatabase/auth 0.4.2-beta の middleware は保護パスへの POST を常に 307 にする —
@@ -104,12 +105,16 @@
 >    対象 = decision-cockpit repo のみ(SSoT 2 repo 対象外)。
 >    **設計完了(2026-08-03)**: 基本設計(3レンズ・R1 全 FAIL → R3 PASS)+ 詳細設計(3レンズ・
 >    R1 全 FAIL → R5 PASS)。記録 = docs/design/reviews/review-loop.md。
->    **RL-1 実装完了(2026-08-03・judge PASS)** — 0010 + /api/review + 壁打ちパネル「CI レビュー」
->    モード(admin 限定)+ テスト13件(560件)。ブランチ `goal/rl-1-review-loop`。
->    **🔴 マージ前に 0010 の本番適用が必要**(0009 の教訓 — マージ = Vercel 自動デプロイ)。
->    ローカル db では適用 + 全遷移/違反5形を実測検証済み。
->    **次の一手 = 0010 本番適用(ユーザー承認)→ main マージ → `/goal RL-2`**(workflow +
->    scripts/review + review_bot + 契約 + setup)。
+>    **RL-1 + RL-2 実装完了・main マージ済み(2026-08-03・judge とも PASS)**:
+>    RL-1 = 0010 + /api/review + 壁打ちパネル「CI レビュー」モード(admin 限定)/
+>    RL-2 = ci-review workflow(3-job 分離)+ scripts/review 3本 + review_bot + 契約 + setup。
+>    **0010 は本番適用済み**(2026-08-03 承認 — CHECK 7本・索引3本を検証。ローカル db でも全遷移と
+>    違反5形の拒否を実測)。570テスト + e2e 6画面 green。
+>    **🔴 次の一手 = 有効化(あなたの操作)** = [`review-loop-setup.md`](./review-loop-setup.md) の
+>    手順2〜5: review_bot ロール作成 → **fine-grained PAT**(decision-cockpit 1 repo・Actions RW のみ)
+>    を Vercel の `REVIEW_DISPATCH_PAT` へ → GitHub Secrets `REVIEW_DATABASE_URL` → Variables
+>    `ENABLE_CI_REVIEW=true` → 動作確認ゲート (a)〜(h)。**それまでは UI から押しても 503・
+>    dispatch しても全 job skip で安全**。
 > 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
