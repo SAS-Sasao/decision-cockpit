@@ -13,6 +13,9 @@
 .env.*
 !.env.example
 
+# ローカル専用のエージェント設定(MCP 承認等を含む — 誤 commit すると CI の除去前提が崩れる)
+.claude/settings.local.json
+
 # misc
 *.log
 .DS_Store
