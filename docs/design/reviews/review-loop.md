@@ -52,3 +52,52 @@ DDL 整合制約追加(running ⇒ started_at NOT NULL / done,error ⇒ complete
 - **テスト観点**: 純関数化の範囲(検証・上限・CAS SQL 文・run_ref 検証)と件数。
 - **goal 別閉包 allowlist(実行形)を詳細設計 §4 に置く**(RL-1 / RL-2)。
 - 同時1件はアプリ層の努力目標(単一ユーザー受容)— DB 層担保はしない決着を維持。
+
+---
+
+# 詳細設計レビュー(docs/design/detail/review-loop.md)
+
+- 実施日: 2026-08-03 / 方式: 3レンズ × 最大5ラウンド(data は R2 で PASS)
+
+## R1 — **3レンズ全 FAIL**
+
+| レンズ | 中核指摘 | 反映 |
+|---|---|---|
+| arch | **実行不能な仕様**: review job の座標系が自己矛盾(checkout `path: repo` / prompt は `out/question.md` / upload は workspace 相対)。allowedTools 完全一致ピンに波及するため実装時に直せない | **workspace root に統一**(checkout は path 指定なし・artifact/prompt/Write すべて root 基準の `out/`) |
+| arch/sec | **ピンの較正逆転**: `grep -c "isAdmin" = 2` は import 行を数えず、**正しい実装(3)が fail し過小防御(2)が pass** | 呼び出し形 `await isAdmin(` を数える形に |
+| sec | **ピンの空成立**: `awk '/^  review:/,/^  writeback:/'` は job 改名で空レンジ → 3-job 分離とファイル渡しの否定ピンが同時無効化 | アンカー存在ピン + 非空レンジ検査 + job 名/定義順/インデントの凍結 |
+| data | **制約 load-bearing な SET 列が無防備**: claim が `started_at` を落とすと本番だけ常時失敗するのに、テストも受け入れ条件も全緑で通る | SET 列・SET 値までピン。result 長の DB CHECK(30000)を追加し二重化 |
+
+## R2〜R5 — 較正欠陥の連鎖を潰す
+
+R1 の修正で**新たな較正欠陥を3度持ち込み**、そのたびに実測で確認して直した(すべて「正しい実装が
+必ず落ちる」= 偽 FAIL クラス。判定役と作業役の分離を守るため、ピン側を実装形に合わせた):
+
+| R | 欠陥 | 実測 | 是正 |
+|---|---|---|---|
+| R2→R3 | `awk '/^permissions:/,/^[a-z]/'` は開始行で閉じ `permissions:` 1行しか出ない | daily-organize.yml で確認 | flag 形 awk + スコープ数 = 1(「のみ」の排他性) |
+| R3→R4 | job 数閉包 `^  [a-z_-]+:$` = 3 が `on:` 配下の `workflow_dispatch:` を拾う | 全域 5 / `jobs:` 以降 3 | `jobs:` 以降に限定 |
+| R3→R4 | uses 等式の母集団 `grep -c "uses"` がヘッダコメントの英単語を拾う | wbs-writeback は "uses" 3 / "uses:" 2 | 母集団を `uses:` に |
+| R4→R5 | `test ! -f` = 3 は行数計数で `&&` 連結1行の規定と矛盾 / `requested_by` = 0 が設計自身の追記コメントと矛盾 | — | 行数ピン削除(ペア検査に一本化)/ 判定を `^GRANT` 行に限定 |
+| R4→R5 | 危険形 GRANT の正規表現が `GRANT ALL ON` / カンマ列挙 / `ALTER DEFAULT PRIVILEGES` / `TO PUBLIC` を取り逃す | 安全形4文 → 0 / 危険形5種 → 検出 | 列限定でない GRANT を全捕捉する式に刷新 + ロール属性・パスワードのピン追加 |
+
+## R5 — **arch PASS / sec PASS**(data は R2 PASS)
+
+残件はすべて偽 FAIL 方向(安全側)で、決着として §5 に記録: §4 が数える語をコメントに書かない原則 /
+rm と assert は別行 / SQL は1文1行 / 除外語の語順違い・`ALTER ROLE`・コメント偽装は受容
+(自然なドリフトは全捕捉・人間が適用し PR レビューが最終防御)。
+
+## 合格判定
+
+**全レンズ PASS** — `/goal RL-1` へ進む。
+
+## /goal RL-1 / RL-2 への申し送り
+
+- **ピンは実装形に合わせて実測済み**。ピン側を書き換えて通すことは禁止(作業役と判定役の分離)。
+  落ちた場合は実装を直すか、設計改訂として3レンズを再通過させる。
+- **YAML / SQL の書式凍結**(詳細 §5)を守ること: permissions はブロック形 / review job の `if:` は
+  `${{ }}` 形 / claude_args は1行・無引用符 / prompt は `|` / job 名は小文字 + `_-` / rm と assert は別行 /
+  SQL は1文1行 / **§4 が数える語をコメントに書かない**。
+- 0010 は **main マージ前に Neon ブランチ検証 + 本番適用**を段取りする(0009 の教訓)。
+- 分割: RL-1(0010 + api-lib + route + パネル ci モード + isAdmin prop 3経路 + テスト)/
+  RL-2(workflow + scripts/review 3本 + ロール + 契約 + setup + .gitignore)。
