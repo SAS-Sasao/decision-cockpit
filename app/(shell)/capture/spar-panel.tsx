@@ -6,10 +6,47 @@
 // 会話状態は useState のみで保持する(サーバ側に永続化しない)。送信は同一オリジンの
 // /api/spar へ fetch(Cookie 認証)。応答は React 既定エスケープの素テキストで表示する
 // (生 HTML 差し込みはしない)。
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveCapture } from "./actions";
 import { latestSparConclusion, sparHistory, type SparMode } from "./spar-panel-lib";
+import { isSafeRunRef } from "../../../lib/review/api-lib";
+
+// review-loop §2.5: パネルのモードは3値(UI 状態)。ChatTurn.mode は "spar"|"codex" のまま不変
+// (ci モードは ChatTurn を生成せず専用ビューを描く — codex-spar 契約の凍結)。
+type PanelMode = SparMode | "ci";
+
+type ReviewRowView = {
+  id: string;
+  question: string;
+  status: "pending" | "running" | "done" | "error";
+  result: string | null;
+  result_truncated: boolean;
+  error_kind: string | null;
+  run_ref: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+const REVIEW_STATUS_LABEL: Record<ReviewRowView["status"], string> = {
+  pending: "依頼中",
+  running: "実行中",
+  done: "完了",
+  error: "失敗",
+};
+
+function reviewErrorText(error: string | null): string {
+  switch (error) {
+    case "dispatch_failed":
+      return "CI の起動に失敗しました";
+    case "stale":
+      return "時間切れ(CI が応答しませんでした)";
+    case "ci_failed":
+      return "CI の実行に失敗しました";
+    default:
+      return "失敗しました";
+  }
+}
 
 // spar-navigate §1-4: API 由来の検証済み提案(href は固定リテラル起点の相対パスのみ)
 type SparNavView = { label: string; href: string };
@@ -92,7 +129,7 @@ const buttonStyle = {
   fontFamily: "inherit",
 } as const;
 
-export function SparPanel() {
+export function SparPanel({ canCiReview = false }: { canCiReview?: boolean } = {}) {
   const router = useRouter();
 
   const [turns, setTurns] = useState<ChatTurn[]>([]);
@@ -109,7 +146,70 @@ export function SparPanel() {
 
   // codex-spar §1 やる-2: フラグ未設定(本番)ではチップごと非表示(fail-closed)
   const codexEnabled = process.env.NEXT_PUBLIC_CODEX_SPAR === "1";
-  const [mode, setMode] = useState<SparMode>("spar");
+  const [panelMode, setPanelMode] = useState<PanelMode>("spar");
+  // 会話生成に使うのは spar/codex のみ(ci は ChatTurn を作らない)
+  const mode: SparMode = panelMode === "ci" ? "spar" : panelMode;
+
+  // review-loop §2.5: CI レビュー(admin 限定・非同期)
+  const [ciQuestion, setCiQuestion] = useState("");
+  const [ciRows, setCiRows] = useState<ReviewRowView[]>([]);
+  const [ciSending, setCiSending] = useState(false);
+  const [ciError, setCiError] = useState<string | null>(null);
+
+  async function loadCiRows() {
+    try {
+      const res = await fetch("/api/review", { method: "GET" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { requests: ReviewRowView[] };
+      setCiRows(data.requests ?? []);
+    } catch {
+      // ポーリングの失敗は無視(次回に再試行)
+    }
+  }
+
+  useEffect(() => {
+    if (panelMode !== "ci" || !canCiReview) return;
+    void loadCiRows();
+    const timer = setInterval(() => void loadCiRows(), 5000);
+    return () => clearInterval(timer);
+  }, [panelMode, canCiReview]);
+
+  async function handleCiSend() {
+    const trimmed = ciQuestion.trim();
+    if (trimmed.length === 0 || ciSending) return;
+    setCiSending(true);
+    setCiError(null);
+    try {
+      const res = await fetch("/api/review", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question: trimmed }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setCiError(
+          payload.error === "busy"
+            ? "実行中の依頼があります(同時1件)。完了を待ってください。"
+            : payload.error === "daily_limit"
+              ? "本日の依頼上限(10件)に達しました。"
+              : payload.error === "review_not_configured"
+                ? "CI レビューは未設定です(REVIEW_DISPATCH_PAT)。"
+                : payload.error === "forbidden"
+                  ? "権限がありません(admin 限定)。"
+                  : payload.error === "bad_request"
+                    ? "入力を確認してください(空・2000字超)。"
+                    : "依頼に失敗しました。"
+        );
+        return;
+      }
+      setCiQuestion("");
+      await loadCiRows();
+    } catch {
+      setCiError("通信に失敗しました。");
+    } finally {
+      setCiSending(false);
+    }
+  }
 
   // codex-spar §1 やる-2: 結論保存の対象は SPAR 応答のみ(codex ターンはスキップ・無ければボタン非表示)
   const lastSparAssistant = latestSparConclusion(turns);
@@ -224,34 +324,127 @@ export function SparPanel() {
   return (
     <div className="panel" style={{ marginTop: 20 }}>
       <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>壁打ち</div>
-      {codexEnabled ? (
+      {codexEnabled || canCiReview ? (
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-          {(["spar", "codex"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              disabled={sending}
-              style={{
-                ...buttonStyle,
-                padding: "4px 12px",
-                fontSize: 11,
-                background: mode === m ? "var(--accent-spar)" : "var(--panel-row)",
-                color: mode === m ? "var(--bg)" : "var(--text-sub)",
-                border: "1px solid var(--line)",
-              }}
-            >
-              {m === "spar" ? "SPAR" : "Codex"}
-            </button>
-          ))}
+          {(["spar", "codex", "ci"] as const)
+            .filter((m) => (m === "codex" ? codexEnabled : m === "ci" ? canCiReview : true))
+            .map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPanelMode(m)}
+                disabled={sending}
+                style={{
+                  ...buttonStyle,
+                  padding: "4px 12px",
+                  fontSize: 11,
+                  background: panelMode === m ? "var(--accent-spar)" : "var(--panel-row)",
+                  color: panelMode === m ? "var(--bg)" : "var(--text-sub)",
+                  border: "1px solid var(--line)",
+                }}
+              >
+                {m === "spar" ? "SPAR" : m === "codex" ? "Codex" : "CI レビュー"}
+              </button>
+            ))}
         </div>
       ) : null}
       <p style={{ fontSize: 11, color: "var(--text-sub)", marginTop: 0, marginBottom: 14 }}>
-        {mode === "codex"
-          ? "Codex モードでは repo の追跡ファイル全文が外部(OpenAI)に送信されます。対象はコミット済み(HEAD)の内容のみ。質問に秘密・未コミット diff を貼らないでください。"
-          : "壁打ちの入力は外部 API に送信されます。機微情報(実名・秘密情報)は書かないでください。"}
+        {panelMode === "ci"
+          ? "質問は CI(GitHub Actions)の Claude に送られます。機微情報(実名・秘密)を書かないこと。結果は参考意見(設計レビュー・受け入れ判定の代替にしない)。"
+          : mode === "codex"
+            ? "Codex モードでは repo の追跡ファイル全文が外部(OpenAI)に送信されます。対象はコミット済み(HEAD)の内容のみ。質問に秘密・未コミット diff を貼らないでください。"
+            : "壁打ちの入力は外部 API に送信されます。機微情報(実名・秘密情報)は書かないでください。"}
       </p>
 
+      {panelMode === "ci" ? (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <textarea
+              value={ciQuestion}
+              onChange={(e) => setCiQuestion(e.target.value)}
+              placeholder="レビューしてほしい内容(例: lib/spar のエラー処理を見て)…"
+              style={{ ...inputStyle, height: 60, lineHeight: 1.5, resize: "vertical" }}
+              disabled={ciSending}
+              maxLength={2000}
+            />
+            <button
+              type="button"
+              onClick={handleCiSend}
+              disabled={ciSending || ciQuestion.trim().length === 0}
+              style={{
+                ...buttonStyle,
+                background: "var(--accent-spar)",
+                color: "var(--bg)",
+                opacity: ciSending || ciQuestion.trim().length === 0 ? 0.6 : 1,
+                alignSelf: "flex-end",
+              }}
+            >
+              {ciSending ? "依頼中…" : "依頼"}
+            </button>
+          </div>
+          {ciError ? <p style={{ color: "var(--bad)", fontSize: 11.5, marginBottom: 10 }}>{ciError}</p> : null}
+          {ciRows.length === 0 ? (
+            <p style={{ color: "var(--text-sub)", fontSize: 12 }}>まだ依頼はありません(結果まで数分かかります)。</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {ciRows.map((row) => (
+                <div
+                  key={row.id}
+                  style={{
+                    border: "1px solid var(--line)",
+                    borderRadius: 9,
+                    padding: "9px 12px",
+                    background: "var(--panel-row)",
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 8px",
+                        borderRadius: 20,
+                        background:
+                          row.status === "done"
+                            ? "color-mix(in oklch, var(--good) 18%, transparent)"
+                            : row.status === "error"
+                              ? "color-mix(in oklch, var(--bad) 18%, transparent)"
+                              : "color-mix(in oklch, var(--accent-spar) 15%, transparent)",
+                        color:
+                          row.status === "done"
+                            ? "var(--good)"
+                            : row.status === "error"
+                              ? "var(--bad)"
+                              : "var(--accent-spar)",
+                      }}
+                    >
+                      {REVIEW_STATUS_LABEL[row.status]}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: "var(--text-sub)" }}>{row.created_at.slice(0, 16).replace("T", " ")}</span>
+                    {isSafeRunRef(row.run_ref) ? (
+                      <a href={row.run_ref ?? "#"} style={{ fontSize: 10.5, color: "var(--accent-spar)" }}>
+                        run
+                      </a>
+                    ) : null}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-sub)", marginBottom: 6 }}>{row.question}</div>
+                  {row.status === "error" ? (
+                    <div style={{ fontSize: 11.5, color: "var(--bad)" }}>{reviewErrorText(row.error_kind)}</div>
+                  ) : null}
+                  {row.result ? (
+                    <div style={{ fontSize: 12.5, color: "var(--text)", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                      {row.result}
+                      {row.result_truncated ? (
+                        <span style={{ color: "var(--warn)" }}>{"\n(切り詰め)"}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
         {turns.length === 0 ? (
           <p style={{ color: "var(--text-sub)", fontSize: 12 }}>まだ会話はありません。下から話しかけてください。</p>
@@ -412,6 +605,8 @@ export function SparPanel() {
           {saveOk ? <p style={{ color: "var(--good)", fontSize: 11.5, marginTop: 8 }}>INBOX に保存しました。</p> : null}
         </div>
       ) : null}
+      </>
+      )}
     </div>
   );
 }

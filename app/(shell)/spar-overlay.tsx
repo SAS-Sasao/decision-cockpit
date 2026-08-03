@@ -9,7 +9,8 @@
 import { useState } from "react";
 import { SparPanel } from "./capture/spar-panel";
 
-export function SparOverlay() {
+// review-loop §2.5: canCiReview はサーバ(layout.tsx)で isAdmin を評価して渡す(中継のみ)。
+export function SparOverlay({ canCiReview = false }: { canCiReview?: boolean } = {}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -77,7 +78,7 @@ export function SparOverlay() {
                 ✕
               </button>
             </div>
-            <SparPanel />
+            <SparPanel canCiReview={canCiReview} />
           </div>
         </>
       ) : null}

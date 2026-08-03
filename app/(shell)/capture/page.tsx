@@ -10,6 +10,7 @@
 //
 // データは lib/data 経由のみ(listInbox / listTrash / getUnprocessedInboxCount)。重い処理はこの画面では行わない。
 // 表示はすべて React 既定エスケープの素テキスト(md レンダラ不使用・生 HTML 差し込みはしない)。
+import { isAdmin } from "../../../lib/auth/roles";
 import { requireUser } from "../../../lib/auth/user";
 import {
   listInbox,
@@ -243,10 +244,11 @@ export default async function CapturePage({
   const trashParam = Array.isArray(rawParams.trash) ? rawParams.trash[0] : rawParams.trash;
   const isTrash = trashParam === "1";
 
-  const [inbox, trash, unprocessedCount] = await Promise.all([
+  const [inbox, trash, unprocessedCount, admin] = await Promise.all([
     listInbox(user.id),
     isTrash ? listTrash(user.id) : Promise.resolve([]),
     getUnprocessedInboxCount(user.id),
+    isAdmin(user.id),
   ]);
 
   return (
@@ -385,7 +387,7 @@ export default async function CapturePage({
             )}
           </p>
 
-          {!isTrash ? <SparPanel /> : null}
+          {!isTrash ? <SparPanel canCiReview={admin} /> : null}
         </div>
       </div>
     </section>

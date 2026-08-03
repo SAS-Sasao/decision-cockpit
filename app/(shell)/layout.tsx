@@ -156,7 +156,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
               ))}
             </div>
           </div>
-          <SparOverlay />
+          <SparOverlay canCiReview={admin} />
         </header>
 
         <main style={{ flex: 1, padding: 24, minWidth: 0 }}>{children}</main>

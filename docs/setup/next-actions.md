@@ -102,7 +102,14 @@
 >    (本番でも表示・admin のみ・非同期プレースホルダ + 履歴)。
 >    統治 = 3-job 分離(DB secrets を Claude ジョブに渡さない)・repo 書き込みなし(読取レビューのみ)・
 >    対象 = decision-cockpit repo のみ(SSoT 2 repo 対象外)。
->    **次の一手 = `/basic-design review-loop`**。
+>    **設計完了(2026-08-03)**: 基本設計(3レンズ・R1 全 FAIL → R3 PASS)+ 詳細設計(3レンズ・
+>    R1 全 FAIL → R5 PASS)。記録 = docs/design/reviews/review-loop.md。
+>    **RL-1 実装完了(2026-08-03・judge PASS)** — 0010 + /api/review + 壁打ちパネル「CI レビュー」
+>    モード(admin 限定)+ テスト13件(560件)。ブランチ `goal/rl-1-review-loop`。
+>    **🔴 マージ前に 0010 の本番適用が必要**(0009 の教訓 — マージ = Vercel 自動デプロイ)。
+>    ローカル db では適用 + 全遷移/違反5形を実測検証済み。
+>    **次の一手 = 0010 本番適用(ユーザー承認)→ main マージ → `/goal RL-2`**(workflow +
+>    scripts/review + review_bot + 契約 + setup)。
 > 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
