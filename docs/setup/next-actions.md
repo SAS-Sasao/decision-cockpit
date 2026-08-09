@@ -66,7 +66,9 @@
 >    **⛔ 有効化の前に必須の修正あり(2026-08-09 判明)**: daily-organize.yml も review-loop と同じ
 >    `claude-code-action` の OIDC 問題を抱えており、**このままだと generate job が必ず失敗する**
 >    (根拠 = [`docs/research/claude-code-action-oidc.md`](../research/claude-code-action-oidc.md))。
->    対処 = LLM step に `github_token` を明示指定(OIDC/GitHub App 経路を使わない)。
+>    対処 = (1) LLM step に `github_token` を明示指定(OIDC/GitHub App 経路を使わない)
+>    (2) **`--allowedTools` の `Write(out/**)` を `Edit(out/**)` に直す**(Write のパス記法は
+>    Claude Code が受理するが照合しない = 書き込みが拒否される。2026-08-09 実測)。
 >    正典が別(organize-loop.md)なので**別 goal で改訂 + 3レンズ再通過**が必要。
 >    **それまで `ENABLE_DAILY_ORGANIZE=true` にしないこと**(失敗は fail-closed なので事故にはならないが、
 >    PR も mark も走らず無駄に赤 run が出るだけ)。
