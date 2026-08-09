@@ -48,6 +48,22 @@ PR も mark も走らない = 可用性の問題でセキュリティ事象で�
 - 交換エンドポイントの実装は非公開のため、`additional_permissions` で read に絞れるかは
   一次情報で確認できず(docs は write 固定と読める)。
 
+## 追記(2026-08-09・同日の第2の発見): `Write(path)` は無効な権限記法
+
+OIDC を直した次の run で、Claude のレビュー自体は成功(25ターン・157秒・is_error:false)したのに
+**`permission_denials_count: 2` で `out/review.md` が書けず** upload step が失敗した。
+
+原因: **`Write(out/**)` は Claude Code が「受理するが照合に使わない」記法**
+(公式 docs: "If you write a path rule for `Write`, `NotebookEdit`, `Glob` … Claude Code accepts the
+rule but never consults it, and warns at startup. Use `Edit(docs/**)` in place of `Write(docs/**)`")。
+→ **正しくは `Edit(out/**)`**(Edit ルールが Write / Edit / NotebookEdit を一括で覆う)。
+
+- 本設計は `--allowedTools` の完全一致をピンしていたが、**ピンされていたパターン自体が無効記法**だった。
+  「形は固定されているが意味は成立していない」典型で、OIDC の件と同じ「実行しないと分からない層」。
+- **daily-organize.yml も `--allowedTools "Read,Write(out/**)"`** で同じ欠陥を持つ(organize-loop の
+  設計 §4 もこの文字列をピンしている)。有効化前の改訂に**この修正も含めること**。
+- 再混入を防ぐため、ci-review.yml には `Write(` の出現 = 0 の否定ピンを追加した。
+
 ## 再発防止(設計プロセスへの教訓)
 
 受け入れ条件 §4 は **形(YAML の構造・文字列)しか見ておらず、実行可能性を一切検証していない**。

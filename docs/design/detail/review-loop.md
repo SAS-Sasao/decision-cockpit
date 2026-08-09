@@ -195,7 +195,8 @@ DB 上合法・UI は空表示。**不問とする**(観点提供がゼロだっ
      **workflow 級 `contents: read` に支配される**。**`id-token: write` を足す方向で直さないこと**
      (§5 禁止事項)。トレードオフ = GitHub App 前提の機能(`claude[bot]` の sticky comment 等)は
      使えないが、本ループは PR もコメントも作らないため影響なし。/
-     `claude_args: --allowedTools "Read,Grep,Glob,Write(out/**)"` /
+     `claude_args: --allowedTools "Read,Grep,Glob,Edit(out/**)"`(**`Edit(...)` が正** — `Write(path)` は
+     Claude Code が受理するが照合に使わない記法で、指定すると書き込みが拒否される。2026-08-09 実測)/
      `prompt:` は**固定文のみ**(`${{ }}` を1つも含まない — 質問はファイル経由):
      「`out/question.md` の質問に基づき、このリポジトリ(読取専用)をレビューし、指摘を
      `ファイル:行 / 問題 / 根拠` の形式で `out/review.md` に書け。out/ 配下以外に書かない・
@@ -309,7 +310,10 @@ for k in "workflow_dispatch" "request_id" "ENABLE_CI_REVIEW" "concurrency" "time
   grep -qF "$k" .github/workflows/ci-review.yml || echo "MISSING wf: $k"; done              # 出力なし
 # claude_args は1行・内容は allowedTools のみ(--settings / --mcp-config 等での設定復活を遮断 — sec R3 N-5)
 test "$(grep -c "claude_args:" .github/workflows/ci-review.yml)" = "1"
-grep -qxE '[[:space:]]+claude_args: --allowedTools "Read,Grep,Glob,Write\(out/\*\*\)"' .github/workflows/ci-review.yml
+grep -qxE '[[:space:]]+claude_args: --allowedTools "Read,Grep,Glob,Edit\(out/\*\*\)"' .github/workflows/ci-review.yml
+# ↑ Edit(...) が正(2026-08-09 実測): Write(path) は Claude Code が「受理するが照合しない」記法で、
+#   指定しても書き込みが拒否される(permission_denials)。Edit ルールが Write/Edit/NotebookEdit を覆う。
+grep -c 'Write(' .github/workflows/ci-review.yml                                            # = 0(無効記法の再混入を遮断)
 # workflow 級 permissions = contents: read 「のみ」(awk のレンジ形は開始行で閉じるため flag 形で抽出 —
 # 実測で確認済み: `awk '/^permissions:/,/^[a-z]/'` は permissions: の1行だけを出す。arch/sec R2 F-1)
 awk '/^permissions:/{f=1;next} f&&/^[a-z]/{f=0} f' .github/workflows/ci-review.yml > /tmp/rl2-perms.txt
