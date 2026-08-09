@@ -225,8 +225,12 @@ DB 上合法・UI は空表示。**不問とする**(観点提供がゼロだっ
   **`ChatTurn.mode: SparMode`("spar"|"codex")は不変** — ci モードは ChatTurn を生成せず専用ビュー
   (依頼フォーム + 履歴リスト)を描画(`spar-panel-lib.ts` は **diff 不変**)。
 - ci ビュー: 質問フォーム(2000字)→ POST → 一覧を**5秒間隔ポーリング**(ci モード表示中のみ)。
-  行 = status バッジ + 経過時間 + result(素テキスト・`result_truncated` なら「(切り詰め)」)+
-  run_ref(**`isSafeRunRef` true のときのみ `<a href>`**・不一致は素テキスト)。
+  行 = status バッジ + 経過時間 + result + run_ref(**`isSafeRunRef` true のときのみ `<a href>`**・
+  不一致は素テキスト)。`result_truncated` なら「(切り詰め)」を併記。
+  **result の描画 = 既存の安全 Markdown レンダラ `<Markdown>`(components/markdown.tsx)**
+  (2026-08-09 追加 — CI の出力は Markdown のため)。このレンダラは **HTML 文字列を一切生成せず**
+  トークン木を JSX 化し、リンクは `isSafeHref`(http/https の allowlist)を通ったものだけ `<a>` 化する
+  (正典 = md-render 設計)。**`dangerouslySetInnerHTML` を使わない**不変条件は §4 の否定ピンで維持。
 - 注記(常時): 「質問は CI(GitHub Actions)の Claude に送られます。機微情報(実名・秘密)を
   書かないこと。結果は参考意見(設計レビュー・受け入れ判定の代替にしない)」。
 
@@ -282,6 +286,7 @@ for k in "review_not_configured" "daily_limit" "busy" "dispatch_failed"; do
 grep -q "CI レビュー" "app/(shell)/capture/spar-panel.tsx"
 grep -q "canCiReview" "app/(shell)/capture/spar-panel.tsx"
 grep -qF 'isSafeRunRef' "app/(shell)/capture/spar-panel.tsx"
+grep -qF '<Markdown text={row.result} />' "app/(shell)/capture/spar-panel.tsx"   # 安全レンダラで描画
 git diff main -- "app/(shell)/capture/spar-panel-lib.ts" | wc -l                            # = 0(凍結)
 grep -rln "dangerouslySetInnerHTML" "app/(shell)/capture" | wc -l                           # = 0
 # 5. 閉包(RL-1 allowlist 外の変更 0)

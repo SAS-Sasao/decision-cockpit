@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { saveCapture } from "./actions";
 import { latestSparConclusion, sparHistory, type SparMode } from "./spar-panel-lib";
 import { isSafeRunRef } from "../../../lib/review/api-lib";
+import { Markdown } from "../../../components/markdown";
 
 // review-loop §2.5: パネルのモードは3値(UI 状態)。ChatTurn.mode は "spar"|"codex" のまま不変
 // (ci モードは ChatTurn を生成せず専用ビューを描く — codex-spar 契約の凍結)。
@@ -431,10 +432,12 @@ export function SparPanel({ canCiReview = false }: { canCiReview?: boolean } = {
                     <div style={{ fontSize: 11.5, color: "var(--bad)" }}>{reviewErrorText(row.error_kind)}</div>
                   ) : null}
                   {row.result ? (
-                    <div style={{ fontSize: 12.5, color: "var(--text)", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
-                      {row.result}
+                    <div style={{ fontSize: 12.5, color: "var(--text)", lineHeight: 1.55 }}>
+                      {/* CI レビュー結果は Markdown。既存の安全レンダラ(HTML 文字列を生成せず
+                          トークン木を JSX 化・href は allowlist)で描画する — md-render の契約 */}
+                      <Markdown text={row.result} />
                       {row.result_truncated ? (
-                        <span style={{ color: "var(--warn)" }}>{"\n(切り詰め)"}</span>
+                        <div style={{ color: "var(--warn)", marginTop: 6 }}>(切り詰め)</div>
                       ) : null}
                     </div>
                   ) : null}
