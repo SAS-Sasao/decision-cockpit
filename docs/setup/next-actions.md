@@ -167,6 +167,16 @@
 >    - 検討したが**採らなかった案**: SSoT 横断レビュー(案A・差別化は最大だが契約改定が必要 — C の後に再訪)/
 >      定時レビュー cron(案B・A の価値確認後)/ ChatGPT・Codex 側の拡張(案E・Claude Code に対する
 >      優位が薄く統治が二重化する)。
+> 5.7 **🎯 card-review(/today のカードから AI レビュー — 案C)= 設計完了・実装待ち(2026-08-09)**:
+>    基本設計(3レンズ・R1 全 FAIL → R2 PASS)+ 詳細設計(3レンズ・R1 全 FAIL → **R5 で全 PASS**)。
+>    記録 = docs/design/reviews/card-review.md(基本)/ card-review-detail.md(詳細)。
+>    **次の一手 = `/goal CR-1`**(0011 + submit.ts 抽出 + card-prompt + card-key + card-lookup +
+>    route 書き換え + テスト)→ **`/goal CR-2`**(/today UI + 取得 + e2e)。
+>    **🔴 CR-1 は 0011 を含む** — Neon ブランチ検証 → 本番適用 → main マージの順(0009/0010 の教訓)。
+>    設計で潰した本質的な穴: CHECK の全域形が実は全域でなかった(NULL 素通り・実測で再現)/
+>    「api-lib に抽出済み」という事実誤認(受理シーケンスは route.ts にインライン)/
+>    ワンクリックが review-loop の同意ガードを外すこと(→ 確認ステップを必須化)/
+>    today-view の「外部送信なし」受容が破れること。
 > 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
