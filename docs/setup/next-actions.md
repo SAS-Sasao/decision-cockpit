@@ -31,10 +31,18 @@
 > 端末レビュー(CO-1・review.sh)のゲート (a)〜(e) は未実施(使う時に codex-setup.md §3)。
 >
 > **▶ 次セッションの再開ポイント(2026-08-03 終業時点)**:
-> 1. **🔴 review-loop の有効化(あなたの操作・実装は完了済み)** — [`review-loop-setup.md`](./review-loop-setup.md)
->    手順2〜5: review_bot 作成 → fine-grained PAT を Vercel `REVIEW_DISPATCH_PAT` へ →
->    Secrets `REVIEW_DATABASE_URL` + Variables `ENABLE_CI_REVIEW=true` → ゲート (a)〜(h)。
->    **未設定のうちは UI から押しても 503・dispatch しても全 job skip で安全**(急がなくてよい)。
+> 1. ~~🔴 review-loop の有効化~~ → **✅ 有効化完了・実運用開始(2026-08-09)**。
+>    本番 UI から依頼 → CI で Claude がレビュー → 結果が UI に表示されるまで通した
+>    (run 31295950018 = claim 30s / review 3m58s / writeback 32s・結果 1,975文字・done)。
+>    **実地で確認できた防御**: review job のログに DB 接続情報が1件も出ない(3-job 分離の実証・
+>    claim job にのみ出現)/ Claude が曖昧な依頼文を「データとして扱う」と明示し勝手な指示実行をしない
+>    (プロンプト注入対策の実証)/ 失敗3回はいずれも writeback が `ci_failed` を記録(fail-safe の実証)。
+>    **有効化までに3つの実装欠陥を実地で発見・修正**(いずれも設計レビューでは検出できない層):
+>    (1) OIDC 権限(→ `github_token` 明示指定で回避。`id-token: write` は「CI は repo に書けない」
+>    不変量を壊すので不採用)(2) `CLAUDE_CODE_OAUTH_TOKEN` 未登録(手順書の不足 — M5 と共用と
+>    書いたが M5 自体が未有効化だった)(3) **`Write(out/**)` は無効な権限記法**(→ `Edit(out/**)`)。
+>    詳細 = [`claude-code-action-oidc.md`](../research/claude-code-action-oidc.md)。
+>    残ゲート(任意): (c) gate off で skip / (d) 非 admin で 403 / (e) 同時1件 409 / (f) 日次上限 429。
 > 2. 🔴 **Neon パスワードリセット**(持ち越し・チャット露出の後始末)= リセット → `.env` → Vercel 差し替え。
 > 3. 開発を進めるなら **M6 候補の選定**(下記 6)から `/basic-design` で1周。
 >
