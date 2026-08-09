@@ -186,6 +186,15 @@ DB 上合法・UI は空表示。**不問とする**(観点提供がゼロだっ
   3. download-artifact `review-question`(path: out)
   4. `uses: anthropics/claude-code-action@v1`:
      `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`(**この job に DB secrets なし**)/
+     **`github_token: ${{ secrets.GITHUB_TOKEN }}`(必須 — 2026-08-09 の実測で追加)**:
+     この input を渡さないと action は **GitHub OIDC(`id-token: write`)を要求**し、Anthropic の
+     交換エンドポイントで **contents / pull-requests / issues が write の GitHub App トークン**を取得する
+     (交換で得るトークンの権限は workflow の `permissions:` と**無関係**)。それは
+     「**この CI は本 repo に書き込めない**」という基本設計 §2 / §4 の中核不変量を破る。
+     `github_token` を明示すると action は OIDC 経路を完全にスキップし、Claude が使う GitHub トークンは
+     **workflow 級 `contents: read` に支配される**。**`id-token: write` を足す方向で直さないこと**
+     (§5 禁止事項)。トレードオフ = GitHub App 前提の機能(`claude[bot]` の sticky comment 等)は
+     使えないが、本ループは PR もコメントも作らないため影響なし。/
      `claude_args: --allowedTools "Read,Grep,Glob,Write(out/**)"` /
      `prompt:` は**固定文のみ**(`${{ }}` を1つも含まない — 質問はファイル経由):
      「`out/question.md` の質問に基づき、このリポジトリ(読取専用)をレビューし、指摘を
@@ -323,9 +332,12 @@ grep -c "working-directory" .github/workflows/ci-review.yml                     
 awk '/^  review:/,/^  writeback:/' .github/workflows/ci-review.yml > /tmp/rl2-review-job.txt
 grep -c "REVIEW_DATABASE_URL" /tmp/rl2-review-job.txt                                       # = 0(3-job 分離)
 grep -c "inputs\." /tmp/rl2-review-job.txt                                                  # = 0
-# review job 内の式展開は「if の needs 参照」と「oauth token」の2箇所のみ(claude_args への
-# `${{ needs.claim.outputs.* }}` 注入を遮断 — prompt ブロック限定では塞げない。sec R2 3-b)
-test "$(grep -cF '${{' /tmp/rl2-review-job.txt)" = "2"
+# review job 内の式展開は「if の needs 参照」「oauth token」「github_token」の3箇所のみ
+# (claude_args への `${{ needs.claim.outputs.* }}` 注入を遮断 — prompt 限定では塞げない。sec R2 3-b)
+test "$(grep -cF '${{' /tmp/rl2-review-job.txt)" = "3"
+# GitHub App / OIDC 経路を使わない(= 書き込み不能の不変量を維持)ことの肯定・否定ピン(2026-08-09)
+grep -qF 'github_token: ${{ secrets.GITHUB_TOKEN }}' /tmp/rl2-review-job.txt
+grep -c "id-token" .github/workflows/ci-review.yml                                          # = 0
 grep -c "claude_code_oauth_token" /tmp/rl2-review-job.txt                                   # = 1(配置も検証)
 grep -c "claude_code_oauth_token" .github/workflows/ci-review.yml                           # = 1(全域でも1)
 grep -cE "Bash|WebFetch|WebSearch|mcp__" .github/workflows/ci-review.yml                    # = 0
@@ -428,6 +440,10 @@ git diff main --name-only | grep -vxF \
   - **organize-role.sql の SQL は1文1行**(危険形・`TO review_bot` の計数ピンの前提 — sec R5 問い2)。
   - **`claude_args` に `--allowedTools` 以外のフラグを足さないこと**(`--settings` / `--mcp-config` 等は
     step2 で除去した設定を引数で復活させる経路 — §4 の `claude_args:` 行数ピンで検出。sec R3 N-5)。
+  - **`id-token: write` を workflow 級・job 級のいずれにも足さないこと / `github_token` の明示指定を
+    外さないこと**(2026-08-09 — 外すと OIDC 交換で write 権限の App トークンが入り、
+    「本 repo に書き込めない」不変量が崩れる。§2.4 step4 の根拠を読むこと。変更する場合は
+    sec レンズ再通過が必須)。
 - 決着の記録(申し送り + 詳細 R1/R2): 不正 UUID = green skip(理由コードをログ)/ 同時1件 = アプリ層の
   努力目標(単一ユーザー受容)/ GET では sweep しない / 「502 後に done」は仕様(claim 先勝ち)/
   日次カウントは索引が効かない seq scan を許容 / result 上限は DB CHECK とスクリプトで二重化 /
