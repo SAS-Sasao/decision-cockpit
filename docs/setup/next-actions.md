@@ -1,9 +1,11 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-08-03 review-loop(RL-1 + RL-2)完了・main マージ済み** —
+> 状態スナップショット: **2026-08-09 review-loop 有効化完了 + card-review 設計 PASS** —
 > **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 + TSS-1 + SN-1 + CO-1 + CS-1 + RL-1/2 完了**
 > (vitest **570件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
-> **有効化待ち×3(ユーザー操作)**: M5(organize-loop)/ wbs-loop / **review-loop(CI レビュー)**。
+> **CI レビューは本番で実運用中**(依頼 → CI → 結果を Markdown 表示まで通した)。
+> **有効化待ち×2(ユーザー操作)**: M5(organize-loop)/ wbs-loop。
+> **実装待ち(設計 PASS 済み)**: card-review(`/goal CR-1` → `CR-2`)。
 > codex はローカル2経路とも稼働中(端末 review.sh / 壁打ち Codex モード)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -44,7 +46,11 @@
 >    詳細 = [`claude-code-action-oidc.md`](../research/claude-code-action-oidc.md)。
 >    残ゲート(任意): (c) gate off で skip / (d) 非 admin で 403 / (e) 同時1件 409 / (f) 日次上限 429。
 > 2. 🔴 **Neon パスワードリセット**(持ち越し・チャット露出の後始末)= リセット → `.env` → Vercel 差し替え。
-> 3. 開発を進めるなら **M6 候補の選定**(下記 6)から `/basic-design` で1周。
+> 3. **🎯 開発の再開点 = `/goal CR-1`(card-review)** — 設計は3レンズ PASS 済み(基本 = 2R / 詳細 = 5R)。
+>    正典 = docs/design/detail/card-review.md / 申し送り = docs/design/reviews/card-review-detail.md 末尾。
+>    **CR-1 は 0011 を含むので Neon ブランチ検証 → 本番適用 → main マージの順**(0009/0010 の教訓)。
+>    その後 `/goal CR-2`(/today UI + e2e)。詳細は下記 5.7。
+> 4. さらに先に進むなら **M6 候補の選定**(下記 6)/ **案D(実装まで任せる)**(下記 5.6)。
 >
 > **▶ 過去の再開手順(履歴)**:
 > 0. ~~🐛 /today のサマリーチップがカード移動に追随しない~~ → **解決(2026-08-01 TSS-1・judge 判定)**。
