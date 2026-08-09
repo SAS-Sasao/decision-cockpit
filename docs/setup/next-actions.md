@@ -63,6 +63,13 @@
 >    リセット → `.env` 更新(ユーザーのみ)→ **Vercel の `DATABASE_URL` も差し替え + Redeploy** の3点セットで完了。
 > 3. **🤖 整理ループの有効化**(展開後): 下記「整理ループの有効化」の7項目(organize_bot 作成 → Secrets 4本 →
 >    Variables → branch protection → 0行 skip 確認 → 実データ確認 → 復旧手順の把握)。
+>    **⛔ 有効化の前に必須の修正あり(2026-08-09 判明)**: daily-organize.yml も review-loop と同じ
+>    `claude-code-action` の OIDC 問題を抱えており、**このままだと generate job が必ず失敗する**
+>    (根拠 = [`docs/research/claude-code-action-oidc.md`](../research/claude-code-action-oidc.md))。
+>    対処 = LLM step に `github_token` を明示指定(OIDC/GitHub App 経路を使わない)。
+>    正典が別(organize-loop.md)なので**別 goal で改訂 + 3レンズ再通過**が必要。
+>    **それまで `ENABLE_DAILY_ORGANIZE=true` にしないこと**(失敗は fail-closed なので事故にはならないが、
+>    PR も mark も走らず無駄に赤 run が出るだけ)。
 > 3.5 **🔁 wbs-loop(WBS カード操作 + SSoT への限定編集 PR 還流)— 基本設計 PASS・詳細設計待ち**(2026-07-26):
 >    ユーザー承認済みの黄金ルール1 改定(WBS 限定編集 = `.companies/<org>/docs/secretary/*-wbs.md` の
 >    ステータストークン置換のみ・決定的スクリプト・PR 人間レビュー)を前提に、フルループ
