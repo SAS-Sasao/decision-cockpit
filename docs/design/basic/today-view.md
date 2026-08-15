@@ -46,6 +46,13 @@ kanban 型のタスク一覧 + サマリ帯を、SSoT の WBS 表から索引し
 - Ingestion(WBS パーサ + allowlist + 新 store 経路)+ Index(0005 board_items — 埋め込みなし)+ App(/today)。
 - SSoT は **GitHub API 読み取りのみ**(既存 SourceAdapter・denylist 取得前適用の機構)。書き戻し・状態編集 UI なし(SSoT が唯一の書き手)。
 - **外部送信なし**(board_items は埋め込まない — OpenAI へ送るデータの増分ゼロ。恒久ガードは §5-6)。
+  **(2026-08-09 追記・card-review)** 上記は**埋め込み経路に限定した宣言であり、その限りでは不変**
+  (board_items は今も埋め込まない)。ただし **card-review により CI レビュー経路で
+  WBS の `title` とファイルパス(組織名・担当者名を含み得る)が外部送信される**
+  (GitHub Actions と Anthropic)。**受容の正典 = docs/design/detail/card-review.md §0b**
+  (private repo・admin 限定・確認パネルで人が目視・CI の機械防御・artifact 保持1日)。
+  **「埋め込みはしていないので不変」で終わらせない** — 恒久ガード(§5-6 の否定 grep)は
+  埋め込み経路にしか掛からないため、この経路の増分はガードでは検知できない。
 - **認可モデル(明示 — search-foundation の前例規範に従う)**: board_items は**実名(担当者)・案件固有情報を含む**が、他の索引データと同じく**認証済み全ユーザーに可視**とする — self-signup が開いている現状での**意図的判断**(個人用途・実質単一ユーザー)。閲覧制限の強化(ロール別可視性等)は SC-07 / M4 の課題に紐付ける。
 - 結合キー: board_items は**時間軸を持たない**(スナップショット — commit が世代を担う)。**タグ列も持たない**(意図的 — SC-03 は board 単独クエリで完結し、横断結合の需要が現時点で無い。SC-02 着手候補(問い#3)も state/pri で足りる見込み。必要になったら applyTags 流用で追加)。サマリ帯の時系列側は timeline_records の既存集計。
 

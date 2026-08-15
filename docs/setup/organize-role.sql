@@ -20,6 +20,9 @@ GRANT SELECT (source, file_path, item_key, desired_state, base_state, user_id, p
 GRANT UPDATE (pr_ref, resolved_at, resolution) ON board_overrides TO wbs_bot;
 
 -- review_bot: review-loop(本番 UI からの CI レビュー)専用ロール(docs/design/detail/review-loop.md §1)。
+-- 補足(card-review): question 列経由で capture 本文の複製に到達し得る点は card-review §1 で受容済み。
+-- 分離の理由(capture 本文を読ませない)は question 列の複製までは守り切らない — 実態と食い違わせない
+-- ために明記する。列限定の付与は列追加で自動拡張されないため 0011 の新列は不可視のまま。
 -- organize_bot / wbs_bot とは分離する(共有すると review workflow の侵害で capture_inbox 本文まで
 -- 読めるため)。到達できるのは review_requests のみ。
 -- 依頼者の帰属列は SELECT にも含めない(user 帰属を CI に出さない — organize-loop と同思想)。
