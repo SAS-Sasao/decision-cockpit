@@ -1,11 +1,12 @@
 # 次にやること(明日以降のアクション)
 
-> 状態スナップショット: **2026-08-09 review-loop 有効化完了 + card-review 設計 PASS** —
-> **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 + TSS-1 + SN-1 + CO-1 + CS-1 + RL-1/2 完了**
-> (vitest **570件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
+> 状態スナップショット: **2026-08-16 card-review CR-1 完了(judge PASS)** —
+> **M0〜M5 + TCS-1 + FC-1 + TBI-1 + WL-1/2 + TSS-1 + SN-1 + CO-1 + CS-1 + RL-1/2 + CR-1 完了**
+> (vitest **605件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
 > **CI レビューは本番で実運用中**(依頼 → CI → 結果を Markdown 表示まで通した)。
 > **有効化待ち×2(ユーザー操作)**: M5(organize-loop)/ wbs-loop。
-> **実装待ち(設計 PASS 済み)**: card-review(`/goal CR-1` → `CR-2`)。
+> **🔴 マージ待ち**: `goal/cr-1-card-review`(**0011 の本番適用が先** — 下記「card-review 0011 の
+> 本番適用」)。その後 `/goal CR-2`(/today UI)で画面から使えるようになる。
 > codex はローカル2経路とも稼働中(端末 review.sh / 壁打ち Codex モード)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -46,9 +47,14 @@
 >    詳細 = [`claude-code-action-oidc.md`](../research/claude-code-action-oidc.md)。
 >    残ゲート(任意): (c) gate off で skip / (d) 非 admin で 403 / (e) 同時1件 409 / (f) 日次上限 429。
 > 2. 🔴 **Neon パスワードリセット**(持ち越し・チャット露出の後始末)= リセット → `.env` → Vercel 差し替え。
-> 3. **🎯 開発の再開点 = `/goal CR-1`(card-review)** — 設計は3レンズ PASS 済み(基本 = 2R / 詳細 = 5R)。
->    正典 = docs/design/detail/card-review.md / 申し送り = docs/design/reviews/card-review-detail.md 末尾。
->    **CR-1 は 0011 を含むので Neon ブランチ検証 → 本番適用 → main マージの順**(0009/0010 の教訓)。
+> 3. ~~🎯 開発の再開点 = `/goal CR-1`~~ → **✅ CR-1 実装完了(2026-08-16・judge PASS 14/14)**。
+>    ブランチ = `goal/cr-1-card-review`(3コミット・**main 未マージ**)。605テスト緑 / tsc exit 0 /
+>    閉包 allowlist 外 0。0011 の形状 CHECK はローカル db で **受理3 / 拒否8** を実測
+>    (選言形が素通りさせた「kind NULL + capture_id」「kind NULL + wbs 完全形」も拒否)。
+>    同じ up.sql の2回流しも exit 0(再実行安全)。
+>    **🔴 マージ前にあなたの操作が2つ必要**(下記「card-review 0011 の本番適用」):
+>    (1) Neon ブランチで 0011 を検証 (2) 本番適用。**適用してからマージする**
+>    (マージ = Vercel 自動デプロイ。0009/0010 で本番が先に壊れた教訓)。
 >    その後 `/goal CR-2`(/today UI + e2e)。詳細は下記 5.7。
 > 4. さらに先に進むなら **M6 候補の選定**(下記 6)/ **案D(実装まで任せる)**(下記 5.6)。
 >
@@ -173,23 +179,22 @@
 >    - 検討したが**採らなかった案**: SSoT 横断レビュー(案A・差別化は最大だが契約改定が必要 — C の後に再訪)/
 >      定時レビュー cron(案B・A の価値確認後)/ ChatGPT・Codex 側の拡張(案E・Claude Code に対する
 >      優位が薄く統治が二重化する)。
-> 5.7 **🎯 card-review(/today のカードから AI レビュー — 案C)= 設計完了・実装待ち(2026-08-09)**:
+> 5.7 **🎯 card-review(/today のカードから AI レビュー — 案C)= CR-1 完了 / CR-2 待ち**:
 >    基本設計(3レンズ・R1 全 FAIL → R2 PASS)+ 詳細設計(3レンズ・R1 全 FAIL → **R5 で全 PASS**)。
 >    記録 = docs/design/reviews/card-review.md(基本)/ card-review-detail.md(詳細)。
->    **次の一手 = `/goal CR-1`**(0011 + submit.ts 抽出 + card-prompt + card-key + card-lookup +
->    route 書き換え + テスト)→ **`/goal CR-2`**(/today UI + 取得 + e2e)。
+>    ~~次の一手 = `/goal CR-1`~~ → **✅ CR-1 完了(2026-08-16)**: 0011 + submit.ts 抽出 +
+>    card-prompt + card-key + card-lookup + route 書き換え + テスト35件。
+>    **次の一手 = 0011 の本番適用 → main マージ → `/goal CR-2`**(/today UI + 取得 + e2e)。
 >    **🔴 CR-1 は 0011 を含む** — Neon ブランチ検証 → 本番適用 → main マージの順(0009/0010 の教訓)。
 >    設計で潰した本質的な穴: CHECK の全域形が実は全域でなかった(NULL 素通り・実測で再現)/
 >    「api-lib に抽出済み」という事実誤認(受理シーケンスは route.ts にインライン)/
 >    ワンクリックが review-loop の同意ガードを外すこと(→ 確認ステップを必須化)/
 >    today-view の「外部送信なし」受容が破れること。
->    **🔴 CR-1 の着手前に設計へ1点追記が要る**(2026-08-09 要件 v1.2 の arch レンズ E-1):
->    db-recovery.md の**「復元できないもの」の列挙に `review_requests` が無い**。CR-1 の成果物として
->    設計に書かれているのは **replay 列挙の 0009→0011 拡張だけ**で、この追記は**どの設計書も
->    引き受けていない**(card-review には「復元」の語が1つも無い)。放置すると
->    「レビュー履歴は復元不能」が誰にも担保されないまま落ちる。
->    ついでに db-recovery.md の「本番は 0003〜0008 が未適用」という**古い記述**も直すこと
->    (実状 = 0001〜0010 適用済み。読むと再適用しかねない)。
+>    ~~🔴 CR-1 の着手前に設計へ1点追記が要る(要件 v1.2 arch レンズ E-1)~~ →
+>    **✅ CR-1 で解消(2026-08-16)**: db-recovery.md の「復元できないもの」に `review_requests` を追加
+>    + card-review 詳細 §1/§4 に成果物とピン(節を awk で切り出して数える — replay 列挙のピンは
+>    列挙側しか見ないため、これが無いと無改訂でも PASS した)。
+>    「本番は 0003〜0008 が未適用」という古い記述も実状(0001〜0010 適用済み)に訂正済み。
 > 6. **M6 候補**(organize-loop §4-R の受容項目から): provenance の索引化 / タグ付与の床 / todos の還流(allowlist 追加) /
 >    整理ループの head-of-line 監視。**SC-07 ユーザー管理**の配置判断もこの前後。
 >
@@ -310,6 +315,26 @@ override 0件なら green skip で安全。
    **「変更行が PR 本文の一覧と一致していること」を毎回確認し、機械的に承認しない。**
    一覧外の差分が1行でもあれば必ず reject して報告すること。
 6. 復旧: PR を閉じた場合は、対象カードを一度別レーンへ動かして戻す(= 再送)。
+
+## 🗄️ card-review 0011 の本番適用 — あなたの操作(**main マージの前に**)
+
+ブランチ `goal/cr-1-card-review` は実装完了・judge PASS だが、**0011 が本番 DB に無い状態で
+マージすると Vercel が自動デプロイして本番のコードとスキーマがずれる**(0009/0010 で実際に
+/today が本番でエラーになった)。順序は **Neon ブランチ検証 → 本番適用 → main マージ**。
+
+- [ ] **1. Neon ブランチで検証**: 本番から分岐したブランチに `db/migrations/0011_review_card_ref.up.sql`
+      を流し、エラーなく完了すること。**同じ up.sql を2回流して2回目も成功する**こと
+      (再実行安全 — ローカルでは実測済み。NOTICE は出るが exit 0)。
+- [ ] **2. 形状 CHECK の実測**(ローカルでは実測済み・本番相当でも確認するなら):
+      **正常3形が受理**(kind NULL で参照列すべて NULL / wbs 完全形 / capture 形)・
+      **違反形は拒否**(kind NULL + capture_id / kind NULL + wbs 完全形 / wbs で capture_id 同時 /
+      wbs で title 欠落 / 不正 file_path / source 違い / 未知の kind / 空文字の kind)。
+      **前2つが本命** — 選言の連結形はこれを素通りさせた。
+- [ ] **3. 本番適用**(人間承認 — db.md の規約)。`review_bot` の GRANT は**変更しない**
+      (列限定の付与は列追加で自動拡張されないため、新列は CI から不可視のままでよい)。
+- [ ] **4. main へマージ**(`--no-ff`)→ Vercel 自動デプロイ。
+- [ ] **5. `/goal CR-2`**(/today の UI + 取得 + e2e)。CR-1 は UI 非接触なので、
+      CR-2 まで進めて初めて画面からカードレビューが使える。
 
 ## 🤖 整理ループ(M5 organize-loop)の有効化 — あなたの操作
 
