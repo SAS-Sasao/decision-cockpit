@@ -6,8 +6,17 @@
 // データは索引済みの取得関数(getTodayData / listBoardCaptures / getLastSync)を読むのみ。
 // 重い処理(パース・集計)はこの画面では行わない。カンバンの操作 UI は client component
 // (board.tsx)に委譲(旧「クライアントコンポーネントは使わない」契約は today-board-interactive で改訂)。
+import { isAdmin } from "../../../lib/auth/roles";
 import { requireUser } from "../../../lib/auth/user";
-import { applyBoardOverrides, getTodayData, laneCounts, laneOfCaptureStatus } from "../../../lib/data/today";
+import {
+  applyBoardOverrides,
+  getTodayData,
+  hasInflightReview,
+  laneCounts,
+  laneOfCaptureStatus,
+  listLatestCardReviews,
+  type LatestCardReview,
+} from "../../../lib/data/today";
 import { listActiveOverrides } from "../../../lib/data/board-override";
 import { listBoardCaptures } from "../../../lib/data/capture";
 import { getLastSync } from "../../../lib/data/overview";
@@ -60,12 +69,19 @@ export default async function TodayPage() {
   const user = await requireUser();
   void user;
 
-  const [data, boardCaptures, overrides, lastSync] = await Promise.all([
+  const [data, boardCaptures, overrides, lastSync, admin] = await Promise.all([
     getTodayData(),
     listBoardCaptures(user.id),
     listActiveOverrides(),
     getLastSync(),
+    isAdmin(user.id),
   ]);
+
+  // カードレビューは admin 限定(card-review §2.8)。**非 admin では呼ばず・prop も渡さない** —
+  // 依頼だけでなく「他人の依頼結果が見える」側も admin ゲートで塞ぐ。
+  const [cardReviews, inflight]: [LatestCardReview[], boolean] = admin
+    ? await Promise.all([listLatestCardReviews(), hasInflightReview()])
+    : [[], false];
 
   // WBS カードへのオーバーレイ合成(wbs-loop §2.4 — 実効レーン + 「PR 反映待ち」バッジ)
   const columns = applyBoardOverrides(data.columns, overrides);
@@ -159,7 +175,13 @@ export default async function TodayPage() {
               で「次の一手」か「課題」を保存すると、ここにドラッグ&ドロップとボタンで動かせるカードが並びます。
             </p>
           ) : null}
-          <TodayBoard columns={columns} captures={captureLanes} />
+          <TodayBoard
+            columns={columns}
+            captures={captureLanes}
+            canReview={admin}
+            reviews={admin ? cardReviews : []}
+            inflight={inflight}
+          />
         </>
       )}
     </section>

@@ -8,10 +8,12 @@
 // - WBS カード → updateBoardState(dataTransfer = `wbs|<filePath>|<itemKey>` — 識別子のみ・本文非搭載)
 // どちらも認可・検証はサーバ側で毎回実施。SSoT(board_items)には書かず board_overrides に差分を記録。
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import type { TodayCard } from "../../../lib/data/today";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import type { LatestCardReview, TodayCard } from "../../../lib/data/today";
+import { cardKeyOf, isStaleReview, type CardRef } from "../../../lib/review/card-key";
+import { Markdown } from "../../../components/markdown";
 import { updateCaptureStatus } from "../capture/actions";
-import { updateBoardState } from "./actions";
+import { prepareCardReview, submitCardReview, updateBoardState } from "./actions";
 
 type Lane = "todo" | "doing" | "done";
 type CaptureStatus = "open" | "in_progress" | "done";
@@ -28,7 +30,14 @@ export type BoardCaptureCard = {
 type BoardProps = {
   columns: { state: Lane; items: TodayCard[] }[];
   captures: Record<Lane, BoardCaptureCard[]>; // サーバ側で laneOfCaptureStatus により分配済み(設計 §3)
+  // card-review §2.8: いずれも admin 限定。非 admin では canReview=false・reviews=[] が渡る。
+  canReview: boolean;
+  reviews: LatestCardReview[];
+  inflight: boolean;
 };
+
+// 実行中の依頼があるあいだのポーリング間隔(述語は DB 状態 — card-review §2.8)。
+const REVIEW_POLL_MS = 10_000;
 
 const LANE_META: Record<Lane, { label: string; dot: string }> = {
   todo: { label: "バックログ", dot: "var(--text-sub)" },
@@ -120,11 +129,13 @@ function CaptureCardView({
   lane,
   onMove,
   pending,
+  reviewSlot,
 }: {
   card: BoardCaptureCard;
   lane: Lane;
   onMove: (id: string, to: CaptureStatus) => void;
   pending: boolean;
+  reviewSlot?: React.ReactNode;
 }) {
   return (
     <div
@@ -162,6 +173,7 @@ function CaptureCardView({
           </button>
         ))}
       </div>
+      {reviewSlot}
     </div>
   );
 }
@@ -172,11 +184,13 @@ function WbsCardView({
   lane,
   onMoveWbs,
   pending,
+  reviewSlot,
 }: {
   item: TodayCard;
   lane: Lane;
   onMoveWbs: (filePath: string, itemKey: string, to: Lane) => void;
   pending: boolean;
+  reviewSlot?: React.ReactNode;
 }) {
   const hasMetaRow = item.assignee || item.period || item.pri;
   const movable = typeof item.filePath === "string" && item.filePath !== "";
@@ -267,11 +281,109 @@ function WbsCardView({
           })}
         </div>
       ) : null}
+      {reviewSlot}
     </div>
   );
 }
 
-export function TodayBoard({ columns, captures }: BoardProps) {
+const reviewBadgeBase = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  padding: "1px 7px",
+  borderRadius: 4,
+};
+
+const reviewButtonStyle = {
+  ...moveButtonStyle,
+  color: "var(--accent)",
+  border: "1px solid color-mix(in oklch, var(--accent) 35%, var(--line-row))",
+};
+
+const REVIEW_ERROR_LABEL: Record<string, string> = {
+  unauthorized: "権限がありません",
+  not_found: "カードが見つかりません(削除済み・盤面外の可能性)",
+  review_not_configured: "CI レビューが未設定です",
+  busy: "すでに実行中の依頼があります",
+  daily_limit: "本日の上限に達しました",
+  dispatch_failed: "CI の起動に失敗しました",
+  ci_failed: "CI が失敗しました",
+  stale: "時間切れで打ち切られました",
+};
+
+/** カード下部のレビュー状態表示(結果は安全レンダラで Markdown 描画 — HTML 文字列を生成しない)。 */
+function ReviewStatusView({
+  review,
+  stale,
+  currentTitle,
+}: {
+  review: LatestCardReview;
+  stale: boolean;
+  currentTitle: string | null;
+}) {
+  const running = review.status === "pending" || review.status === "running";
+  const titleChanged =
+    currentTitle !== null && review.cardTitle !== null && review.cardTitle !== currentTitle;
+
+  return (
+    <div style={{ marginTop: 9, borderTop: "1px solid var(--line-row)", paddingTop: 8 }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        {running && !stale ? (
+          <span
+            style={{
+              ...reviewBadgeBase,
+              color: "var(--accent)",
+              background: "color-mix(in oklch, var(--accent) 10%, transparent)",
+            }}
+          >
+            AI レビュー中
+          </span>
+        ) : null}
+        {running && stale ? (
+          <span
+            style={{
+              ...reviewBadgeBase,
+              color: "var(--warn)",
+              background: "color-mix(in oklch, var(--warn) 10%, transparent)",
+            }}
+          >
+            中断(時間切れの可能性)
+          </span>
+        ) : null}
+        {review.status === "error" ? (
+          <span
+            style={{
+              ...reviewBadgeBase,
+              color: "var(--warn)",
+              background: "color-mix(in oklch, var(--warn) 10%, transparent)",
+            }}
+          >
+            失敗: {REVIEW_ERROR_LABEL[review.errorKind ?? ""] ?? review.errorKind ?? "原因不明"}
+          </span>
+        ) : null}
+        {titleChanged ? (
+          <span style={{ ...reviewBadgeBase, color: "var(--text-sub)", background: "var(--panel-row)" }}>
+            カード内容が変わっています
+          </span>
+        ) : null}
+      </div>
+      {review.status === "done" && review.result ? (
+        <details style={{ marginTop: 7 }}>
+          <summary style={{ fontSize: 11.5, color: "var(--accent)", cursor: "pointer" }}>
+            AI レビュー結果を開く
+          </summary>
+          <div style={{ fontSize: 12, lineHeight: 1.6, marginTop: 6 }}>
+            <Markdown text={review.result} />
+          </div>
+          {review.resultTruncated ? (
+            <p style={{ fontSize: 10.5, color: "var(--text-sub)" }}>※ 結果は上限で切り詰められています。</p>
+          ) : null}
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+export function TodayBoard({ columns, captures, canReview, reviews, inflight }: BoardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dragOver, setDragOver] = useState<Lane | null>(null);
@@ -290,8 +402,159 @@ export function TodayBoard({ columns, captures }: BoardProps) {
     });
   };
 
+  // --- card-review(§2.8)---
+  const [confirming, setConfirming] = useState<{ ref: CardRef; question: string } | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  // 初回描画はサーバ計算の stale をそのまま使う(client で Date.now() を読むと hydration がずれる)。
+  // マウント後とポーリングのたびに再計算する。
+  const [nowMs, setNowMs] = useState<number | null>(null);
+
+  const reviewByKey = useMemo(() => {
+    const m = new Map<string, LatestCardReview>();
+    for (const r of reviews) m.set(r.cardKey, r);
+    return m;
+  }, [reviews]);
+
+  useEffect(() => {
+    setNowMs(Date.now());
+  }, [reviews]);
+
+  useEffect(() => {
+    // 実行中の行があるあいだだけポーリングする(述語は DB 状態 — 空回しをしない)
+    const active = reviews.some((r) => r.status === "pending" || r.status === "running");
+    if (!active) return;
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+      router.refresh();
+    }, REVIEW_POLL_MS);
+    return () => clearInterval(timer);
+  }, [reviews, router]);
+
+  const staleOf = (r: LatestCardReview) => (nowMs === null ? r.stale : isStaleReview(r, nowMs));
+
+  const askReview = (ref: CardRef) => {
+    setReviewError(null);
+    startTransition(async () => {
+      const res = await prepareCardReview(ref);
+      if (res.ok) setConfirming({ ref, question: res.question });
+      else setReviewError(REVIEW_ERROR_LABEL[res.error] ?? res.error);
+    });
+  };
+
+  const sendReview = () => {
+    if (!confirming) return;
+    const ref = confirming.ref;
+    setConfirming(null);
+    startTransition(async () => {
+      const res = await submitCardReview(ref);
+      if (!res.ok) setReviewError(REVIEW_ERROR_LABEL[res.error] ?? res.error);
+      router.refresh();
+    });
+  };
+
+  /** カード下部に差し込むレビュー UI(ボタン + 状態)。非 admin では null。 */
+  const reviewSlotFor = (ref: CardRef, currentTitle: string | null) => {
+    if (!canReview) return null;
+    const review = reviewByKey.get(cardKeyOf(ref));
+    const stale = review ? staleOf(review) : false;
+    const running = review ? review.status === "pending" || review.status === "running" : false;
+    return (
+      <>
+        {review ? <ReviewStatusView review={review} stale={stale} currentTitle={currentTitle} /> : null}
+        <div style={{ marginTop: review ? 7 : 9 }}>
+          <button
+            type="button"
+            style={{ ...reviewButtonStyle, opacity: inflight || isPending ? 0.5 : 1 }}
+            disabled={inflight || isPending}
+            onClick={() => askReview(ref)}
+          >
+            {running && !stale ? "レビュー中…" : "レビュー"}
+          </button>
+        </div>
+      </>
+    );
+  };
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
+    <>
+      {reviewError ? (
+        <p
+          style={{
+            fontSize: 12,
+            color: "var(--warn)",
+            background: "color-mix(in oklch, var(--warn) 8%, transparent)",
+            border: "1px solid color-mix(in oklch, var(--warn) 30%, transparent)",
+            borderRadius: 8,
+            padding: "8px 12px",
+            marginBottom: 12,
+          }}
+        >
+          レビューを依頼できませんでした: {reviewError}
+        </p>
+      ) : null}
+
+      {confirming ? (
+        <div
+          style={{
+            background: "var(--panel)",
+            border: "1px solid color-mix(in oklch, var(--accent) 40%, var(--line))",
+            borderRadius: 10,
+            padding: "14px 16px",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
+            この内容で CI レビューを依頼します
+          </div>
+          {/* 送信されるのはこの文字列そのもの。**素テキストで描画する**(Markdown 描画にすると
+              表示とバイト列が一致せず、同意ガードが「見たものと送るもの」を保証できなくなる) */}
+          <pre
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11.5,
+              lineHeight: 1.6,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              background: "var(--panel-row)",
+              border: "1px solid var(--line-row)",
+              borderRadius: 8,
+              padding: "10px 12px",
+              margin: 0,
+              maxHeight: 320,
+              overflowY: "auto",
+            }}
+          >
+            {confirming.question}
+          </pre>
+          <ul style={{ fontSize: 11.5, color: "var(--text-sub)", margin: "10px 0 0", paddingLeft: 18 }}>
+            <li>この内容が CI(GitHub Actions)の Claude に送られます。</li>
+            <li>依頼と結果は保存され、履歴に残ります(取り消せません)。</li>
+            <li>
+              WBS のタイトルとファイルパス(組織名・担当者名を含む場合があります)も送信されます。
+            </li>
+          </ul>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button
+              type="button"
+              style={{ ...reviewButtonStyle, opacity: isPending ? 0.5 : 1 }}
+              disabled={isPending}
+              onClick={sendReview}
+            >
+              送信
+            </button>
+            <button
+              type="button"
+              style={{ ...moveButtonStyle, opacity: isPending ? 0.5 : 1 }}
+              disabled={isPending}
+              onClick={() => setConfirming(null)}
+            >
+              やめる
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
       {columns.map((col) => {
         const lane = col.state;
         const meta = LANE_META[lane];
@@ -346,7 +609,14 @@ export function TodayBoard({ columns, captures }: BoardProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {total === 0 ? <p style={{ fontSize: 12, color: "var(--text-sub)" }}>タスクなし</p> : null}
               {laneCaptures.map((card) => (
-                <CaptureCardView key={card.id} card={card} lane={lane} onMove={move} pending={isPending} />
+                <CaptureCardView
+                  key={card.id}
+                  card={card}
+                  lane={lane}
+                  onMove={move}
+                  pending={isPending}
+                  reviewSlot={reviewSlotFor({ kind: "capture", captureId: card.id }, card.topic)}
+                />
               ))}
               {col.items.map((item) => (
                 <WbsCardView
@@ -355,12 +625,21 @@ export function TodayBoard({ columns, captures }: BoardProps) {
                   lane={lane}
                   onMoveWbs={moveWbs}
                   pending={isPending}
+                  reviewSlot={
+                    item.filePath
+                      ? reviewSlotFor(
+                          { kind: "wbs", filePath: item.filePath, itemKey: item.itemKey },
+                          item.title
+                        )
+                      : null
+                  }
                 />
               ))}
             </div>
           </div>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
