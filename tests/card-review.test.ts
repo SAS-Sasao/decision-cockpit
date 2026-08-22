@@ -11,8 +11,10 @@ const { queryMock } = vi.hoisted(() => ({ queryMock: vi.fn() }));
 vi.mock("../lib/db", () => ({ query: queryMock }));
 
 import {
+  CARD_LATEST_SQL,
   DAILY_COUNT_SQL,
   DISPATCH_FAILED_SQL,
+  INFLIGHT_ACTIVE_SQL,
   INFLIGHT_SQL,
   INSERT_SQL,
   INSERT_WITH_CARD_SQL,
@@ -22,6 +24,7 @@ import {
   SWEEP_PENDING_SQL,
   SWEEP_RUNNING_SQL,
 } from "../lib/review/api-lib";
+import { hasInflightReview, listLatestCardReviews } from "../lib/data/today";
 import { CARD_BODY_MAX_CHARS, buildCardQuestion } from "../lib/review/card-prompt";
 import { cardKeyOf, isStaleReview, isUuid } from "../lib/review/card-key";
 import { submitReview } from "../lib/review/submit";
@@ -458,5 +461,134 @@ describe("card-lookup は最新世代の選出式をコピーしない", () => {
     expect(src).not.toContain("array_agg(commit ORDER BY");
     expect(src).toContain("LATEST_BOARD_CTE");
     expect(src).toContain('from "./board-override"');
+  });
+});
+
+
+// ============================================================================
+// CR-2 で追記(§3 の goal 分割 — CR-1 のケースは不変)
+// ============================================================================
+
+describe("CARD_LATEST_SQL(カード別の最新1件)", () => {
+  it("重複排除の列群と ORDER BY の先頭が一致する(一致しないと SQL として成立しない)", () => {
+    const group = "card_kind, card_source, card_file_path, card_item_key, card_capture_id";
+    expect(CARD_LATEST_SQL).toContain(`DISTINCT ON (${group})`);
+    expect(CARD_LATEST_SQL).toContain(`ORDER BY ${group},`);
+  });
+
+  it("自由入力行を除外する(除外しないと NULL 群が1グループに畳まれ偽のカード行が返る)", () => {
+    expect(CARD_LATEST_SQL).toContain("card_kind IS NOT NULL");
+  });
+
+  it("90日窓を持つ(物理 DELETE なし × 日次上限で行が単調増加するため)", () => {
+    expect(CARD_LATEST_SQL).toContain("created_at >= now() - interval '90 days'");
+  });
+
+  it("タイブレークは created_at DESC, id DESC(同時刻の非決定を排除・0011 の索引末尾と同方向)", () => {
+    expect(CARD_LATEST_SQL).toContain("created_at DESC, id DESC");
+  });
+
+  it("表示に必要な列を返し、依頼者は返さない(requested_by を配らない)", () => {
+    for (const col of ["card_title", "status", "result", "result_truncated", "error_kind", "run_ref", "started_at"]) {
+      expect(CARD_LATEST_SQL).toContain(col);
+    }
+    expect(CARD_LATEST_SQL).not.toContain("requested_by");
+  });
+});
+
+describe("INFLIGHT_ACTIVE_SQL(stale 超過を母集団から外す同時1件判定)", () => {
+  it("pending は created_at・running は started_at を基準にする", () => {
+    expect(INFLIGHT_ACTIVE_SQL).toContain("status = 'pending' AND created_at >= now() - interval");
+    expect(INFLIGHT_ACTIVE_SQL).toContain("status = 'running' AND started_at >= now() - interval");
+  });
+
+  it("閾値は STALE_*_MINUTES と同値(二重定義の乖離を防ぐ)", () => {
+    expect(INFLIGHT_ACTIVE_SQL).toContain(`interval '${STALE_PENDING_MINUTES} minutes'`);
+    expect(INFLIGHT_ACTIVE_SQL).toContain(`interval '${STALE_RUNNING_MINUTES} minutes'`);
+  });
+
+  it("OR の両辺が括弧で閉じている(結合順が変わると全 pending が inflight になる)", () => {
+    expect(INFLIGHT_ACTIVE_SQL).toContain("WHERE (status = 'pending'");
+    expect(INFLIGHT_ACTIVE_SQL).toContain("OR (status = 'running'");
+  });
+
+  it("既存の INFLIGHT_SQL は変更しない(受理側の不変量 — review-loop の凍結)", () => {
+    expect(INFLIGHT_SQL).toContain("status IN ('pending','running')");
+    expect(INFLIGHT_SQL).not.toContain("interval");
+  });
+});
+
+describe("listLatestCardReviews(行 → 表示モデルの写像)", () => {
+  const baseRow = {
+    card_kind: "wbs" as const,
+    card_file_path: WBS_PATH,
+    card_item_key: "W-01",
+    card_capture_id: null,
+    card_title: "設計レビューの準備",
+    status: "done" as const,
+    result: "# 所見\n問題なし",
+    result_truncated: false,
+    error_kind: null,
+    run_ref: null,
+    created_at: new Date("2026-08-09T00:00:00.000Z"),
+    started_at: new Date("2026-08-09T00:00:30.000Z"),
+  };
+
+  it("wbs 行の cardKey は cardKeyOf(wbs) と一致する(引き当ての要)", async () => {
+    queryMock.mockResolvedValue({ rows: [baseRow] });
+    const rows = await listLatestCardReviews();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.cardKey).toBe(cardKeyOf({ kind: "wbs", filePath: WBS_PATH, itemKey: "W-01" }));
+    expect(rows[0]!.cardTitle).toBe("設計レビューの準備");
+  });
+
+  it("capture 行の cardKey は cardKeyOf(capture) と一致する", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          ...baseRow,
+          card_kind: "capture" as const,
+          card_file_path: null,
+          card_item_key: null,
+          card_capture_id: NEW_ID,
+        },
+      ],
+    });
+    const rows = await listLatestCardReviews();
+    expect(rows[0]!.cardKey).toBe(cardKeyOf({ kind: "capture", captureId: NEW_ID }));
+  });
+
+  it("日時は ISO 文字列に正規化され、started_at の null が保たれる", async () => {
+    queryMock.mockResolvedValue({ rows: [{ ...baseRow, status: "pending" as const, started_at: null }] });
+    const rows = await listLatestCardReviews();
+    expect(rows[0]!.createdAt).toBe("2026-08-09T00:00:00.000Z");
+    expect(rows[0]!.startedAt).toBeNull();
+  });
+
+  it("done 行は stale にならない(経過時間によらず)", async () => {
+    queryMock.mockResolvedValue({ rows: [baseRow] });
+    const rows = await listLatestCardReviews();
+    expect(rows[0]!.stale).toBe(false);
+  });
+
+  it("CARD_LATEST_SQL をそのまま使う(today.ts で SQL を組み立て直さない)", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    await listLatestCardReviews();
+    expect(queryMock).toHaveBeenCalledWith(CARD_LATEST_SQL);
+  });
+});
+
+describe("hasInflightReview(グローバル同時1件)", () => {
+  it("INFLIGHT_ACTIVE_SQL を使い、true をそのまま返す", async () => {
+    queryMock.mockResolvedValue({ rows: [{ inflight: true }] });
+    expect(await hasInflightReview()).toBe(true);
+    expect(queryMock).toHaveBeenCalledWith(INFLIGHT_ACTIVE_SQL);
+  });
+
+  it("行が無い・false のときは false(fail-open にしない)", async () => {
+    queryMock.mockResolvedValue({ rows: [{ inflight: false }] });
+    expect(await hasInflightReview()).toBe(false);
+    queryMock.mockResolvedValue({ rows: [] });
+    expect(await hasInflightReview()).toBe(false);
   });
 });

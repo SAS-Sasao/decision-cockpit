@@ -10,6 +10,8 @@ import "server-only";
 import { query } from "../db";
 import type { RecordType, TaskRewardSignals } from "../ingestion/parsers/types";
 import { weekBucketBoundaries } from "../data/review";
+import { CARD_LATEST_SQL, INFLIGHT_ACTIVE_SQL } from "../review/api-lib";
+import { cardKeyOf, isStaleReview } from "../review/card-key";
 
 export type TodayCard = {
   itemKey: string;
@@ -221,4 +223,77 @@ export async function getTodayData(): Promise<TodayData> {
     ],
     boardEmpty,
   };
+}
+
+
+// --- card-review(対象設計: docs/design/detail/card-review.md §2.5)---
+
+export type LatestCardReview = {
+  cardKey: string; // 突き合わせ用の内部表記(server 側で埋める)
+  status: "pending" | "running" | "done" | "error";
+  result: string | null;
+  resultTruncated: boolean;
+  errorKind: string | null;
+  runRef: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  cardTitle: string | null; // 依頼時のスナップショット(表示側で現在の title と突き合わせる)
+  stale: boolean; // 取得時点の滞留判定(client はポーリングのたびに再計算する)
+};
+
+type CardReviewQueryRow = {
+  card_kind: "wbs" | "capture";
+  card_file_path: string | null;
+  card_item_key: string | null;
+  card_capture_id: string | null;
+  card_title: string | null;
+  status: "pending" | "running" | "done" | "error";
+  result: string | null;
+  result_truncated: boolean;
+  error_kind: string | null;
+  run_ref: string | null;
+  created_at: Date;
+  started_at: Date | null;
+};
+
+/**
+ * カード別の最新レビュー1件(90日窓)。**user_id 非スコープは意図的**
+ * (単一ユーザー前提 — board-override.ts の家風と同じ)。WBS カードは共有物なので他 admin の
+ * 依頼結果も見える。capture 由来行も同じ配列に入る(cardTitle = topic のスナップショット)ため、
+ * capture.md の「参照は所有者本人のみ」に対しては単一ユーザー前提で受容する。
+ * 呼び出しは admin 限定(page.tsx のゲート)。複数ユーザー運用では requested_by スコープを足すこと。
+ */
+export async function listLatestCardReviews(): Promise<LatestCardReview[]> {
+  const result = await query<CardReviewQueryRow>(CARD_LATEST_SQL);
+  const nowMs = Date.now();
+  return result.rows.map((row) => {
+    const createdAt = row.created_at.toISOString();
+    const startedAt = row.started_at === null ? null : row.started_at.toISOString();
+    return {
+      cardKey:
+        row.card_kind === "wbs"
+          ? cardKeyOf({ kind: "wbs", filePath: row.card_file_path ?? "", itemKey: row.card_item_key ?? "" })
+          : cardKeyOf({ kind: "capture", captureId: row.card_capture_id ?? "" }),
+      status: row.status,
+      result: row.result,
+      resultTruncated: row.result_truncated,
+      errorKind: row.error_kind,
+      runRef: row.run_ref,
+      createdAt,
+      startedAt,
+      cardTitle: row.card_title,
+      stale: isStaleReview({ status: row.status, createdAt, startedAt }, nowMs),
+    };
+  });
+}
+
+/**
+ * グローバル同時1件の判定(受理側と同じ不変量を UI に見せる)。stale 超過行は母集団から外す
+ * ため、閾値超過で放置された行がボタンを永久に無効化することはない。
+ * SQL は経過 > 閾値・純関数 isStaleReview は経過 >= 閾値でちょうど境界の1点だけずれる
+ * (UI 側を stale 寄りに倒すのは意図的 = 安全側)。
+ */
+export async function hasInflightReview(): Promise<boolean> {
+  const result = await query<{ inflight: boolean }>(INFLIGHT_ACTIVE_SQL);
+  return result.rows[0]?.inflight === true;
 }
