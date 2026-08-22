@@ -5,8 +5,9 @@
 > (vitest **605件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
 > **CI レビューは本番で実運用中**(依頼 → CI → 結果を Markdown 表示まで通した)。
 > **有効化待ち×2(ユーザー操作)**: M5(organize-loop)/ wbs-loop。
-> **🔴 マージ待ち**: `goal/cr-1-card-review`(**0011 の本番適用が先** — 下記「card-review 0011 の
-> 本番適用」)。その後 `/goal CR-2`(/today UI)で画面から使えるようになる。
+> **✅ CR-1 は 0011 本番適用 → main マージ済み(2026-08-22)**。次は **`/goal CR-2`**(/today UI)で
+> 画面から使えるようになる。
+> **本番マイグレーションは 0011 まで適用済み**。
 > codex はローカル2経路とも稼働中(端末 review.sh / 壁打ち Codex モード)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -316,25 +317,44 @@ override 0件なら green skip で安全。
    一覧外の差分が1行でもあれば必ず reject して報告すること。
 6. 復旧: PR を閉じた場合は、対象カードを一度別レーンへ動かして戻す(= 再送)。
 
-## 🗄️ card-review 0011 の本番適用 — あなたの操作(**main マージの前に**)
+## ✅ card-review 0011 の本番適用 — 完了(2026-08-22)
 
-ブランチ `goal/cr-1-card-review` は実装完了・judge PASS だが、**0011 が本番 DB に無い状態で
-マージすると Vercel が自動デプロイして本番のコードとスキーマがずれる**(0009/0010 で実際に
-/today が本番でエラーになった)。順序は **Neon ブランチ検証 → 本番適用 → main マージ**。
+Neon ブランチ `verify-0011` を production から分岐 → 検証 → 承認 → 本番適用 → ブランチ削除。
+**順序を守った**(スキーマ先・マージ後 = 0009/0010 の教訓)。
 
-- [ ] **1. Neon ブランチで検証**: 本番から分岐したブランチに `db/migrations/0011_review_card_ref.up.sql`
-      を流し、エラーなく完了すること。**同じ up.sql を2回流して2回目も成功する**こと
-      (再実行安全 — ローカルでは実測済み。NOTICE は出るが exit 0)。
-- [ ] **2. 形状 CHECK の実測**(ローカルでは実測済み・本番相当でも確認するなら):
-      **正常3形が受理**(kind NULL で参照列すべて NULL / wbs 完全形 / capture 形)・
-      **違反形は拒否**(kind NULL + capture_id / kind NULL + wbs 完全形 / wbs で capture_id 同時 /
-      wbs で title 欠落 / 不正 file_path / source 違い / 未知の kind / 空文字の kind)。
-      **前2つが本命** — 選言の連結形はこれを素通りさせた。
-- [ ] **3. 本番適用**(人間承認 — db.md の規約)。`review_bot` の GRANT は**変更しない**
-      (列限定の付与は列追加で自動拡張されないため、新列は CI から不可視のままでよい)。
-- [ ] **4. main へマージ**(`--no-ff`)→ Vercel 自動デプロイ。
-- [ ] **5. `/goal CR-2`**(/today の UI + 取得 + e2e)。CR-1 は UI 非接触なので、
-      CR-2 まで進めて初めて画面からカードレビューが使える。
+- 1回目の適用成功 / **2回目も成功**(再実行安全 — replay が止まらない)
+- `card_ref_shape` は **CASE 全域形 + `ELSE false`** で保存(Postgres 正規化後も維持)
+- **正常3形すべて受理 / 違反8形すべて拒否**(11/11 が期待どおり)。
+  とくに **V1「kind NULL + capture_id」・V2「kind NULL + wbs 完全形」を拒否** —
+  選言の連結形が素通りさせていた2形で、設計レビューの指摘が本番相当で解消を確認できた。
+- 本番の既存7行は無傷。検証ブランチのテスト行は本番に混入していない(実測 0 行)。
+- `review_bot` の GRANT は不変(列限定の付与は列追加で自動拡張されないため、新列は CI から不可視)。
+
+**次 = `/goal CR-2`**(/today の UI + 取得 + e2e)。CR-1 は UI 非接触なので、
+CR-2 まで進めて初めて画面からカードレビューが使える。
+
+## 🔌 MCP(neon)が繋がらなくなったときの記録(2026-08-22)
+
+`mcp__neon__*` が丸ごと消える障害が起きた。**2段構え**だったので両方を疑うこと:
+
+1. **API キーの渡し方**: `@neondatabase/mcp-server-neon` は 0.6 系で env → **コマンドライン引数**に変更。
+   env だけだと即終了し、Claude Code からは `CONNECTION_CLOSED`(約2秒)に見える。
+   → `.mcp.json` の args 末尾に `${NEON_API_KEY}` を追加 + **版数を 0.6.5 に固定**
+   (`npx -y` が最新を取りに行くため、こちらが何も変えなくても上流の破壊的変更で無言で落ちる)。
+2. **npx キャッシュ破損**: `~/.npm/_npx/<hash>/package.json` が ENOENT。今度は
+   `CONNECT_TIMEOUT`(30秒)になる。→ 該当ディレクトリだけ削除すれば再取得される。
+3. **`disabledMcpServers`**: 失敗が続くと `~/.claude.json` の projects 配下に
+   `disabledMcpServers: ["neon"]` が記録され、`/mcp` が
+   「Failed to enable ... was disabled while enabling」を返す。→ 手で除去 + **Claude Code を再起動**
+   (このファイルは終了時に書き戻されるので、起動中の編集は消える可能性がある)。
+
+**切り分けの決め手はログ**: `~/.cache/claude-cli-nodejs/-home-toyoki05-decision-cockpit/mcp-logs-neon/`。
+`CONNECTION_CLOSED`(即死)と `CONNECT_TIMEOUT`(生きているが応答しない)は原因が別物。
+手元で `npx ... start "$KEY"` に `initialize` の JSON-RPC を流し込めば、サーバ単体の生死を切り分けられる。
+
+**⚠ このパッケージは deprecated**: Neon はリモート MCP(`https://mcp.neon.tech`・OAuth)への移行を
+推奨している。移れば npx もキャッシュも API キーの受け渡しも不要になり、上記1・2は構造的に消える。
+認証方式が変わるので別途対応する。
 
 ## 🤖 整理ループ(M5 organize-loop)の有効化 — あなたの操作
 
