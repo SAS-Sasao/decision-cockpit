@@ -1,29 +1,28 @@
-// 対象設計: docs/design/detail/review-loop.md §2.2(app/api/review/route.ts)
+// 対象設計: docs/design/detail/card-review.md §2.3(受理シーケンス抽出後の route)
+// 元の設計: docs/design/detail/review-loop.md §2.2(認可と GET はそのまま)
 //
-// 処理順(サーバ強制): POST/GET とも 1) getUser() null → 401 2) isAdmin false → 403。
-// POST はさらに 3) validateQuestion → 400 4) PAT 未設定 → 503(fail-closed・INSERT より前)
-// 5) sweep 2文 6) 同時1件 → 409 7) 日次上限 → 429 8) INSERT 9) dispatch(204 以外 →
-// DISPATCH_FAILED_SQL + 502)。
+// このファイルが持つのは4点だけ: ①認可 ②本文のパースと validateQuestion
+// ③ error 語彙 → HTTP status の写像 ④レスポンス生成。
+// **受理シーケンス(PAT 検査・sweep・同時1件・日次上限・INSERT・dispatch)は
+// lib/review/submit.ts が正典**。ここに再実装しない — 同じ手順が2箇所にあると、
+// 次に順序を変える人がどちらを直すか決まらなくなる。
 //
 // 一層目は proxy.ts(既定 matcher が /api/review を保護)。ここは二層目。
 // 502 は固定形のみを返し、GitHub API のエラーボディ・ステータス詳細を転送しない。
-// PAT を含むヘッダ・リクエストはログに出さない(ログは固定文言 + request id のみ)。
 import { NextResponse } from "next/server";
 import { isAdmin } from "../../../lib/auth/roles";
 import { getUser } from "../../../lib/auth/user";
 import { query } from "../../../lib/db";
-import {
-  DAILY_COUNT_SQL,
-  DAILY_LIMIT,
-  DISPATCH_FAILED_SQL,
-  DISPATCH_URL,
-  INFLIGHT_SQL,
-  INSERT_SQL,
-  LIST_SQL,
-  SWEEP_PENDING_SQL,
-  SWEEP_RUNNING_SQL,
-  validateQuestion,
-} from "../../../lib/review/api-lib";
+import { LIST_SQL, validateQuestion } from "../../../lib/review/api-lib";
+import { submitReview, type ReviewSubmitError } from "../../../lib/review/submit";
+
+/** 受理シーケンスの error 語彙 → HTTP status。route の責務はこの写像に閉じる。 */
+const STATUS_BY_ERROR: Record<ReviewSubmitError, number> = {
+  review_not_configured: 503,
+  busy: 409,
+  daily_limit: 429,
+  dispatch_failed: 502,
+};
 
 export type ReviewRow = {
   id: string;
@@ -52,48 +51,12 @@ export async function POST(req: Request) {
   const question = validateQuestion(rawBody);
   if (question === null) return NextResponse.json({ error: "bad_request" }, { status: 400 });
 
-  const pat = process.env.REVIEW_DISPATCH_PAT;
-  if (!pat) return NextResponse.json({ error: "review_not_configured" }, { status: 503 });
-
-  // stale sweep(受理前 — gate off / PAT 失効 / CI 停止での永久ロックを解除する)
-  await query(SWEEP_PENDING_SQL);
-  await query(SWEEP_RUNNING_SQL);
-
-  const inflight = await query<{ inflight: boolean }>(INFLIGHT_SQL);
-  if (inflight.rows[0]?.inflight) return NextResponse.json({ error: "busy" }, { status: 409 });
-
-  const daily = await query<{ n: number }>(DAILY_COUNT_SQL);
-  if ((daily.rows[0]?.n ?? 0) >= DAILY_LIMIT) {
-    return NextResponse.json({ error: "daily_limit" }, { status: 429 });
+  const submitted = await submitReview({ requestedBy: user.id, question });
+  if (!submitted.ok) {
+    return NextResponse.json({ error: submitted.error }, { status: STATUS_BY_ERROR[submitted.error] });
   }
 
-  const inserted = await query<{ id: string }>(INSERT_SQL, [user.id, question]);
-  const id = inserted.rows[0]?.id;
-  if (!id) return NextResponse.json({ error: "dispatch_failed" }, { status: 502 });
-
-  let ok = false;
-  try {
-    const res = await fetch(DISPATCH_URL, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${pat}`,
-        accept: "application/vnd.github+json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ ref: "main", inputs: { request_id: id } }),
-    });
-    ok = res.status === 204;
-  } catch {
-    ok = false;
-  }
-
-  if (!ok) {
-    await query(DISPATCH_FAILED_SQL, [id]);
-    console.warn(`review dispatch failed: ${id}`);
-    return NextResponse.json({ error: "dispatch_failed" }, { status: 502 });
-  }
-
-  return NextResponse.json({ id }, { status: 200 });
+  return NextResponse.json({ id: submitted.id }, { status: 200 });
 }
 
 export async function GET() {

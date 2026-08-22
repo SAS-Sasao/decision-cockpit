@@ -20,17 +20,22 @@ docker volume inspect decision-cockpit_cockpit-db-data --format '{{.CreatedAt}}'
 docker compose logs db | grep -i "creating subdirectories"   # 出れば initdb がゼロから走った証拠
 ```
 
-## 1. スキーマの再適用(0001 → 0009 を順に)
+## 1. スキーマの再適用(0001 → 0011 を順に)
 
 ```bash
 cd /home/toyoki05/decision-cockpit
 for f in db/migrations/0001_*.up.sql db/migrations/0002_*.up.sql db/migrations/0003_*.up.sql \
          db/migrations/0004_*.up.sql db/migrations/0005_*.up.sql db/migrations/0006_*.up.sql \
-         db/migrations/0007_*.up.sql db/migrations/0008_*.up.sql db/migrations/0009_*.up.sql; do
+         db/migrations/0007_*.up.sql db/migrations/0008_*.up.sql db/migrations/0009_*.up.sql \
+         db/migrations/0010_*.up.sql db/migrations/0011_*.up.sql; do
   printf '%s: ' "$f"
   docker compose exec -T db psql -U cockpit -d cockpit -v ON_ERROR_STOP=1 -q -f - < "$f" && echo ok
 done
 ```
+
+> **0010(review_requests)・0011(カード参照列)も replay 可能**。0011 は列が
+> `ADD COLUMN IF NOT EXISTS`、制約が `pg_constraint` 存在検査つきの `DO` ブロックなので、
+> **同じ up.sql を2回流しても `ON_ERROR_STOP=1` で停止しない**(card-review 詳細 §1)。
 
 ## 2. SSoT からの再同期(timeline_records / board_items)
 
@@ -147,10 +152,13 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/login   # 200 を
   消失した旨と、可能なら消失時点の件数を必ず伝えること。
 - **`board_overrides`**(/today での WBS カード移動の未送信・未解決の意図 — wbs-loop)— SSoT に無く**復元不能**。
   消失時は「PR 反映待ちだった移動が失われた」旨を報告(SSoT へ反映済みの分は次の同期で正しく表示される)。
+- **`review_requests`**(CI レビューの依頼文・結果・カード参照 — review-loop / card-review)—
+  SSoT に無く**復元不能**。GitHub Actions の run ログは retention 期間内なら残るが、依頼と結果の
+  対応づけ・カードへの紐づけは DB にしか無い。消失時は「CI レビュー履歴が失われた」旨を報告する。
 - `metric_aggregates` は現状 UI から参照されていないため実害なし。
 
 ## 本番(Neon)への示唆
 
 - 「コールドスタートでタグが空になる」問題は **2026-07-25 に恒久修正済み(TCS-1)**。本番の初回同期は
   **1回でタグが付く**(「2回走らせる」回避策は不要になった)。部分復元状態だけが手順3 の残る適用場面。
-- 本番のマイグレーションは 0003〜0008 が未適用。展開時に順に適用する(人間承認)。
+- **本番のマイグレーションは 0001〜0010 まで適用済み**(2026-08-03 時点)。0011 は card-review(CR-1)で適用する — **Neon ブランチ検証 → 本番適用 → main マージ**の順(マージ = Vercel 自動デプロイのため)。

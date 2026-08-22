@@ -58,6 +58,22 @@ export const DAILY_COUNT_SQL = `
 export const INSERT_SQL = `
   INSERT INTO review_requests (requested_by, question) VALUES ($1, $2) RETURNING id`;
 
+// --- card-review(0011)---
+// 対象設計: docs/design/detail/card-review.md §2.2
+//
+// カード起点の依頼はカード参照列も同時に埋める(0011 の形状 CHECK は「全列 NULL」
+// 「wbs 完全形」「capture 形」の3形のみ受理する — 部分的な充填は INSERT で弾かれる)。
+export const INSERT_WITH_CARD_SQL = `
+  INSERT INTO review_requests
+    (requested_by, question, card_kind, card_source, card_file_path, card_item_key,
+     card_capture_id, card_title)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
+
+// sweep の閾値。**SQL 側はリテラルのまま**にする(定数から組み立てると review-loop 詳細 §4 RL-1 #2 の
+// `grep -qF "15 minutes"` が落ちる)。二重定義の乖離はテストの同値アサートで防ぐ。
+export const STALE_PENDING_MINUTES = 15;
+export const STALE_RUNNING_MINUTES = 60;
+
 export const DISPATCH_FAILED_SQL = `
   UPDATE review_requests
      SET status = 'error', error_kind = 'dispatch_failed', completed_at = now()

@@ -111,17 +111,12 @@ export const LIST_SQL;            // 直近20件(id, question, status, result, r
 - **POST** `{question}`:
   1. `const question = validateQuestion(body)` → null = 400 `bad_request`。
      **以降 INSERT にバインドするのはこの戻り値(trim 済み)**(生 body を挿入しない — DB CHECK 違反の 500 を防ぐ)
-  2. `REVIEW_DISPATCH_PAT` 未設定 = 503 `review_not_configured`(fail-closed・INSERT より前)
-  3. sweep 2文(SWEEP_PENDING_SQL → SWEEP_RUNNING_SQL)
-  4. INFLIGHT_SQL true = 409 `busy`
-  5. DAILY_COUNT_SQL >= 10 = 429 `daily_limit`
-  6. INSERT_SQL → id
-  7. dispatch: `POST DISPATCH_URL`(headers = Authorization: Bearer PAT / Accept:
-     application/vnd.github+json、body = `{ref:"main", inputs:{request_id:<id>}}`)。
-     **204 以外** = DISPATCH_FAILED_SQL + 502。**応答は `{error:"dispatch_failed"}` の固定形のみ**
-     (GitHub API のエラーボディ・ステータス詳細を転送しない — 内部構成の漏えい防止)。
-     **PAT を含むヘッダ・リクエストをログに出さない**(ログは固定文言 + request id のみ)
-  8. 200 `{id}`
+  2. **PAT 検査以降の受理シーケンスは `lib/review/submit.ts` に移設**(2026-08-09 card-review CR-1)。
+     **正典 = docs/design/detail/card-review.md §2.1**(処理順・秘密衛生の契約・fail-closed の順序)。
+     route.ts に残るのは ①認可 ②パースと `validateQuestion` ③ **error 語彙 → HTTP status の写像**
+     (`STATUS_BY_ERROR`)④レスポンス生成の4点のみ。**本書に手順を再掲しない** — 誤った全文と正典が
+     同居すると、次に受理シーケンスを変える人がどちらを直すか決まらなくなる。
+  3. 200 `{id}`
 - **GET**: LIST_SQL → 200 `{requests:[...]}`(sweep は行わない — ポーリング毎の書き込み増幅を回避。
   stale 解消は次回 POST 時のみ = 基本設計ゲート (e) の前提)。
 

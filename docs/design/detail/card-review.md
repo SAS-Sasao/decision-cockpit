@@ -154,6 +154,15 @@ ALTER TABLE review_requests
 **organize-role.sql のコメントに「question 経由の到達は card-review §1 で受容済み」を追記する**
 (成果物・閉包 allowlist に含める — 分離理由の記述と実態を食い違わせない)。
 **db-recovery.md** の migration 列挙を **0009 → 0011** に更新し、「0010・0011 も replay 可能」と明記する。
+**さらに同書の「復元できないもの(必ず人間に報告する)」に `review_requests` を追加する**
+(2026-08-09 要件 v1.2 arch レンズ E-1): 同節は `capture_inbox` と `board_overrides` しか挙げておらず、
+**CI レビューの依頼文・結果・カード参照も SSoT から復元できない**のに列挙から漏れている。
+このリストは「復旧手順を完走したときに人間へ何を報告するか」の唯一の装置なので、
+漏れていると**手順を完走したのにレビュー履歴の消失が誰にも報告されない**
+(2026-07-20 の事故を受けた運用ルールが空振りする)。**§4 でピンする** —
+replay 列挙のピン(`grep -qF "0011"`)は列挙側しか見ないため、これが無いと無改訂でも PASS する。
+ついでに同書の「本番のマイグレーションは 0003〜0008 が未適用」という**古い記述**も直す
+(実状 = 0001〜0010 適用済み。読んだ人が再適用しかねない)。
 
 ## 2. 関数 / API インターフェース
 
@@ -456,6 +465,9 @@ for k in "review_requests_card_ref_shape" "review_requests_card_source_domain" \
 test "$(grep -c "OR (card_kind =" db/migrations/0011_review_card_ref.up.sql)" = "0"
 grep -qF "承認手順" db/migrations/0011_review_card_ref.down.sql
 grep -qF "0011" docs/setup/db-recovery.md && grep -qF "0010" docs/setup/db-recovery.md   # replay 列挙の追随
+# 「復元できないもの」への review_requests 追加(E-1)。replay 列挙のピンとは母集団が別 —
+# 節を awk で切り出して数える(実測: 追記前 0 / 追記後 1)
+test "$(awk '/^## 復元できないもの/,/^## 本番/' docs/setup/db-recovery.md | grep -c "review_requests")" = "1"
 grep -qF "card-review" docs/design/basic/today-view.md          # 外部送信の受容追記(T-2)
 grep -qF "card-review" docs/setup/organize-role.sql             # question 経由の到達の追記(S-14)
 # 2. 受理シーケンスの正典が1つ(route は認可 + status 写像だけを持つ)
