@@ -1,9 +1,10 @@
 {
   "_comment": "開発時用の MCP サーバ定義。実行時(本番アプリ)の SSoT 取り込みは MCP ではなく、アプリ内コード(GitHub API クライアント / Neon ドライバ)で行う。トークン・接続文字列は .env から ${ENV_VAR} で注入し、ここに実値を書かない。",
+  "_comment_neon": "neon は API キーを **コマンドライン引数** で要求する(0.6 系で env 方式を廃止 — env だけだと 'Please provide a NEON_API_KEY as a command-line argument' で即終了し、Claude Code からは CONNECTION_CLOSED に見える。2026-08-22 実測)。env 側へ戻さないこと。版数を固定するのは npx -y が最新を取りに行き、上流の破壊的変更で無言で落ちるため(実際に一度落ちた)。上げるときは手で上げて起動を確認する。",
   "mcpServers": {
     "neon": {
       "command": "npx",
-      "args": ["-y", "@neondatabase/mcp-server-neon", "start"],
+      "args": ["-y", "@neondatabase/mcp-server-neon@0.6.5", "start", "${NEON_API_KEY}"],
       "env": {
         "NEON_API_KEY": "${NEON_API_KEY}"
       }
