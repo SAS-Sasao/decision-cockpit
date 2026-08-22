@@ -5,9 +5,9 @@
 > (vitest **605件**緑 + **e2e 6画面 green**)。**Vercel 本番稼働中**。
 > **CI レビューは本番で実運用中**(依頼 → CI → 結果を Markdown 表示まで通した)。
 > **有効化待ち×2(ユーザー操作)**: M5(organize-loop)/ wbs-loop。
-> **✅ CR-1 は 0011 本番適用 → main マージ済み(2026-08-22)**。次は **`/goal CR-2`**(/today UI)で
-> 画面から使えるようになる。
-> **本番マイグレーションは 0011 まで適用済み**。
+> **✅ CR-1 / CR-2 とも完了・main マージ済み(2026-08-22)**。**本番マイグレーションは 0011 まで適用済み**。
+> **🟡 CR-2 は e2e ゲートのみ未実施**(WSLg の描画障害で認証 state を再生成できず — 下記
+> 「e2e の未実施ゲート」)。実装の判定自体は judge が全条件 PASS。
 > codex はローカル2経路とも稼働中(端末 review.sh / 壁打ち Codex モード)。
 > **⚠ 2026-07-20 に DB 全消失事故が発生し復旧済み**(詳細は下記「2026-07-20 の事故と再発防止」)。
 > ローカル db(復旧後)= timeline_records **8,013行**(ok・error 9)/ board_items 59行 / **埋め込み 8,013行(完了)** /
@@ -330,8 +330,30 @@ Neon ブランチ `verify-0011` を production から分岐 → 検証 → 承�
 - 本番の既存7行は無傷。検証ブランチのテスト行は本番に混入していない(実測 0 行)。
 - `review_bot` の GRANT は不変(列限定の付与は列追加で自動拡張されないため、新列は CI から不可視)。
 
-**次 = `/goal CR-2`**(/today の UI + 取得 + e2e)。CR-1 は UI 非接触なので、
-CR-2 まで進めて初めて画面からカードレビューが使える。
+**✅ CR-2 も完了(2026-08-22・judge 全条件 PASS)**: CARD_LATEST_SQL / INFLIGHT_ACTIVE_SQL +
+listLatestCardReviews / hasInflightReview + /today の [レビュー] ボタン・**素テキスト `<pre>` の確認
+パネル**・バッジ・10秒ポーリング・admin ゲート。621テスト緑 / tsc exit 0 / 閉包 0。
+
+## 🟡 e2e の未実施ゲート(CR-2 の残り — あなたの操作)
+
+**`npm run e2e` の6画面 green だけが未実施。** 実装の問題ではない:
+
+- 認証 state(`e2e/.auth/state.json`)の Neon Auth セッションが失効しており、認証済み5画面が
+  すべて /login にリダイレクトされて fail する(`/login` のみ passed)。
+  **今回触っていない /knowledge・/retro・/capture・/ も同一エラー**なので CR-2 起因ではない
+  (judge も独立に確認済み)。
+- 再生成の `npm run e2e:auth` が **WSLg の描画障害**で使えない。ウィンドウは開くが中身が真っ白で、
+  タイトルに **`[WARN:COPY MODE]`**(WSLg が共有メモリ/DMA-BUF の描画パス失敗時に付けるマーカー)。
+  `--disable-gpu` 系も `--ozone-platform=x11` + `WAYLAND_DISPLAY` 除去も効かなかった。
+  ページ遷移自体は成功しているので**アプリは正常**。
+- **復旧の第一手 = WSL の再起動**: PowerShell で `wsl --shutdown` → WSL を開き直す
+  (必要なら `wsl --update`)。WSLg のコンポジタが作り直される。
+  その後 `npm run e2e:auth`(手動ログイン)→ `npm run e2e`。
+- **残るリスク**: /today は CR-2 で最も変えた画面なので、**実ブラウザでの描画確認だけが未検証**。
+  型・単体テスト・ピンはすべて通っている。e2e は testing.md で「ローカル専用・CI には
+  組み込まない」位置づけのため、マージのブロッカーとはしなかった(2026-08-22 のユーザー判断)。
+
+**次 = M6 候補の選定 / card-review v2(自由入力欄)/ 案D(実装 PR)**。
 
 ## 🔌 MCP(neon)が繋がらなくなったときの記録(2026-08-22)
 
